@@ -2,6 +2,7 @@ using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Infrastructure.Data;
 using AquaPlan.Infrastructure.Security;
+using AquaPlan.Infrastructure.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -30,6 +31,10 @@ public static class ServiceCollectionExtensions
         .AddDefaultTokenProviders();
 
         services.AddScoped<ITokenService, TokenService>();
+        services.AddScoped<IUserManagementService, UserManagementService>();
+        services.AddScoped<IPermissionService, PermissionService>();
+        services.AddScoped<IOrderService, OrderService>();
+        services.AddScoped<ISamplingLocationService, SamplingLocationService>();
 
         return services;
     }

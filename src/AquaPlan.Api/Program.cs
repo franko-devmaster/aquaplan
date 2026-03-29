@@ -1,6 +1,7 @@
 using System.Text;
 using AquaPlan.Api.Middleware;
 using AquaPlan.Application.Extensions;
+using AquaPlan.Infrastructure.Data.Seeds;
 using AquaPlan.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -100,6 +101,9 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// Seed roles, permissions, and default admin user
+await RoleAndPermissionSeeder.SeedAsync(app.Services);
 
 app.Run();
 

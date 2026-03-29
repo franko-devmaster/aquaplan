@@ -1,0 +1,10 @@
+namespace AquaPlan.Application.DTOs.Samplings;
+
+public record SamplingCreateDto(
+    Guid OrderId,
+    DateTime SamplingDateTime,
+    double? Temperature,
+    string? Weather,
+    double? LocationLat,
+    double? LocationLng,
+    string? Notes);

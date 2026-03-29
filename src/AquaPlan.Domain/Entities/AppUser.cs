@@ -14,4 +14,6 @@ public class AppUser : IdentityUser
     public DateTime? UpdatedAt { get; set; }
     public string? CreatedBy { get; set; }
     public string? UpdatedBy { get; set; }
+
+    public ICollection<UserDistributor> UserDistributors { get; set; } = new List<UserDistributor>();
 }
