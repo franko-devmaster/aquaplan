@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -u \"francois.charriere@me.com:ATATT3xFfGF0x3JBW01e_Q3Xch_blGsIe6gGYdH8uI1woSRLnb4EOz7XBMBXYAzhVxscLF4bM8u0Bu6n5QFh4U6JOlITE3DGb91550OOMeDW4-H2xIX1VCWxAfVBuBT2_AEmLhIxnZY-xWspuioxyN0Q3WMDwFv6BxbEBMBVzyfQzTdHKx2qSLI=90607DE9\" -H \"Content-Type: application/json\" \"https://chfr.atlassian.net/rest/api/3/myself\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(AUTH=\"francois.charriere@me.com:ATATT3xFfGF0x3JBW01e_Q3Xch_blGsIe6gGYdH8uI1woSRLnb4EOz7XBMBXYAzhVxscLF4bM8u0Bu6n5QFh4U6JOlITE3DGb91550OOMeDW4-H2xIX1VCWxAfVBuBT2_AEmLhIxnZY-xWspuioxyN0Q3WMDwFv6BxbEBMBVzyfQzTdHKx2qSLI=90607DE9\" BASE=\"https://chfr.atlassian.net/rest/api/3\" __NEW_LINE_a19f7765f765c9b0__ for ISSUE in AQ-24 AQ-25 AQ-81 AQ-82 AQ-83 AQ-49 AQ-50 AQ-51 AQ-52 AQ-53 AQ-54 AQ-55 AQ-56 AQ-57 AQ-2)",
+      "Bash(do echo:*)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f\"\"Status: {d[''''fields''''][''''status''''][''''name'''']} | {d[''''fields''''][''''summary'''']}\"\"\\)\" curl -s -u \"$AUTH\" -H \"Content-Type: application/json\" \"$BASE/issue/$ISSUE/transitions\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(f\"\"  id={t[''''id'''']} name={t[''''name'''']} -> {t[''''to''''][''''name'''']}\"\"\\) for t in d[''''transitions'''']]\" echo \"\" done)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"chore: initial project documentation:*)"
+    ]
+  }
+}
