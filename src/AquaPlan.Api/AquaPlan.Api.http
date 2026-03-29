@@ -1,0 +1,6 @@
+@AquaPlan.Api_HostAddress = http://localhost:5002
+
+GET {{AquaPlan.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

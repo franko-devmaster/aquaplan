@@ -1,0 +1,62 @@
+image: mcr.microsoft.com/dotnet/sdk:10.0
+
+definitions:
+  caches:
+    nuget: ~/.nuget/packages
+    npm: src/AquaPlan.Web/ClientApp/node_modules
+
+pipelines:
+  default:
+    - parallel:
+      - step:
+          name: Build & Test .NET
+          caches:
+            - nuget
+          script:
+            - dotnet restore AquaPlan.slnx
+            - dotnet build AquaPlan.slnx --configuration Release --no-restore
+            - dotnet test AquaPlan.slnx --no-build --configuration Release --logger trx --collect:"XPlat Code Coverage"
+          artifacts:
+            - '**/TestResults/**'
+
+      - step:
+          name: Build Angular
+          image: node:20-alpine
+          caches:
+            - npm
+          script:
+            - cd src/AquaPlan.Web/ClientApp
+            - npm ci
+            - npx ng build --configuration production
+          artifacts:
+            - src/AquaPlan.Web/ClientApp/dist/**
+
+  branches:
+    main:
+      - parallel:
+        - step:
+            name: Build & Test .NET
+            caches:
+              - nuget
+            script:
+              - dotnet restore AquaPlan.slnx
+              - dotnet build AquaPlan.slnx --configuration Release --no-restore
+              - dotnet test AquaPlan.slnx --no-build --configuration Release --logger trx --collect:"XPlat Code Coverage"
+
+        - step:
+            name: Build Angular
+            image: node:20-alpine
+            caches:
+              - npm
+            script:
+              - cd src/AquaPlan.Web/ClientApp
+              - npm ci
+              - npx ng build --configuration production
+
+      - step:
+          name: Docker Build
+          services:
+            - docker
+          script:
+            - docker build -f src/AquaPlan.Api/Dockerfile -t aquaplan-api:latest .
+            - docker build -f src/AquaPlan.Web/Dockerfile -t aquaplan-web:latest .

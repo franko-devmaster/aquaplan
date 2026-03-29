@@ -1,0 +1,35 @@
+{
+  "app": {
+    "title": "AquaPlan",
+    "subtitle": "Verwaltung der Wasseranalysen"
+  },
+  "nav": {
+    "home": "Startseite",
+    "orders": "Aufträge",
+    "sampling": "Probenahmen",
+    "results": "Ergebnisse",
+    "admin": "Administration",
+    "users": "Benutzer",
+    "settings": "Einstellungen"
+  },
+  "auth": {
+    "login": "Anmelden",
+    "logout": "Abmelden",
+    "email": "E-Mail-Adresse",
+    "password": "Passwort",
+    "loginButton": "Anmelden",
+    "loginSso": "Mit EntraID anmelden",
+    "loginFailed": "Ungültige E-Mail oder ungültiges Passwort",
+    "accountDisabled": "Konto deaktiviert, wenden Sie sich an den Administrator"
+  },
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "create": "Erstellen",
+    "search": "Suchen",
+    "loading": "Laden...",
+    "noData": "Keine Daten"
+  }
+}

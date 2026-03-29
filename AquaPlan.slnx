@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AquaPlan.Api/AquaPlan.Api.csproj" />
+    <Project Path="src/AquaPlan.Application/AquaPlan.Application.csproj" />
+    <Project Path="src/AquaPlan.Domain/AquaPlan.Domain.csproj" />
+    <Project Path="src/AquaPlan.Infrastructure/AquaPlan.Infrastructure.csproj" />
+    <Project Path="src/AquaPlan.Shared/AquaPlan.Shared.csproj" />
+    <Project Path="src/AquaPlan.Web/AquaPlan.Web.csproj" />
+    <Project Path="src/AquaPlan.Worker/AquaPlan.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AquaPlan.Api.Tests/AquaPlan.Api.Tests.csproj" />
+    <Project Path="tests/AquaPlan.Application.Tests/AquaPlan.Application.Tests.csproj" />
+    <Project Path="tests/AquaPlan.Infrastructure.Tests/AquaPlan.Infrastructure.Tests.csproj" />
+    <Project Path="tests/AquaPlan.Tests.Shared/AquaPlan.Tests.Shared.csproj" />
+  </Folder>
+</Solution>

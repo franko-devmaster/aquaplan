@@ -1,0 +1,35 @@
+{
+  "app": {
+    "title": "AquaPlan",
+    "subtitle": "Water quality analysis management"
+  },
+  "nav": {
+    "home": "Home",
+    "orders": "Orders",
+    "sampling": "Sampling",
+    "results": "Results",
+    "admin": "Administration",
+    "users": "Users",
+    "settings": "Settings"
+  },
+  "auth": {
+    "login": "Sign in",
+    "logout": "Sign out",
+    "email": "Email address",
+    "password": "Password",
+    "loginButton": "Sign in",
+    "loginSso": "Sign in with EntraID",
+    "loginFailed": "Invalid email or password",
+    "accountDisabled": "Account disabled, contact administrator"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "loading": "Loading...",
+    "noData": "No data"
+  }
+}

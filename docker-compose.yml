@@ -1,0 +1,56 @@
+services:
+  aquaplan-db:
+    image: postgres:17
+    container_name: aquaplan-db
+    environment:
+      POSTGRES_DB: aquaplan_dev
+      POSTGRES_USER: aquaplan
+      POSTGRES_PASSWORD: aquaplan_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - aquaplan-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aquaplan -d aquaplan_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aquaplan-net
+
+  aquaplan-api:
+    build:
+      context: .
+      dockerfile: src/AquaPlan.Api/Dockerfile
+    container_name: aquaplan-api
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=aquaplan-db;Port=5432;Database=aquaplan_dev;Username=aquaplan;Password=aquaplan_dev"
+      Jwt__SecretKey: "AquaPlan-Dev-Secret-Key-Min-32-Chars!!"
+      Jwt__Issuer: "AquaPlan"
+      Jwt__Audience: "AquaPlan"
+    ports:
+      - "5000:8080"
+    depends_on:
+      aquaplan-db:
+        condition: service_healthy
+    networks:
+      - aquaplan-net
+
+  aquaplan-web:
+    build:
+      context: .
+      dockerfile: src/AquaPlan.Web/Dockerfile
+    container_name: aquaplan-web
+    ports:
+      - "80:80"
+    depends_on:
+      - aquaplan-api
+    networks:
+      - aquaplan-net
+
+networks:
+  aquaplan-net:
+    driver: bridge
+
+volumes:
+  aquaplan-db-data:
