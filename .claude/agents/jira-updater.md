@@ -319,3 +319,103 @@ function safe_transition() {
 - **Validations** : Vérifiez toujours que les variables d'environnement sont définies avant de les utiliser
 - **Idempotence** : Les transitions doivent être idempotentes - relancer une commande ne devrait pas causer d'erreur
 - **Logging** : Chaque action doit afficher un message clair indiquant son statut
+
+## Convention Git
+
+### Nommage des branches
+
+Chaque story doit être développée sur une branche dédiée :
+```
+feature/AQ-{key}-{description-courte}
+```
+
+Exemples :
+- `feature/AQ-24-auth-idp`
+- `feature/AQ-81-creation-utilisateur`
+
+### Messages de commit
+
+Chaque commit DOIT contenir une clé Jira AQ-xxx :
+```
+feat(scope): description courte (AQ-xxx)
+```
+
+Exemples :
+- `feat(auth): implement IdP login flow (AQ-24)`
+- `fix(permissions): fix role assignment validation (AQ-54)`
+- `test(auth): add JWT handler unit tests (AQ-113)`
+
+### Validation des commits
+
+Avant chaque commit, vérifier que le message contient une clé AQ-xxx :
+```bash
+function validate_commit_message() {
+  local msg="$1"
+  if ! echo "$msg" | grep -qE 'AQ-[0-9]+'; then
+    echo "ERREUR: Le message de commit doit contenir une clé Jira (ex: AQ-70)"
+    return 1
+  fi
+  return 0
+}
+```
+
+## Commandes Git intégrées
+
+### 6. `push-and-link`
+
+Pousse la branche courante vers Bitbucket et vérifie que les liens Jira seront créés.
+
+**Comportement** :
+- Vérifie que le remote origin est configuré
+- Vérifie que les commits contiennent des clés AQ-xxx
+- Pousse vers Bitbucket : `git push -u origin HEAD`
+- Affiche les clés Jira détectées dans les commits
+
+**Exemple** :
+```bash
+# Push la branche courante et vérifie les liens
+git push -u origin HEAD
+
+# Vérifier les clés Jira dans les commits non poussés
+git log origin/main..HEAD --oneline | grep -oE 'AQ-[0-9]+' | sort -u
+```
+
+### 7. `create-pr <story-key>`
+
+Crée une Pull Request sur Bitbucket avec la clé Jira dans le titre.
+
+**Comportement** :
+- Titre de la PR : `AQ-{key}: {summary de la story}`
+- Description : liste des commits avec leurs clés
+- Target branch : `main`
+
+**Exemple** :
+```bash
+# Créer une PR via l'API Bitbucket
+curl -s -X POST \
+  -H "Authorization: Bearer ${BITBUCKET_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "AQ-24: Authentification via compte IdP",
+    "source": {"branch": {"name": "feature/AQ-24-auth-idp"}},
+    "destination": {"branch": {"name": "main"}},
+    "close_source_branch": true
+  }' \
+  "https://api.bitbucket.org/2.0/repositories/francisuster/aquaplan/pullrequests"
+```
+
+## Workflow complet par story
+
+Résumé du workflow à suivre pour chaque story :
+
+```
+1. git checkout -b feature/AQ-{key}-{description}
+2. @jira-updater start-story AQ-{key}
+3. [développement + commits avec clés AQ-xxx]
+4. @jira-updater complete-subtask AQ-{subtask-key}  (après chaque sous-tâche)
+5. @code-reviewer  (revue de code avant merge)
+6. git push -u origin HEAD
+7. Créer une PR avec clé AQ-{key} dans le titre
+8. Merger la PR
+9. @jira-updater complete-story AQ-{key}
+```
