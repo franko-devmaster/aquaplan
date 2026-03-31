@@ -1,8 +1,10 @@
 using System.Text;
 using AquaPlan.Api.Middleware;
 using AquaPlan.Application.Extensions;
+using AquaPlan.Infrastructure.Data;
 using AquaPlan.Infrastructure.Data.Seeds;
 using AquaPlan.Infrastructure.Extensions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
@@ -124,6 +126,13 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// Apply pending EF Core migrations
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AquaPlanDbContext>();
+    await db.Database.MigrateAsync();
+}
 
 // Seed roles, permissions, and default admin user
 await RoleAndPermissionSeeder.SeedAsync(app.Services);
