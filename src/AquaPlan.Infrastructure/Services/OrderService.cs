@@ -136,6 +136,32 @@ internal class OrderService(
         return await GetOrderByIdAsync(orderId, tenantId, cancellationToken);
     }
 
+    public async Task<bool> UserHasDistributorAccessAsync(string userId, Guid distributorId, CancellationToken cancellationToken = default)
+    {
+        return await dbContext.UserDistributors
+            .AnyAsync(ud => ud.UserId == userId && ud.DistributorId == distributorId, cancellationToken);
+    }
+
+    public async Task<bool> UserCanAccessOrderAsync(string userId, Guid orderId, Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        var order = await dbContext.Orders
+            .FirstOrDefaultAsync(o => o.Id == orderId && o.TenantId == tenantId, cancellationToken);
+
+        if (order is null)
+        {
+            return false;
+        }
+
+        // User is creator or assigned préleveur
+        if (order.CreatedById == userId || order.PreleveurId == userId)
+        {
+            return true;
+        }
+
+        // User has access to the order's distributor
+        return await UserHasDistributorAccessAsync(userId, order.DistributorId, cancellationToken);
+    }
+
     private async Task<string> GenerateOrderNumberAsync(CancellationToken cancellationToken)
     {
         var today = DateTime.UtcNow;

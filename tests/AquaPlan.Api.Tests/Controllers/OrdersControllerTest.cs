@@ -97,13 +97,16 @@ public class OrdersControllerTest
     }
 
     [Fact]
-    public async Task GetOrder_ShouldReturnOk_WhenOrderExists()
+    public async Task GetOrder_ShouldReturnOk_WhenAdminUser()
     {
         var order = new OrderDetailDto(OrderId, "ORD-001", OrderStatus.Draft, false, UserId, "John Doe",
             null, null, DistributorId, "Distributor A", TenantId, DateTime.UtcNow, null, null);
         _orderServiceMock
             .Setup(x => x.GetOrderByIdAsync(OrderId, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(order);
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         var result = await _sut.GetOrder(OrderId, CancellationToken.None);
 
@@ -112,11 +115,55 @@ public class OrdersControllerTest
     }
 
     [Fact]
-    public async Task CreateOrder_ShouldReturnCreatedAtAction()
+    public async Task GetOrder_ShouldReturnOk_WhenUserHasAccess()
+    {
+        var order = new OrderDetailDto(OrderId, "ORD-001", OrderStatus.Draft, false, UserId, "John Doe",
+            null, null, DistributorId, "Distributor A", TenantId, DateTime.UtcNow, null, null);
+        _orderServiceMock
+            .Setup(x => x.GetOrderByIdAsync(OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.UserCanAccessOrderAsync(UserId, OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await _sut.GetOrder(OrderId, CancellationToken.None);
+
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().Be(order);
+    }
+
+    [Fact]
+    public async Task GetOrder_ShouldReturnForbid_WhenUserHasNoAccess()
+    {
+        var order = new OrderDetailDto(OrderId, "ORD-001", OrderStatus.Draft, false, "other-user", "Other",
+            null, null, DistributorId, "Distributor A", TenantId, DateTime.UtcNow, null, null);
+        _orderServiceMock
+            .Setup(x => x.GetOrderByIdAsync(OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(order);
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.UserCanAccessOrderAsync(UserId, OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _sut.GetOrder(OrderId, CancellationToken.None);
+
+        result.Result.Should().BeOfType<ForbidResult>();
+    }
+
+    [Fact]
+    public async Task CreateOrder_ShouldReturnCreatedAtAction_WhenAdmin()
     {
         var createDto = new OrderCreateDto(DistributorId, null, false);
         var createdOrder = new OrderDetailDto(OrderId, "ORD-002", OrderStatus.Draft, false, UserId, "John Doe",
             null, null, DistributorId, "Distributor A", TenantId, DateTime.UtcNow, null, null);
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         _orderServiceMock
             .Setup(x => x.CreateOrderAsync(createDto, UserId, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(createdOrder);
@@ -126,6 +173,44 @@ public class OrdersControllerTest
         var createdResult = result.Result.Should().BeOfType<CreatedAtActionResult>().Subject;
         createdResult.ActionName.Should().Be(nameof(OrdersController.GetOrder));
         createdResult.Value.Should().Be(createdOrder);
+    }
+
+    [Fact]
+    public async Task CreateOrder_ShouldReturnCreatedAtAction_WhenUserHasDistributorAccess()
+    {
+        var createDto = new OrderCreateDto(DistributorId, null, false);
+        var createdOrder = new OrderDetailDto(OrderId, "ORD-002", OrderStatus.Draft, false, UserId, "John Doe",
+            null, null, DistributorId, "Distributor A", TenantId, DateTime.UtcNow, null, null);
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.UserHasDistributorAccessAsync(UserId, DistributorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _orderServiceMock
+            .Setup(x => x.CreateOrderAsync(createDto, UserId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(createdOrder);
+
+        var result = await _sut.CreateOrder(createDto, CancellationToken.None);
+
+        var createdResult = result.Result.Should().BeOfType<CreatedAtActionResult>().Subject;
+        createdResult.Value.Should().Be(createdOrder);
+    }
+
+    [Fact]
+    public async Task CreateOrder_ShouldReturnForbid_WhenUserHasNoDistributorAccess()
+    {
+        var createDto = new OrderCreateDto(DistributorId, null, false);
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.UserHasDistributorAccessAsync(UserId, DistributorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _sut.CreateOrder(createDto, CancellationToken.None);
+
+        result.Result.Should().BeOfType<ForbidResult>();
     }
 
     [Fact]

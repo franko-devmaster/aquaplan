@@ -35,6 +35,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<ISamplingLocationService, SamplingLocationService>();
+        services.AddScoped<IOidcUserService, OidcUserService>();
 
         return services;
     }

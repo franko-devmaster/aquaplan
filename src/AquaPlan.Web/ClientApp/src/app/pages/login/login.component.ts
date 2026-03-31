@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -9,6 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TranslateModule } from '@ngx-translate/core';
+import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -57,10 +59,12 @@ import { AuthService } from '../../services/auth.service';
 
           <mat-divider class="divider"></mat-divider>
 
-          <button mat-stroked-button class="full-width sso-button">
-            <mat-icon>login</mat-icon>
-            {{ 'auth.loginSso' | translate }}
-          </button>
+          @if (oidcEnabled()) {
+            <button mat-stroked-button class="full-width sso-button" (click)="onSsoLogin()">
+              <mat-icon>login</mat-icon>
+              {{ 'auth.loginSso' | translate }}
+            </button>
+          }
         </mat-card-content>
       </mat-card>
     </div>
@@ -75,14 +79,31 @@ import { AuthService } from '../../services/auth.service';
     mat-form-field { margin-bottom: 8px; }
   `],
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly http = inject(HttpClient);
 
   email = '';
   password = '';
   loading = signal(false);
   errorMessage = signal('');
+  oidcEnabled = signal(false);
+
+  async ngOnInit(): Promise<void> {
+    try {
+      const config = await firstValueFrom(
+        this.http.get<{ enabled: boolean }>('/api/auth/oidc-config')
+      );
+      this.oidcEnabled.set(config.enabled);
+    } catch {
+      // OIDC config unavailable, keep SSO hidden
+    }
+  }
+
+  onSsoLogin(): void {
+    window.location.href = '/api/auth/oidc-login';
+  }
 
   async onLogin(): Promise<void> {
     this.loading.set(true);

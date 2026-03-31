@@ -3,6 +3,7 @@ using AquaPlan.Application.DTOs.Auth;
 using AquaPlan.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace AquaPlan.Api.Tests.Controllers;
@@ -10,12 +11,28 @@ namespace AquaPlan.Api.Tests.Controllers;
 public class AuthControllerTest
 {
     private readonly Mock<IAuthService> _authServiceMock = new();
+    private readonly Mock<ITokenService> _tokenServiceMock = new();
+    private readonly Mock<IOidcUserService> _oidcUserServiceMock = new();
     private readonly Mock<ILogger<AuthController>> _loggerMock = new();
+    private readonly IConfiguration _configuration;
     private readonly AuthController _sut;
 
     public AuthControllerTest()
     {
-        _sut = new AuthController(_authServiceMock.Object, _loggerMock.Object);
+        _configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Oidc:Enabled"] = "false",
+                ["Oidc:DefaultTenantId"] = "00000000-0000-0000-0000-000000000001",
+            })
+            .Build();
+
+        _sut = new AuthController(
+            _authServiceMock.Object,
+            _tokenServiceMock.Object,
+            _oidcUserServiceMock.Object,
+            _configuration,
+            _loggerMock.Object);
     }
 
     [Fact]
@@ -65,6 +82,96 @@ public class AuthControllerTest
     {
         var method = typeof(AuthController).GetMethod(nameof(AuthController.Logout));
         var attribute = method!.GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute), true);
+        attribute.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public void OidcLogin_ShouldReturnBadRequest_WhenOidcDisabled()
+    {
+        var result = _sut.OidcLogin();
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public void OidcLogin_ShouldReturnChallenge_WhenOidcEnabled()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Oidc:Enabled"] = "true",
+            })
+            .Build();
+
+        var controller = new AuthController(
+            _authServiceMock.Object,
+            _tokenServiceMock.Object,
+            _oidcUserServiceMock.Object,
+            config,
+            _loggerMock.Object);
+
+        var result = controller.OidcLogin();
+
+        result.Should().BeOfType<ChallengeResult>();
+        var challengeResult = (ChallengeResult)result;
+        challengeResult.AuthenticationSchemes.Should().Contain("oidc");
+    }
+
+    [Fact]
+    public void OidcConfig_ShouldReturnEnabledFalse_WhenOidcDisabled()
+    {
+        var result = _sut.OidcConfig();
+
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var value = okResult.Value;
+        value.Should().BeEquivalentTo(new { enabled = false });
+    }
+
+    [Fact]
+    public void OidcConfig_ShouldReturnEnabledTrue_WhenOidcEnabled()
+    {
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Oidc:Enabled"] = "true",
+            })
+            .Build();
+
+        var controller = new AuthController(
+            _authServiceMock.Object,
+            _tokenServiceMock.Object,
+            _oidcUserServiceMock.Object,
+            config,
+            _loggerMock.Object);
+
+        var result = controller.OidcConfig();
+
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var value = okResult.Value;
+        value.Should().BeEquivalentTo(new { enabled = true });
+    }
+
+    [Fact]
+    public void OidcLogin_ShouldHaveAllowAnonymousAttribute()
+    {
+        var method = typeof(AuthController).GetMethod(nameof(AuthController.OidcLogin));
+        var attribute = method!.GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute), true);
+        attribute.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public void OidcCallback_ShouldHaveAllowAnonymousAttribute()
+    {
+        var method = typeof(AuthController).GetMethod(nameof(AuthController.OidcCallback));
+        var attribute = method!.GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute), true);
+        attribute.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public void OidcConfig_ShouldHaveAllowAnonymousAttribute()
+    {
+        var method = typeof(AuthController).GetMethod(nameof(AuthController.OidcConfig));
+        var attribute = method!.GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute), true);
         attribute.Should().NotBeEmpty();
     }
 }

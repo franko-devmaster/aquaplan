@@ -68,6 +68,13 @@ export class AuthService {
     return this.accessToken();
   }
 
+  setTokensFromOidc(accessToken: string, refreshToken: string): void {
+    sessionStorage.setItem('access_token', accessToken);
+    sessionStorage.setItem('refresh_token', refreshToken);
+    this.accessToken.set(accessToken);
+    this.loadCurrentUser();
+  }
+
   private async loadCurrentUser(): Promise<void> {
     try {
       const user = await firstValueFrom(

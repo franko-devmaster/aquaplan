@@ -12,6 +12,7 @@ namespace AquaPlan.Api.Tests.Controllers;
 public class SamplingLocationsControllerTest
 {
     private readonly Mock<ISamplingLocationService> _samplingLocationServiceMock = new();
+    private readonly Mock<IPermissionService> _permissionServiceMock = new();
     private readonly Mock<ILogger<SamplingLocationsController>> _loggerMock = new();
     private readonly SamplingLocationsController _sut;
 
@@ -22,7 +23,10 @@ public class SamplingLocationsControllerTest
 
     public SamplingLocationsControllerTest()
     {
-        _sut = new SamplingLocationsController(_samplingLocationServiceMock.Object, _loggerMock.Object);
+        _sut = new SamplingLocationsController(
+            _samplingLocationServiceMock.Object,
+            _permissionServiceMock.Object,
+            _loggerMock.Object);
         _sut.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext { User = CreateUser() }
@@ -39,12 +43,15 @@ public class SamplingLocationsControllerTest
     }
 
     [Fact]
-    public async Task GetForCurrentUser_ShouldReturnOk()
+    public async Task GetForCurrentUser_ShouldReturnUserLocations_WhenNotAdmin()
     {
         var locations = new List<SamplingLocationDto>
         {
             new(LocationId, "Source A", "LOC-001", 46.8, 7.15, "A description", true, DistributorId, "Distributor A", DateTime.UtcNow),
         };
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "AdministerSystem", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
         _samplingLocationServiceMock
             .Setup(x => x.GetForUserAsync(UserId, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(locations);
@@ -53,6 +60,30 @@ public class SamplingLocationsControllerTest
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().Be(locations);
+        _samplingLocationServiceMock.Verify(x => x.GetForUserAsync(UserId, TenantId, It.IsAny<CancellationToken>()), Times.Once);
+        _samplingLocationServiceMock.Verify(x => x.GetAllAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetForCurrentUser_ShouldReturnAllLocations_WhenAdmin()
+    {
+        var locations = new List<SamplingLocationDto>
+        {
+            new(LocationId, "Source A", "LOC-001", 46.8, 7.15, "A description", true, DistributorId, "Distributor A", DateTime.UtcNow),
+        };
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "AdministerSystem", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _samplingLocationServiceMock
+            .Setup(x => x.GetAllAsync(TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(locations);
+
+        var result = await _sut.GetForCurrentUser(CancellationToken.None);
+
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().Be(locations);
+        _samplingLocationServiceMock.Verify(x => x.GetAllAsync(TenantId, It.IsAny<CancellationToken>()), Times.Once);
+        _samplingLocationServiceMock.Verify(x => x.GetForUserAsync(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

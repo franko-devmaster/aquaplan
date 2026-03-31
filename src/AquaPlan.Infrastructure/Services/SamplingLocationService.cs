@@ -11,6 +11,20 @@ internal class SamplingLocationService(
     AquaPlanDbContext dbContext,
     ILogger<SamplingLocationService> logger) : ISamplingLocationService
 {
+    public async Task<IList<SamplingLocationDto>> GetAllAsync(Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        return await dbContext.SamplingLocations
+            .Where(sl => sl.Distributor!.TenantId == tenantId)
+            .Include(sl => sl.Distributor)
+            .OrderBy(sl => sl.Name)
+            .Select(sl => new SamplingLocationDto(
+                sl.Id, sl.Name, sl.LocationCode, sl.Latitude, sl.Longitude,
+                sl.Description, sl.IsActive, sl.DistributorId,
+                sl.Distributor != null ? sl.Distributor.Name : null,
+                sl.CreatedAt))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IList<SamplingLocationDto>> GetByDistributorAsync(Guid distributorId, Guid tenantId, CancellationToken cancellationToken = default)
     {
         return await dbContext.SamplingLocations

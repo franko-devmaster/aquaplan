@@ -32,12 +32,26 @@ public class OrdersController(
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<OrderDetailDto>> GetOrder(Guid id, CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
         var tenantId = GetTenantId();
+
         var order = await orderService.GetOrderByIdAsync(id, tenantId, cancellationToken);
         if (order is null)
         {
             return NotFound();
         }
+
+        // Per-resource authorization: admin bypasses, others must have access
+        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        if (!hasViewAll)
+        {
+            var canAccess = await orderService.UserCanAccessOrderAsync(userId, id, tenantId, cancellationToken);
+            if (!canAccess)
+            {
+                return Forbid();
+            }
+        }
+
         return Ok(order);
     }
 
@@ -46,6 +60,18 @@ public class OrdersController(
     {
         var userId = GetUserId();
         var tenantId = GetTenantId();
+
+        // Validate user has access to the distributor (admin bypasses)
+        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        if (!hasViewAll)
+        {
+            var hasAccess = await orderService.UserHasDistributorAccessAsync(userId, dto.DistributorId, cancellationToken);
+            if (!hasAccess)
+            {
+                return Forbid();
+            }
+        }
+
         var order = await orderService.CreateOrderAsync(dto, userId, tenantId, cancellationToken);
         return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
     }

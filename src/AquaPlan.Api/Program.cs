@@ -4,6 +4,7 @@ using AquaPlan.Application.Extensions;
 using AquaPlan.Infrastructure.Data.Seeds;
 using AquaPlan.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -57,6 +58,28 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
     };
 });
+
+// OIDC authentication scheme (gated by config)
+var oidcEnabled = builder.Configuration.GetValue<bool>("Oidc:Enabled");
+if (oidcEnabled)
+{
+    var oidcSettings = builder.Configuration.GetSection("Oidc");
+    builder.Services.AddAuthentication()
+        .AddOpenIdConnect("oidc", options =>
+        {
+            options.Authority = oidcSettings["Authority"];
+            options.ClientId = oidcSettings["ClientId"];
+            options.ClientSecret = oidcSettings["ClientSecret"];
+            options.ResponseType = "code";
+            options.SaveTokens = true;
+            options.GetClaimsFromUserInfoEndpoint = true;
+            options.CallbackPath = oidcSettings["CallbackPath"] ?? "/api/auth/oidc-callback";
+            options.Scope.Add("openid");
+            options.Scope.Add("profile");
+            options.Scope.Add("email");
+        });
+}
+
 builder.Services.AddAuthorization();
 
 // CORS

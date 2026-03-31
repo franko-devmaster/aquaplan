@@ -11,6 +11,7 @@ namespace AquaPlan.Api.Controllers.Api;
 [Authorize]
 public class SamplingLocationsController(
     ISamplingLocationService samplingLocationService,
+    IPermissionService permissionService,
     ILogger<SamplingLocationsController> logger) : ControllerBase
 {
     [HttpGet]
@@ -18,7 +19,11 @@ public class SamplingLocationsController(
     {
         var userId = GetUserId();
         var tenantId = GetTenantId();
-        var locations = await samplingLocationService.GetForUserAsync(userId, tenantId, cancellationToken);
+
+        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, "AdministerSystem", cancellationToken);
+        var locations = hasViewAll
+            ? await samplingLocationService.GetAllAsync(tenantId, cancellationToken)
+            : await samplingLocationService.GetForUserAsync(userId, tenantId, cancellationToken);
         return Ok(locations);
     }
 

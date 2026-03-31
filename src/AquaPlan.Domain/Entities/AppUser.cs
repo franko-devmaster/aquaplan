@@ -7,6 +7,7 @@ public class AppUser : IdentityUser
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public string? Organization { get; set; }
+    public string? ExternalId { get; set; }
     public bool IsActive { get; set; } = true;
     public Guid TenantId { get; set; }
     public Tenant? Tenant { get; set; }

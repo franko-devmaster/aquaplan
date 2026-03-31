@@ -11,6 +11,8 @@ public class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
         builder.Property(u => u.FirstName).IsRequired().HasMaxLength(100);
         builder.Property(u => u.LastName).IsRequired().HasMaxLength(100);
         builder.Property(u => u.Organization).HasMaxLength(200);
+        builder.Property(u => u.ExternalId).HasMaxLength(256);
+        builder.HasIndex(u => u.ExternalId).IsUnique().HasFilter("external_id IS NOT NULL");
 
         builder.HasOne(u => u.Tenant)
             .WithMany(t => t.Users)

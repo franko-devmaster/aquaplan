@@ -20,23 +20,19 @@ import { AuthService } from '../../services/auth.service';
         <mat-icon matListItemIcon>assignment</mat-icon>
         <span matListItemTitle>{{ 'nav.orders' | translate }}</span>
       </a>
-      <a mat-list-item routerLink="/sampling" routerLinkActive="active">
-        <mat-icon matListItemIcon>science</mat-icon>
-        <span matListItemTitle>{{ 'nav.sampling' | translate }}</span>
-      </a>
-      <a mat-list-item routerLink="/results" routerLinkActive="active">
-        <mat-icon matListItemIcon>analytics</mat-icon>
-        <span matListItemTitle>{{ 'nav.results' | translate }}</span>
+      <a mat-list-item routerLink="/sampling-locations" routerLinkActive="active">
+        <mat-icon matListItemIcon>place</mat-icon>
+        <span matListItemTitle>{{ 'nav.samplingLocations' | translate }}</span>
       </a>
       @if (isAdmin()) {
         <mat-divider></mat-divider>
-        <a mat-list-item routerLink="/admin" routerLinkActive="active">
-          <mat-icon matListItemIcon>admin_panel_settings</mat-icon>
-          <span matListItemTitle>{{ 'nav.admin' | translate }}</span>
-        </a>
         <a mat-list-item routerLink="/admin/users" routerLinkActive="active">
           <mat-icon matListItemIcon>people</mat-icon>
           <span matListItemTitle>{{ 'nav.users' | translate }}</span>
+        </a>
+        <a mat-list-item routerLink="/admin/roles" routerLinkActive="active">
+          <mat-icon matListItemIcon>admin_panel_settings</mat-icon>
+          <span matListItemTitle>{{ 'nav.roles' | translate }}</span>
         </a>
       }
     </mat-nav-list>
