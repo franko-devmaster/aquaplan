@@ -44,7 +44,7 @@ import { AuthService } from '../../services/auth.service';
             </mat-form-field>
 
             @if (errorMessage()) {
-              <p class="error-message">{{ errorMessage() }}</p>
+              <p class="error-message">{{ errorMessage() | translate }}</p>
             }
 
             <button mat-raised-button color="primary" type="submit" class="full-width"
