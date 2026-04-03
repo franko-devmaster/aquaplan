@@ -96,8 +96,13 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Swagger
-builder.Services.AddSwaggerGen();
+// NSwag / OpenAPI
+builder.Services.AddOpenApiDocument(configure =>
+{
+    configure.Title = "AquaPlan API";
+    configure.Version = "v1";
+    configure.Description = "AquaPlan Water Quality Management API";
+});
 
 // OpenTelemetry
 builder.Services.AddOpenTelemetry()
@@ -118,8 +123,8 @@ app.UseSerilogRequestLogging();
 
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseOpenApi();
+    app.UseSwaggerUi();
 }
 
 app.UseCors();

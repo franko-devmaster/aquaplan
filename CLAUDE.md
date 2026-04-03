@@ -190,6 +190,10 @@ This project uses specialized Claude Code agents for different roles. Agent defi
 | PO (Product Owner) | Requirements, user stories, acceptance criteria, prioritization | `/.claude/agents/po.md` |
 | Code Reviewer | Code quality, conventions enforcement, PR reviews | `/.claude/agents/code-reviewer.md` |
 | DEV Senior | Implementation, debugging, technical solutions | `/.claude/agents/dev-senior.md` |
+| QA Lead | Test strategy, test execution, bug tracking, non-regression | `/.claude/agents/qa-lead.md` |
+| UX Lead | User journeys, UI consistency, design system, accessibility | `/.claude/agents/ux-lead.md` |
+| Xray Test Manager | Xray Cloud operations, test suites, executions, Gherkin | `/.claude/agents/xray-tester.md` |
+| Jira Updater | Jira status transitions, story/epic propagation, Git workflow | `/.claude/agents/jira-updater.md` |
 
 ## LIMS Integration
 

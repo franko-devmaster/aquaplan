@@ -13,6 +13,7 @@ namespace AquaPlan.Api.Tests.Controllers;
 public class OrdersControllerTest
 {
     private readonly Mock<IOrderService> _orderServiceMock = new();
+    private readonly Mock<IOrderStatusService> _orderStatusServiceMock = new();
     private readonly Mock<IPermissionService> _permissionServiceMock = new();
     private readonly Mock<ILogger<OrdersController>> _loggerMock = new();
     private readonly OrdersController _sut;
@@ -24,7 +25,7 @@ public class OrdersControllerTest
 
     public OrdersControllerTest()
     {
-        _sut = new OrdersController(_orderServiceMock.Object, _permissionServiceMock.Object, _loggerMock.Object);
+        _sut = new OrdersController(_orderServiceMock.Object, _orderStatusServiceMock.Object, _permissionServiceMock.Object, _loggerMock.Object);
         _sut.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext { User = CreateUser() }
@@ -240,6 +241,58 @@ public class OrdersControllerTest
         var result = await _sut.AssignPreleveur(OrderId, assignDto, CancellationToken.None);
 
         result.Result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task TransitionOrder_ShouldReturnOk_WhenTransitionIsValid()
+    {
+        var dto = new OrderTransitionRequestDto(OrderStatus.Assigned);
+        var transition = new OrderStatusTransitionDto(OrderStatus.Draft, OrderStatus.Assigned, DateTime.UtcNow);
+        _orderStatusServiceMock
+            .Setup(x => x.TransitionOrderAsync(OrderId, OrderStatus.Assigned, UserId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(transition);
+
+        var result = await _sut.TransitionOrder(OrderId, dto, CancellationToken.None);
+
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().Be(transition);
+    }
+
+    [Fact]
+    public async Task TransitionOrder_ShouldReturnNotFound_WhenOrderDoesNotExist()
+    {
+        var dto = new OrderTransitionRequestDto(OrderStatus.Assigned);
+        _orderStatusServiceMock
+            .Setup(x => x.TransitionOrderAsync(OrderId, OrderStatus.Assigned, UserId, TenantId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new KeyNotFoundException());
+
+        var result = await _sut.TransitionOrder(OrderId, dto, CancellationToken.None);
+
+        result.Result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task TransitionOrder_ShouldReturnBadRequest_WhenTransitionIsInvalid()
+    {
+        var dto = new OrderTransitionRequestDto(OrderStatus.Completed);
+        _orderStatusServiceMock
+            .Setup(x => x.TransitionOrderAsync(OrderId, OrderStatus.Completed, UserId, TenantId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Transition from Draft to Completed is not allowed."));
+
+        var result = await _sut.TransitionOrder(OrderId, dto, CancellationToken.None);
+
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public void TransitionOrder_ShouldHaveHttpPostAttribute()
+    {
+        var method = typeof(OrdersController).GetMethod(nameof(OrdersController.TransitionOrder));
+        method.Should().NotBeNull();
+        var attributes = method!.GetCustomAttributes(typeof(HttpPostAttribute), true);
+        attributes.Should().NotBeEmpty();
+        var httpPost = attributes[0] as HttpPostAttribute;
+        httpPost!.Template.Should().Be("{id:guid}/transition");
     }
 
     [Fact]

@@ -8,10 +8,15 @@
     "orders": "Mandats",
     "sampling": "Prélèvements",
     "samplingLocations": "Lieux de prélèvement",
+    "distributors": "Distributeurs",
     "results": "Résultats",
     "admin": "Administration",
     "users": "Utilisateurs",
     "roles": "Rôles",
+    "orderStatus": "Statuts de mandat",
+    "analysisCatalog": "Catalogue d'analyses",
+    "analysisProfiles": "Profils d'analyse",
+    "analysisPrograms": "Programmes d'analyse",
     "settings": "Paramètres"
   },
   "auth": {
@@ -40,7 +45,11 @@
     "active": "Actif",
     "inactive": "Inactif",
     "back": "Retour",
-    "close": "Fermer"
+    "close": "Fermer",
+    "status": "Statut",
+    "all": "Tous",
+    "activate": "Activer",
+    "deactivate": "Désactiver"
   },
   "users": {
     "title": "Gestion des utilisateurs",
@@ -97,6 +106,35 @@
     "assignPreleveur": "Assigner un préleveur",
     "details": "Détails du mandat"
   },
+  "distributors": {
+    "title": "Gestion des distributeurs",
+    "name": "Nom",
+    "cantonRegion": "Région du canton",
+    "distributionNetwork": "Réseau de distribution",
+    "status": "Statut",
+    "createDistributor": "Créer un distributeur",
+    "editDistributor": "Modifier le distributeur",
+    "activate": "Activer",
+    "deactivate": "Désactiver",
+    "allStatuses": "Tous les statuts"
+  },
+  "orderStatus": {
+    "title": "Statuts de mandat",
+    "terminal": "Terminal",
+    "allowedTransitions": "Transitions autorisées",
+    "noTransitions": "Aucune transition possible (statut terminal)",
+    "descriptions": {
+      "draft": "Mandat créé, pas encore assigné",
+      "assigned": "Préleveur assigné au mandat",
+      "inProgress": "Prélèvement en cours",
+      "samplingCompleted": "Prélèvement terminé, en attente de validation",
+      "validated": "Résultats validés, prêt pour envoi au LIMS",
+      "sentToLims": "Mandat envoyé au Limsophy LIMS",
+      "resultsReceived": "Résultats reçus du LIMS",
+      "completed": "Mandat entièrement terminé",
+      "cancelled": "Mandat annulé"
+    }
+  },
   "samplingLocations": {
     "title": "Lieux de prélèvement",
     "name": "Nom",
@@ -107,6 +145,40 @@
     "distributor": "Distributeur",
     "status": "Statut",
     "createLocation": "Créer un lieu",
-    "editLocation": "Modifier le lieu"
+    "editLocation": "Modifier le lieu",
+    "activate": "Activer le lieu",
+    "deactivate": "Désactiver le lieu",
+    "allDistributors": "Tous les distributeurs",
+    "allStatuses": "Tous les statuts",
+    "searchPlaceholder": "Rechercher par nom ou code"
+  },
+  "analysisCatalog": {
+    "categories": {
+      "Bacteriology": "Bactériologie",
+      "Chemistry": "Chimie",
+      "Physical": "Physique",
+      "Other": "Autre"
+    },
+    "profiles": {
+      "title": "Profils d'analyse",
+      "code": "Code",
+      "name": "Nom",
+      "description": "Description",
+      "category": "Catégorie",
+      "create": "Créer un profil",
+      "edit": "Modifier le profil"
+    },
+    "programs": {
+      "title": "Programmes d'analyse",
+      "code": "Code",
+      "name": "Nom",
+      "description": "Description",
+      "profileCount": "Nb profils",
+      "create": "Créer un programme",
+      "edit": "Modifier le programme",
+      "manageProfiles": "Gérer les profils",
+      "assignedProfiles": "Profils assignés",
+      "addProfile": "Ajouter des profils"
+    }
   }
 }

@@ -11,6 +11,8 @@ public class AppUser : IdentityUser
     public bool IsActive { get; set; } = true;
     public Guid TenantId { get; set; }
     public Tenant? Tenant { get; set; }
+    public string? RefreshToken { get; set; }
+    public DateTime? RefreshTokenExpiryTime { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
     public string? CreatedBy { get; set; }

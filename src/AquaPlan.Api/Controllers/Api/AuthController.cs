@@ -1,8 +1,10 @@
 using System.Security.Claims;
 using AquaPlan.Application.DTOs.Auth;
 using AquaPlan.Application.Services.Interfaces;
+using AquaPlan.Domain.Entities;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AquaPlan.Api.Controllers.Api;
@@ -13,6 +15,7 @@ public class AuthController(
     IAuthService authService,
     ITokenService tokenService,
     IOidcUserService oidcUserService,
+    UserManager<AppUser> userManager,
     IConfiguration configuration,
     ILogger<AuthController> logger) : ControllerBase
 {
@@ -143,6 +146,11 @@ public class AuthController(
         var roles = await authService.GetUserRolesAsync(user.Id, cancellationToken);
         var accessToken = tokenService.GenerateAccessToken(user, roles);
         var refreshToken = tokenService.GenerateRefreshToken();
+        var refreshTokenExpirationDays = int.Parse(configuration["Jwt:RefreshTokenExpirationDays"] ?? "7");
+
+        user.RefreshToken = refreshToken;
+        user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(refreshTokenExpirationDays);
+        await userManager.UpdateAsync(user);
 
         logger.LogInformation("OIDC login successful for user {Email}", email);
         return Redirect($"/#/auth/callback?token={accessToken}&refresh={refreshToken}");

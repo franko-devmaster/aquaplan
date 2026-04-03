@@ -11,6 +11,7 @@ namespace AquaPlan.Api.Controllers.Api;
 [Authorize]
 public class OrdersController(
     IOrderService orderService,
+    IOrderStatusService orderStatusService,
     IPermissionService permissionService,
     ILogger<OrdersController> logger) : ControllerBase
 {
@@ -87,6 +88,27 @@ public class OrdersController(
             return NotFound();
         }
         return Ok(order);
+    }
+
+    [HttpPost("{id:guid}/transition")]
+    public async Task<ActionResult<OrderStatusTransitionDto>> TransitionOrder(Guid id, [FromBody] OrderTransitionRequestDto dto, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+
+        try
+        {
+            var transition = await orderStatusService.TransitionOrderAsync(id, dto.NewStatus, userId, tenantId, cancellationToken);
+            return Ok(transition);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     private string GetUserId()

@@ -8,10 +8,12 @@
     "orders": "Orders",
     "sampling": "Sampling",
     "samplingLocations": "Sampling locations",
+    "distributors": "Distributors",
     "results": "Results",
     "admin": "Administration",
     "users": "Users",
     "roles": "Roles",
+    "orderStatus": "Order statuses",
     "settings": "Settings"
   },
   "auth": {
@@ -97,6 +99,35 @@
     "assignPreleveur": "Assign sampler",
     "details": "Order details"
   },
+  "distributors": {
+    "title": "Distributor management",
+    "name": "Name",
+    "cantonRegion": "Canton region",
+    "distributionNetwork": "Distribution network",
+    "status": "Status",
+    "createDistributor": "Create distributor",
+    "editDistributor": "Edit distributor",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "allStatuses": "All statuses"
+  },
+  "orderStatus": {
+    "title": "Order statuses",
+    "terminal": "Terminal",
+    "allowedTransitions": "Allowed transitions",
+    "noTransitions": "No transitions available (terminal status)",
+    "descriptions": {
+      "draft": "Order created, not yet assigned",
+      "assigned": "Sampler assigned to the order",
+      "inProgress": "Sampling in progress",
+      "samplingCompleted": "Sampling completed, awaiting validation",
+      "validated": "Results validated, ready to send to LIMS",
+      "sentToLims": "Order sent to Limsophy LIMS",
+      "resultsReceived": "Results received from LIMS",
+      "completed": "Order fully completed",
+      "cancelled": "Order cancelled"
+    }
+  },
   "samplingLocations": {
     "title": "Sampling locations",
     "name": "Name",
@@ -107,6 +138,11 @@
     "distributor": "Distributor",
     "status": "Status",
     "createLocation": "Create location",
-    "editLocation": "Edit location"
+    "editLocation": "Edit location",
+    "activate": "Activate location",
+    "deactivate": "Deactivate location",
+    "allDistributors": "All distributors",
+    "allStatuses": "All statuses",
+    "searchPlaceholder": "Search by name or code"
   }
 }

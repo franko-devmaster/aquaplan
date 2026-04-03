@@ -61,3 +61,52 @@ For every task:
 - Never expose stack traces or internal details to clients
 - Log errors with Serilog structured logging: `_logger.LogError(ex, "Message {Param}", param)`
 - Use problem details (RFC 7807) for API error responses
+
+## Local Development Environment
+
+### Starting the stack
+```bash
+# 1. PostgreSQL via Docker (only DB in container, backend/frontend run natively)
+docker compose up -d aquaplan-db
+
+# 2. Backend .NET (Terminal 1)
+export PATH="$HOME/.dotnet:$PATH"
+export DOTNET_ROOT="$HOME/.dotnet"
+dotnet run --project src/AquaPlan.Api    # Listens on http://localhost:5002
+
+# 3. Frontend Angular (Terminal 2)
+cd src/AquaPlan.Web/ClientApp
+ng serve                                  # Listens on http://localhost:4200
+```
+
+### After code changes (new version)
+```bash
+# Rebuild .NET
+dotnet build
+
+# Apply EF Core migrations if schema changed
+dotnet ef database update --project src/AquaPlan.Infrastructure --startup-project src/AquaPlan.Api
+
+# Frontend: ng serve auto-reloads, but if dependencies changed:
+cd src/AquaPlan.Web/ClientApp && npm install
+```
+
+### Key configuration
+- **Proxy**: `src/AquaPlan.Web/ClientApp/src/proxy.conf.json` forwards `/api` → `localhost:5002`
+- **DB connection**: `appsettings.Development.json` → `Host=localhost;Port=5432;Database=aquaplan_dev;Username=aquaplan;Password=aquaplan_dev`
+- **Auto-migration**: `Program.cs` calls `MigrateAsync()` on startup before seeder
+- **i18n files**: `src/AquaPlan.Web/ClientApp/src/assets/i18n/` (fr.json, de.json, en.json)
+- **Angular assets**: configured in `angular.json` under `assets` array (must include `src/assets`)
+
+### Common issues
+- `dotnet` not found → `export PATH="$HOME/.dotnet:$PATH"`
+- `dotnet-ef` fails → `export DOTNET_ROOT="$HOME/.dotnet"`
+- Angular ETIMEDOUT → `rm -rf node_modules/.cache` then retry
+- i18n keys showing raw → check `TranslateService.use('fr')` in AppComponent
+- Proxy 504 → check backend is running on port 5002
+
+## Coordination with QA
+
+- After completing a version, notify the QA Lead for test execution
+- Fix bugs found during test execution (linked to test runs in Xray)
+- Re-test cycle: QA creates re-test execution, DEV fixes, QA re-executes

@@ -42,13 +42,23 @@ public class SamplingLocationsControllerTest
         ], "test"));
     }
 
+    private static SamplingLocationDto CreateLocationDto(
+        Guid? id = null,
+        string name = "Source A",
+        string code = "LOC-001",
+        bool isActive = true)
+    {
+        return new SamplingLocationDto(
+            id ?? LocationId, name, code, 46.8, 7.15,
+            "A description", isActive, DistributorId, "Distributor A", DateTime.UtcNow);
+    }
+
+    #region GetForCurrentUser
+
     [Fact]
     public async Task GetForCurrentUser_ShouldReturnUserLocations_WhenNotAdmin()
     {
-        var locations = new List<SamplingLocationDto>
-        {
-            new(LocationId, "Source A", "LOC-001", 46.8, 7.15, "A description", true, DistributorId, "Distributor A", DateTime.UtcNow),
-        };
+        var locations = new List<SamplingLocationDto> { CreateLocationDto() };
         _permissionServiceMock
             .Setup(x => x.UserHasPermissionAsync(UserId, "AdministerSystem", It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
@@ -67,10 +77,7 @@ public class SamplingLocationsControllerTest
     [Fact]
     public async Task GetForCurrentUser_ShouldReturnAllLocations_WhenAdmin()
     {
-        var locations = new List<SamplingLocationDto>
-        {
-            new(LocationId, "Source A", "LOC-001", 46.8, 7.15, "A description", true, DistributorId, "Distributor A", DateTime.UtcNow),
-        };
+        var locations = new List<SamplingLocationDto> { CreateLocationDto() };
         _permissionServiceMock
             .Setup(x => x.UserHasPermissionAsync(UserId, "AdministerSystem", It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
@@ -86,12 +93,44 @@ public class SamplingLocationsControllerTest
         _samplingLocationServiceMock.Verify(x => x.GetForUserAsync(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    #endregion
+
+    #region GetFiltered
+
+    [Fact]
+    public async Task GetFiltered_ShouldReturnOk()
+    {
+        var filter = new SamplingLocationFilteringInputDto(DistributorId, "Source", true, 1, 25);
+        var listDto = new SamplingLocationListDto(
+            new List<SamplingLocationDto> { CreateLocationDto() }, 1, 1, 25);
+        _samplingLocationServiceMock
+            .Setup(x => x.GetFilteredAsync(filter, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(listDto);
+
+        var result = await _sut.GetFiltered(filter, CancellationToken.None);
+
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().Be(listDto);
+    }
+
+    [Fact]
+    public void GetFiltered_ShouldHaveHttpGetAttribute()
+    {
+        var method = typeof(SamplingLocationsController).GetMethod(nameof(SamplingLocationsController.GetFiltered));
+        var attribute = method!.GetCustomAttributes(typeof(HttpGetAttribute), true).OfType<HttpGetAttribute>().First();
+        attribute.Template.Should().Be("filtered");
+    }
+
+    #endregion
+
+    #region GetByDistributor
+
     [Fact]
     public async Task GetByDistributor_ShouldReturnOk()
     {
         var locations = new List<SamplingLocationDto>
         {
-            new(LocationId, "Source B", "LOC-002", 46.9, 7.2, null, true, DistributorId, "Distributor A", DateTime.UtcNow),
+            CreateLocationDto(name: "Source B", code: "LOC-002"),
         };
         _samplingLocationServiceMock
             .Setup(x => x.GetByDistributorAsync(DistributorId, TenantId, It.IsAny<CancellationToken>()))
@@ -102,6 +141,10 @@ public class SamplingLocationsControllerTest
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().Be(locations);
     }
+
+    #endregion
+
+    #region GetById
 
     [Fact]
     public async Task GetById_ShouldReturnNotFound_WhenLocationDoesNotExist()
@@ -118,7 +161,7 @@ public class SamplingLocationsControllerTest
     [Fact]
     public async Task GetById_ShouldReturnOk_WhenLocationExists()
     {
-        var location = new SamplingLocationDto(LocationId, "Source A", "LOC-001", 46.8, 7.15, "A description", true, DistributorId, "Distributor A", DateTime.UtcNow);
+        var location = CreateLocationDto();
         _samplingLocationServiceMock
             .Setup(x => x.GetByIdAsync(LocationId, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(location);
@@ -129,11 +172,18 @@ public class SamplingLocationsControllerTest
         okResult.Value.Should().Be(location);
     }
 
+    #endregion
+
+    #region Create
+
     [Fact]
-    public async Task Create_ShouldReturnCreatedAtAction()
+    public async Task Create_ShouldReturnCreatedAtAction_WhenCodeIsUnique()
     {
         var createDto = new SamplingLocationCreateDto("New Source", "LOC-003", 46.85, 7.1, "New location", DistributorId);
-        var created = new SamplingLocationDto(LocationId, "New Source", "LOC-003", 46.85, 7.1, "New location", true, DistributorId, "Distributor A", DateTime.UtcNow);
+        var created = CreateLocationDto(name: "New Source", code: "LOC-003");
+        _samplingLocationServiceMock
+            .Setup(x => x.IsLocationCodeUniqueAsync("LOC-003", DistributorId, null, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         _samplingLocationServiceMock
             .Setup(x => x.CreateAsync(createDto, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(created);
@@ -143,6 +193,20 @@ public class SamplingLocationsControllerTest
         var createdResult = result.Result.Should().BeOfType<CreatedAtActionResult>().Subject;
         createdResult.ActionName.Should().Be(nameof(SamplingLocationsController.GetById));
         createdResult.Value.Should().Be(created);
+    }
+
+    [Fact]
+    public async Task Create_ShouldReturnConflict_WhenCodeIsNotUnique()
+    {
+        var createDto = new SamplingLocationCreateDto("New Source", "LOC-001", 46.85, 7.1, "New location", DistributorId);
+        _samplingLocationServiceMock
+            .Setup(x => x.IsLocationCodeUniqueAsync("LOC-001", DistributorId, null, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _sut.Create(createDto, CancellationToken.None);
+
+        result.Result.Should().BeOfType<ConflictObjectResult>();
+        _samplingLocationServiceMock.Verify(x => x.CreateAsync(It.IsAny<SamplingLocationCreateDto>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -156,10 +220,21 @@ public class SamplingLocationsControllerTest
     }
 
     [Fact]
+    public void Create_ShouldHaveHttpPostAttribute()
+    {
+        var method = typeof(SamplingLocationsController).GetMethod(nameof(SamplingLocationsController.Create));
+        method!.GetCustomAttributes(typeof(HttpPostAttribute), true).Should().NotBeEmpty();
+    }
+
+    #endregion
+
+    #region Update
+
+    [Fact]
     public async Task Update_ShouldReturnOk_WhenSuccess()
     {
         var updateDto = new SamplingLocationUpdateDto("Updated Source", "LOC-001", 46.8, 7.15, "Updated description", true);
-        var updated = new SamplingLocationDto(LocationId, "Updated Source", "LOC-001", 46.8, 7.15, "Updated description", true, DistributorId, "Distributor A", DateTime.UtcNow);
+        var updated = CreateLocationDto(name: "Updated Source");
         _samplingLocationServiceMock
             .Setup(x => x.UpdateAsync(LocationId, updateDto, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(updated);
@@ -184,9 +259,130 @@ public class SamplingLocationsControllerTest
     }
 
     [Fact]
+    public void Update_ShouldHaveAdministratorRoleAttribute()
+    {
+        var method = typeof(SamplingLocationsController).GetMethod(nameof(SamplingLocationsController.Update));
+        var attributes = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true);
+        attributes.Should().NotBeEmpty();
+        var authorizeAttr = attributes.OfType<AuthorizeAttribute>().First();
+        authorizeAttr.Roles.Should().Be("Administrator");
+    }
+
+    #endregion
+
+    #region ToggleStatus
+
+    [Fact]
+    public async Task ToggleStatus_ShouldReturnOk_WhenLocationExists()
+    {
+        var toggleResult = new ToggleStatusResultDto(
+            CreateLocationDto(isActive: false), false, null);
+        _samplingLocationServiceMock
+            .Setup(x => x.ToggleStatusAsync(LocationId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(toggleResult);
+
+        var result = await _sut.ToggleStatus(LocationId, CancellationToken.None);
+
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().Be(toggleResult);
+    }
+
+    [Fact]
+    public async Task ToggleStatus_ShouldReturnNotFound_WhenLocationDoesNotExist()
+    {
+        _samplingLocationServiceMock
+            .Setup(x => x.ToggleStatusAsync(LocationId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ToggleStatusResultDto?)null);
+
+        var result = await _sut.ToggleStatus(LocationId, CancellationToken.None);
+
+        result.Result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public void ToggleStatus_ShouldHaveAdministratorRoleAttribute()
+    {
+        var method = typeof(SamplingLocationsController).GetMethod(nameof(SamplingLocationsController.ToggleStatus));
+        var attributes = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true);
+        attributes.Should().NotBeEmpty();
+        var authorizeAttr = attributes.OfType<AuthorizeAttribute>().First();
+        authorizeAttr.Roles.Should().Be("Administrator");
+    }
+
+    [Fact]
+    public void ToggleStatus_ShouldHaveHttpPutAttribute()
+    {
+        var method = typeof(SamplingLocationsController).GetMethod(nameof(SamplingLocationsController.ToggleStatus));
+        var putAttr = method!.GetCustomAttributes(typeof(HttpPutAttribute), true).OfType<HttpPutAttribute>().First();
+        putAttr.Template.Should().Be("{id:guid}/toggle-status");
+    }
+
+    #endregion
+
+    #region CheckCodeUnique
+
+    [Fact]
+    public async Task CheckCodeUnique_ShouldReturnTrue_WhenUnique()
+    {
+        _samplingLocationServiceMock
+            .Setup(x => x.IsLocationCodeUniqueAsync("LOC-NEW", DistributorId, null, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await _sut.CheckCodeUnique("LOC-NEW", DistributorId, null, CancellationToken.None);
+
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().Be(true);
+    }
+
+    [Fact]
+    public async Task CheckCodeUnique_ShouldReturnFalse_WhenNotUnique()
+    {
+        _samplingLocationServiceMock
+            .Setup(x => x.IsLocationCodeUniqueAsync("LOC-001", DistributorId, null, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _sut.CheckCodeUnique("LOC-001", DistributorId, null, CancellationToken.None);
+
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().Be(false);
+    }
+
+    [Fact]
+    public void CheckCodeUnique_ShouldHaveAdministratorRoleAttribute()
+    {
+        var method = typeof(SamplingLocationsController).GetMethod(nameof(SamplingLocationsController.CheckCodeUnique));
+        var attributes = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true);
+        attributes.Should().NotBeEmpty();
+        var authorizeAttr = attributes.OfType<AuthorizeAttribute>().First();
+        authorizeAttr.Roles.Should().Be("Administrator");
+    }
+
+    #endregion
+
+    #region Controller attributes
+
+    [Fact]
     public void Controller_ShouldHaveAuthorizeAttribute()
     {
         var attributes = typeof(SamplingLocationsController).GetCustomAttributes(typeof(AuthorizeAttribute), true);
         attributes.Should().NotBeEmpty();
     }
+
+    [Fact]
+    public void Controller_ShouldHaveApiControllerAttribute()
+    {
+        var attributes = typeof(SamplingLocationsController).GetCustomAttributes(typeof(ApiControllerAttribute), true);
+        attributes.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public void Controller_ShouldHaveRouteAttribute()
+    {
+        var attributes = typeof(SamplingLocationsController).GetCustomAttributes(typeof(RouteAttribute), true);
+        attributes.Should().NotBeEmpty();
+        var routeAttr = attributes.OfType<RouteAttribute>().First();
+        routeAttr.Template.Should().Be("api/sampling-locations");
+    }
+
+    #endregion
 }

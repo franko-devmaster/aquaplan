@@ -8,10 +8,12 @@
     "orders": "Aufträge",
     "sampling": "Probenahmen",
     "samplingLocations": "Probenahmeorte",
+    "distributors": "Verteiler",
     "results": "Ergebnisse",
     "admin": "Administration",
     "users": "Benutzer",
     "roles": "Rollen",
+    "orderStatus": "Auftragsstatus",
     "settings": "Einstellungen"
   },
   "auth": {
@@ -97,6 +99,35 @@
     "assignPreleveur": "Probenehmer zuweisen",
     "details": "Auftragsdetails"
   },
+  "distributors": {
+    "title": "Verteilerverwaltung",
+    "name": "Name",
+    "cantonRegion": "Kantonsregion",
+    "distributionNetwork": "Verteilungsnetz",
+    "status": "Status",
+    "createDistributor": "Verteiler erstellen",
+    "editDistributor": "Verteiler bearbeiten",
+    "activate": "Aktivieren",
+    "deactivate": "Deaktivieren",
+    "allStatuses": "Alle Status"
+  },
+  "orderStatus": {
+    "title": "Auftragsstatus",
+    "terminal": "Terminal",
+    "allowedTransitions": "Erlaubte Übergänge",
+    "noTransitions": "Keine Übergänge möglich (Terminalstatus)",
+    "descriptions": {
+      "draft": "Auftrag erstellt, noch nicht zugewiesen",
+      "assigned": "Probenehmer dem Auftrag zugewiesen",
+      "inProgress": "Probenahme läuft",
+      "samplingCompleted": "Probenahme abgeschlossen, Validierung ausstehend",
+      "validated": "Ergebnisse validiert, bereit zum Senden an LIMS",
+      "sentToLims": "Auftrag an Limsophy LIMS gesendet",
+      "resultsReceived": "Ergebnisse vom LIMS erhalten",
+      "completed": "Auftrag vollständig abgeschlossen",
+      "cancelled": "Auftrag abgebrochen"
+    }
+  },
   "samplingLocations": {
     "title": "Probenahmeorte",
     "name": "Name",
@@ -107,6 +138,11 @@
     "distributor": "Verteiler",
     "status": "Status",
     "createLocation": "Ort erstellen",
-    "editLocation": "Ort bearbeiten"
+    "editLocation": "Ort bearbeiten",
+    "activate": "Ort aktivieren",
+    "deactivate": "Ort deaktivieren",
+    "allDistributors": "Alle Verteiler",
+    "allStatuses": "Alle Status",
+    "searchPlaceholder": "Nach Name oder Code suchen"
   }
 }

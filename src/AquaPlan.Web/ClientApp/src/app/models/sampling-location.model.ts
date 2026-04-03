@@ -28,3 +28,24 @@ export interface SamplingLocationUpdateDto {
   description: string | null;
   isActive: boolean;
 }
+
+export interface SamplingLocationListDto {
+  items: SamplingLocationDto[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface SamplingLocationFilteringInputDto {
+  distributorId?: string;
+  search?: string;
+  isActive?: boolean;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface ToggleStatusResultDto {
+  location: SamplingLocationDto;
+  hasActiveReferences: boolean;
+  warning: string | null;
+}

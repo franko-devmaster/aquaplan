@@ -1,9 +1,11 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace AquaPlan.Application.DTOs.SamplingLocations;
 
 public record SamplingLocationCreateDto(
-    string Name,
-    string LocationCode,
+    [Required][StringLength(200)] string Name,
+    [Required][StringLength(50)] string LocationCode,
     double? Latitude,
     double? Longitude,
-    string? Description,
-    Guid DistributorId);
+    [StringLength(1000)] string? Description,
+    [Required] Guid DistributorId);

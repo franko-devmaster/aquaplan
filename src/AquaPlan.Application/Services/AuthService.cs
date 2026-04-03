@@ -33,24 +33,64 @@ internal class AuthService(
         var accessToken = tokenService.GenerateAccessToken(user, roles);
         var refreshToken = tokenService.GenerateRefreshToken();
         var expiresIn = int.Parse(configuration["Jwt:AccessTokenExpirationMinutes"] ?? "60");
+        var refreshTokenExpirationDays = int.Parse(configuration["Jwt:RefreshTokenExpirationDays"] ?? "7");
+
+        user.RefreshToken = refreshToken;
+        user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(refreshTokenExpirationDays);
+        await userManager.UpdateAsync(user);
 
         logger.LogInformation("User {Email} logged in successfully", dto.Email);
 
         return new LoginResponseDto(accessToken, refreshToken, expiresIn * 60);
     }
 
-    public Task<LoginResponseDto?> RefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
+    public async Task<LoginResponseDto?> RefreshTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
-        // Simplified: in production, validate refresh token from database
-        logger.LogWarning("Refresh token validation not fully implemented yet");
-        return Task.FromResult<LoginResponseDto?>(null);
+        var user = userManager.Users.FirstOrDefault(u => u.RefreshToken == refreshToken);
+        if (user is null)
+        {
+            logger.LogWarning("Refresh token validation failed: token not found");
+            return null;
+        }
+
+        if (user.RefreshTokenExpiryTime is null || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
+        {
+            logger.LogWarning("Refresh token validation failed: token expired for user {Email}", user.Email);
+            return null;
+        }
+
+        if (!user.IsActive)
+        {
+            logger.LogWarning("Refresh token validation failed: user {Email} is inactive", user.Email);
+            return null;
+        }
+
+        var roles = await userManager.GetRolesAsync(user);
+        var newAccessToken = tokenService.GenerateAccessToken(user, roles);
+        var newRefreshToken = tokenService.GenerateRefreshToken();
+        var expiresIn = int.Parse(configuration["Jwt:AccessTokenExpirationMinutes"] ?? "60");
+        var refreshTokenExpirationDays = int.Parse(configuration["Jwt:RefreshTokenExpirationDays"] ?? "7");
+
+        user.RefreshToken = newRefreshToken;
+        user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(refreshTokenExpirationDays);
+        await userManager.UpdateAsync(user);
+
+        logger.LogInformation("Token refreshed successfully for user {Email}", user.Email);
+
+        return new LoginResponseDto(newAccessToken, newRefreshToken, expiresIn * 60);
     }
 
-    public Task LogoutAsync(string userId, CancellationToken cancellationToken = default)
+    public async Task LogoutAsync(string userId, CancellationToken cancellationToken = default)
     {
-        // In production: invalidate refresh tokens, blacklist JWT
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is not null)
+        {
+            user.RefreshToken = null;
+            user.RefreshTokenExpiryTime = null;
+            await userManager.UpdateAsync(user);
+        }
+
         logger.LogInformation("User {UserId} logged out", userId);
-        return Task.CompletedTask;
     }
 
     public async Task<UserInfoDto?> GetCurrentUserAsync(string userId, CancellationToken cancellationToken = default)

@@ -22,6 +22,121 @@ namespace AquaPlan.Infrastructure.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("AquaPlan.Domain.Entities.AnalysisProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("integer")
+                        .HasColumnName("category");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_analysis_profiles");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_analysis_profiles_tenant_id_code");
+
+                    b.ToTable("analysis_profiles", (string)null);
+                });
+
+            modelBuilder.Entity("AquaPlan.Domain.Entities.AnalysisProgram", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_analysis_programs");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_analysis_programs_tenant_id_code");
+
+                    b.ToTable("analysis_programs", (string)null);
+                });
+
+            modelBuilder.Entity("AquaPlan.Domain.Entities.AnalysisProgramProfile", b =>
+                {
+                    b.Property<Guid>("AnalysisProgramId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("analysis_program_id");
+
+                    b.Property<Guid>("AnalysisProfileId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("analysis_profile_id");
+
+                    b.HasKey("AnalysisProgramId", "AnalysisProfileId")
+                        .HasName("pk_analysis_program_profiles");
+
+                    b.HasIndex("AnalysisProfileId")
+                        .HasDatabaseName("ix_analysis_program_profiles_analysis_profile_id");
+
+                    b.ToTable("analysis_program_profiles", (string)null);
+                });
+
             modelBuilder.Entity("AquaPlan.Domain.Entities.AppUser", b =>
                 {
                     b.Property<string>("Id")
@@ -109,6 +224,14 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("boolean")
                         .HasColumnName("phone_number_confirmed");
+
+                    b.Property<string>("RefreshToken")
+                        .HasColumnType("text")
+                        .HasColumnName("refresh_token");
+
+                    b.Property<DateTime?>("RefreshTokenExpiryTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("refresh_token_expiry_time");
 
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("text")
@@ -278,6 +401,14 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer")
                         .HasColumnName("status");
+
+                    b.Property<DateTime?>("StatusChangedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("status_changed_at");
+
+                    b.Property<string>("StatusChangedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("status_changed_by");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
@@ -675,6 +806,51 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("AquaPlan.Domain.Entities.AnalysisProfile", b =>
+                {
+                    b.HasOne("AquaPlan.Domain.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_analysis_profiles_tenants_tenant_id");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("AquaPlan.Domain.Entities.AnalysisProgram", b =>
+                {
+                    b.HasOne("AquaPlan.Domain.Entities.Tenant", "Tenant")
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_analysis_programs_tenants_tenant_id");
+
+                    b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("AquaPlan.Domain.Entities.AnalysisProgramProfile", b =>
+                {
+                    b.HasOne("AquaPlan.Domain.Entities.AnalysisProfile", "AnalysisProfile")
+                        .WithMany("AnalysisProgramProfiles")
+                        .HasForeignKey("AnalysisProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_analysis_program_profiles_analysis_profiles_analysis_profil");
+
+                    b.HasOne("AquaPlan.Domain.Entities.AnalysisProgram", "AnalysisProgram")
+                        .WithMany("AnalysisProgramProfiles")
+                        .HasForeignKey("AnalysisProgramId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_analysis_program_profiles_analysis_programs_analysis_progra");
+
+                    b.Navigation("AnalysisProfile");
+
+                    b.Navigation("AnalysisProgram");
+                });
+
             modelBuilder.Entity("AquaPlan.Domain.Entities.AppUser", b =>
                 {
                     b.HasOne("AquaPlan.Domain.Entities.Tenant", "Tenant")
@@ -858,6 +1034,16 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_asp_net_user_tokens_asp_net_users_user_id");
+                });
+
+            modelBuilder.Entity("AquaPlan.Domain.Entities.AnalysisProfile", b =>
+                {
+                    b.Navigation("AnalysisProgramProfiles");
+                });
+
+            modelBuilder.Entity("AquaPlan.Domain.Entities.AnalysisProgram", b =>
+                {
+                    b.Navigation("AnalysisProgramProfiles");
                 });
 
             modelBuilder.Entity("AquaPlan.Domain.Entities.AppUser", b =>

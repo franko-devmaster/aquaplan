@@ -18,6 +18,8 @@ public class Order
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
     public string? UpdatedBy { get; set; }
+    public DateTime? StatusChangedAt { get; set; }
+    public string? StatusChangedBy { get; set; }
 
     public Sampling? Sampling { get; set; }
 }

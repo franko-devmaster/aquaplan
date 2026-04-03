@@ -24,7 +24,21 @@ import { AuthService } from '../../services/auth.service';
         <mat-icon matListItemIcon>place</mat-icon>
         <span matListItemTitle>{{ 'nav.samplingLocations' | translate }}</span>
       </a>
+      <mat-divider></mat-divider>
+      <div class="nav-section-label">{{ 'nav.analysisCatalog' | translate }}</div>
+      <a mat-list-item routerLink="/analysis-profiles" routerLinkActive="active">
+        <mat-icon matListItemIcon>science</mat-icon>
+        <span matListItemTitle>{{ 'nav.analysisProfiles' | translate }}</span>
+      </a>
+      <a mat-list-item routerLink="/analysis-programs" routerLinkActive="active">
+        <mat-icon matListItemIcon>playlist_add_check</mat-icon>
+        <span matListItemTitle>{{ 'nav.analysisPrograms' | translate }}</span>
+      </a>
       @if (isAdmin()) {
+        <a mat-list-item routerLink="/distributors" routerLinkActive="active">
+          <mat-icon matListItemIcon>water_drop</mat-icon>
+          <span matListItemTitle>{{ 'nav.distributors' | translate }}</span>
+        </a>
         <mat-divider></mat-divider>
         <a mat-list-item routerLink="/admin/users" routerLinkActive="active">
           <mat-icon matListItemIcon>people</mat-icon>
@@ -34,11 +48,16 @@ import { AuthService } from '../../services/auth.service';
           <mat-icon matListItemIcon>admin_panel_settings</mat-icon>
           <span matListItemTitle>{{ 'nav.roles' | translate }}</span>
         </a>
+        <a mat-list-item routerLink="/admin/order-status" routerLinkActive="active">
+          <mat-icon matListItemIcon>swap_horiz</mat-icon>
+          <span matListItemTitle>{{ 'nav.orderStatus' | translate }}</span>
+        </a>
       }
     </mat-nav-list>
   `,
   styles: [`
     .active { background-color: rgba(0, 0, 0, 0.04); }
+    .nav-section-label { padding: 8px 16px 4px; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
   `],
 })
 export class SidebarComponent {

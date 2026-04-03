@@ -15,6 +15,9 @@ public class AquaPlanDbContext(DbContextOptions<AquaPlanDbContext> options)
     public DbSet<SamplingLocation> SamplingLocations => Set<SamplingLocation>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<Sampling> Samplings => Set<Sampling>();
+    public DbSet<AnalysisProfile> AnalysisProfiles => Set<AnalysisProfile>();
+    public DbSet<AnalysisProgram> AnalysisPrograms => Set<AnalysisProgram>();
+    public DbSet<AnalysisProgramProfile> AnalysisProgramProfiles => Set<AnalysisProgramProfile>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

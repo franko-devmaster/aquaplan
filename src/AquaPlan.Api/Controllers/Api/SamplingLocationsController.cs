@@ -27,6 +27,16 @@ public class SamplingLocationsController(
         return Ok(locations);
     }
 
+    [HttpGet("filtered")]
+    public async Task<ActionResult<SamplingLocationListDto>> GetFiltered(
+        [FromQuery] SamplingLocationFilteringInputDto filter,
+        CancellationToken cancellationToken)
+    {
+        var tenantId = GetTenantId();
+        var result = await samplingLocationService.GetFilteredAsync(filter, tenantId, cancellationToken);
+        return Ok(result);
+    }
+
     [HttpGet("by-distributor/{distributorId:guid}")]
     public async Task<ActionResult<IList<SamplingLocationDto>>> GetByDistributor(Guid distributorId, CancellationToken cancellationToken)
     {
@@ -52,6 +62,13 @@ public class SamplingLocationsController(
     public async Task<ActionResult<SamplingLocationDto>> Create([FromBody] SamplingLocationCreateDto dto, CancellationToken cancellationToken)
     {
         var tenantId = GetTenantId();
+
+        var isUnique = await samplingLocationService.IsLocationCodeUniqueAsync(dto.LocationCode, dto.DistributorId, null, tenantId, cancellationToken);
+        if (!isUnique)
+        {
+            return Conflict(new { message = $"A sampling location with code '{dto.LocationCode}' already exists for this distributor." });
+        }
+
         var location = await samplingLocationService.CreateAsync(dto, tenantId, cancellationToken);
         return CreatedAtAction(nameof(GetById), new { id = location.Id }, location);
     }
@@ -67,6 +84,32 @@ public class SamplingLocationsController(
             return NotFound();
         }
         return Ok(location);
+    }
+
+    [HttpPut("{id:guid}/toggle-status")]
+    [Authorize(Roles = "Administrator")]
+    public async Task<ActionResult<ToggleStatusResultDto>> ToggleStatus(Guid id, CancellationToken cancellationToken)
+    {
+        var tenantId = GetTenantId();
+        var result = await samplingLocationService.ToggleStatusAsync(id, tenantId, cancellationToken);
+        if (result is null)
+        {
+            return NotFound();
+        }
+        return Ok(result);
+    }
+
+    [HttpGet("check-code-unique")]
+    [Authorize(Roles = "Administrator")]
+    public async Task<ActionResult<bool>> CheckCodeUnique(
+        [FromQuery] string locationCode,
+        [FromQuery] Guid distributorId,
+        [FromQuery] Guid? excludeId,
+        CancellationToken cancellationToken)
+    {
+        var tenantId = GetTenantId();
+        var isUnique = await samplingLocationService.IsLocationCodeUniqueAsync(locationCode, distributorId, excludeId, tenantId, cancellationToken);
+        return Ok(isUnique);
     }
 
     private string GetUserId()
