@@ -409,13 +409,57 @@ curl -s -X POST \
 Résumé du workflow à suivre pour chaque story :
 
 ```
-1. git checkout -b feature/AQ-{key}-{description}
-2. @jira-updater start-story AQ-{key}
-3. [développement + commits avec clés AQ-xxx]
-4. @jira-updater complete-subtask AQ-{subtask-key}  (après chaque sous-tâche)
-5. @code-reviewer  (revue de code avant merge)
-6. git push -u origin HEAD
-7. Créer une PR avec clé AQ-{key} dans le titre
-8. Merger la PR
-9. @jira-updater complete-story AQ-{key}
+ 1. git checkout -b feature/AQ-{key}-{description}
+ 2. @jira-updater start-story AQ-{key}
+ 3. [développement + commits avec clés AQ-xxx]
+ 4. @jira-updater complete-subtask AQ-{subtask-key}  (après chaque sous-tâche)
+ 5. @code-reviewer  (revue de code avant merge)
+ 6. git push -u origin HEAD
+ 7. Créer une PR avec clé AQ-{key} dans le titre
+ 8. Merger la PR
+ 9. @jira-updater complete-story AQ-{key}
+```
+
+## Workflow complet par version
+
+**IMPORTANT** : Chaque version testée et validée DOIT être commitée et poussée vers Bitbucket.
+
+```
+ 1. DEV termine toutes les stories de la version
+ 2. Committer tout le code modifié (feat/fix/test commits avec clés AQ-xxx)
+ 3. git push origin Main   ← OBLIGATOIRE — le code doit être sur Bitbucket
+ 4. QA exécute les tests (smoke → API → UI → E2E)
+ 5. QA rapporte les résultats dans Xray
+ 6. Si bugs : DEV corrige → commit → push → QA re-test
+ 7. Quand tous les tests sont PASSED :
+    - Vérifier que tous les commits sont poussés sur Bitbucket
+    - Vérifier que Jira affiche les commits dans "Développement"
+    - @jira-updater sync-status   ← met à jour les statuts Jira
+ 8. Version validée et déployable
+```
+
+### Vérification avant validation de version
+
+Avant de déclarer une version complète, vérifier :
+- [ ] `git status` → clean (pas de changements non commitués)
+- [ ] `git log origin/Main..Main` → vide (tout est poussé)
+- [ ] Bitbucket affiche les commits de la version
+- [ ] Jira > Développement affiche les commits liés aux stories
+- [ ] Xray > Test Execution → 100% PASSED
+
+### Règle de push
+
+**Chaque session de développement DOIT se terminer par un push vers Bitbucket.**
+Les commits locaux non poussés sont invisibles pour :
+- Jira (onglet Développement vide)
+- Bitbucket (pas de code)
+- L'équipe (pas de revue possible)
+- Les déploiements (rien à déployer)
+
+Commande de vérification :
+```bash
+# Vérifier s'il y a des commits non poussés
+git log origin/Main..Main --oneline
+# Si cette commande affiche des commits → il faut pusher
+git push origin Main
 ```

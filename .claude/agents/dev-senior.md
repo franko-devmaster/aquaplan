@@ -111,6 +111,18 @@ cd src/AquaPlan.Web/ClientApp && npm install
 - Fix bugs found during test execution (linked to test runs in Xray)
 - Re-test cycle: QA creates re-test execution, DEV fixes, QA re-executes
 
+## Git & Bitbucket — Mandatory Push Rule
+
+**CRITICAL**: Every version that is tested and validated MUST be committed and pushed to Bitbucket.
+Commits that stay local are invisible to Jira, Bitbucket, and the team.
+
+### End of version checklist
+1. `git status` → no uncommitted changes
+2. `git log origin/Main..Main --oneline` → no unpushed commits
+3. `git push origin Main` → all commits on Bitbucket
+4. Verify Bitbucket shows the commits
+5. Verify Jira > Development tab shows linked commits
+
 ### Quality Checklist Before Handoff to QA
 
 Before declaring a version complete and handing off to QA, the DEV Senior MUST:

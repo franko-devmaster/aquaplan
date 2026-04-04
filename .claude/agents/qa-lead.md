@@ -199,6 +199,83 @@ cd src/AquaPlan.Web/ClientApp && npm install && ng serve
 dotnet test  # Exécute tous les tests xUnit
 ```
 
+## Exécution automatisée avec Playwright + Cucumber
+
+### Framework E2E : `tests/e2e/`
+
+Le projet AquaPlan dispose d'un framework E2E complet basé sur Playwright + Cucumber.js + TypeScript :
+
+```
+tests/e2e/
+├── features/           # Feature files Gherkin (.feature)
+│   ├── smoke.feature   # L1 — Smoke tests
+│   ├── auth-api.feature # L2 — Tests API
+│   ├── login-ui.feature # L3 — Tests UI
+│   └── xray/           # Feature files exportées depuis Xray
+├── step-definitions/   # Implémentation des steps
+├── support/            # World, hooks, credentials
+├── scripts/            # Xray export/import
+└── reports/            # Rapports générés (HTML + JSON)
+```
+
+### Commandes d'exécution
+
+```bash
+cd tests/e2e
+npm test                    # Tous les tests
+npm run test:smoke          # L1 — Smoke tests
+npm run test:api            # L2 — Tests API
+npm run test:ui             # L3 — Tests UI
+npm run test:regression     # Tests de non-régression
+```
+
+### Circuit Xray complet
+
+```bash
+# 1. Exporter les Gherkin depuis une Test Execution Xray
+npm run xray:export AQ-xxx
+
+# 2. Exécuter les tests exportés
+npm test
+
+# 3. Importer les résultats dans Xray
+npm run xray:import AQ-xxx
+```
+
+### Workflow d'exécution par version
+
+```
+1. Vérifier que le code est committé et poussé sur Bitbucket
+2. Lancer l'environnement (DB + API + Frontend)
+3. cd tests/e2e
+4. npm run test:smoke           → L1 doit être 100% OK
+5. npm run xray:export AQ-xxx  → Exporter les Gherkin de la Test Execution
+6. npm test                     → Exécuter tous les tests
+7. npm run xray:import AQ-xxx  → Importer les résultats dans Xray
+8. Si tests FAILED → créer bugs, corriger, répéter
+9. npm run test:regression      → Non-régression
+10. Tous PASSED → version validée
+```
+
+### Rédaction des tests Gherkin
+
+Les tests Gherkin doivent être rédigés dans le **champ dédié Xray** (pas dans la description Jira).
+Les step definitions génériques disponibles couvrent :
+
+| Catégorie | Steps disponibles |
+|---|---|
+| Auth | `l'utilisateur est authentifie en tant que`, `se connecte avec`, `se deconnecte` |
+| API | `requete GET/POST/PUT/DELETE est envoyee a`, `le code de reponse est`, `la reponse contient` |
+| Navigation | `l'utilisateur est sur la page`, `navigue vers`, `clique sur`, `remplit le champ` |
+| Assertions | `la page affiche`, `le tableau contient N lignes`, `un message s'affiche` |
+| Smoke | `l'API est accessible`, `le frontend est accessible`, `le login retourne un token` |
+
+Les steps doivent être en français, sans accents (pour la compatibilité Cucumber) :
+- `l'utilisateur est authentifie en tant que "administrateur"` (pas "authentifié")
+- `une requete GET est envoyee a "/api/..."` (pas "requête", "envoyée")
+
+Pour les steps métier spécifiques, créer de nouveaux fichiers dans `step-definitions/`.
+
 ## Métriques de qualité
 
 À produire pour chaque version :
@@ -216,6 +293,7 @@ dotnet test  # Exécute tous les tests xUnit
 
 | Skill | Fichier | Usage |
 |---|---|---|
-| Execute Gherkin Tests | `.claude/skills/execute-gherkin-tests.md` | Exécution automatisée des tests Gherkin dans l'application |
+| Execute Gherkin Tests | `.claude/skills/execute-gherkin-tests.md` | Exécution automatisée via Chrome MCP (fallback) |
 
-Pour exécuter les tests d'une version, invoquer le skill `execute-gherkin-tests` avec le numéro de la Test Execution Xray.
+Le mode principal d'exécution est via Playwright + Cucumber (`tests/e2e/`).
+Le skill Chrome MCP est un fallback pour les tests interactifs ou exploratoires.
