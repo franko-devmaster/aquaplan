@@ -41,20 +41,28 @@ internal class AnalysisProgramService(
 
     public async Task<AnalysisProgramDto?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default)
     {
-        return await dbContext.AnalysisPrograms
+        var program = await dbContext.AnalysisPrograms
+            .Include(p => p.AnalysisProgramProfiles)
+                .ThenInclude(pp => pp.AnalysisProfile)
             .Where(p => p.Id == id && p.TenantId == tenantId)
-            .Select(p => new AnalysisProgramDto(
-                p.Id, p.Code, p.Name, p.Description, p.IsActive, p.CreatedAt,
-                p.AnalysisProgramProfiles
-                    .Select(pp => new AnalysisProfileListDto(
-                        pp.AnalysisProfile!.Id,
-                        pp.AnalysisProfile.Code,
-                        pp.AnalysisProfile.Name,
-                        pp.AnalysisProfile.Category,
-                        pp.AnalysisProfile.IsActive))
-                    .OrderBy(pp => pp.Code)
-                    .ToList()))
             .FirstOrDefaultAsync(cancellationToken);
+
+        if (program is null)
+        {
+            return null;
+        }
+
+        return new AnalysisProgramDto(
+            program.Id, program.Code, program.Name, program.Description, program.IsActive, program.CreatedAt,
+            program.AnalysisProgramProfiles
+                .Select(pp => new AnalysisProfileListDto(
+                    pp.AnalysisProfile!.Id,
+                    pp.AnalysisProfile.Code,
+                    pp.AnalysisProfile.Name,
+                    pp.AnalysisProfile.Category,
+                    pp.AnalysisProfile.IsActive))
+                .OrderBy(pp => pp.Code)
+                .ToList());
     }
 
     public async Task<AnalysisProgramDto> CreateAsync(AnalysisProgramAddDto dto, Guid tenantId, CancellationToken cancellationToken = default)

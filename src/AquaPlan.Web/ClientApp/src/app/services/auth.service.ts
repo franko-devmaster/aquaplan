@@ -28,12 +28,22 @@ export class AuthService {
   readonly currentUser = signal<UserInfo | null>(null);
   readonly isAuthenticated = computed(() => this.accessToken() !== null);
 
+  private _userLoaded: Promise<void> = Promise.resolve();
+
   constructor() {
     const token = sessionStorage.getItem('access_token');
     if (token) {
       this.accessToken.set(token);
-      this.loadCurrentUser();
+      this._userLoaded = this.loadCurrentUser();
     }
+  }
+
+  /**
+   * Wait for the initial user load to complete.
+   * Guards should call this before checking currentUser().
+   */
+  whenUserLoaded(): Promise<void> {
+    return this._userLoaded;
   }
 
   async login(email: string, password: string): Promise<boolean> {
@@ -72,7 +82,7 @@ export class AuthService {
     sessionStorage.setItem('access_token', accessToken);
     sessionStorage.setItem('refresh_token', refreshToken);
     this.accessToken.set(accessToken);
-    this.loadCurrentUser();
+    this._userLoaded = this.loadCurrentUser();
   }
 
   private async loadCurrentUser(): Promise<void> {
