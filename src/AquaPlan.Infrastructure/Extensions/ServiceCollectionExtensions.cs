@@ -40,6 +40,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOidcUserService, OidcUserService>();
         services.AddScoped<IAnalysisProfileService, AnalysisProfileService>();
         services.AddScoped<IAnalysisProgramService, AnalysisProgramService>();
+        services.AddScoped<ISamplingLocationChangeRequestService, SamplingLocationChangeRequestService>();
 
         return services;
     }

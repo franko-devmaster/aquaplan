@@ -14,6 +14,7 @@
     "users": "Utilisateurs",
     "roles": "Rôles",
     "orderStatus": "Statuts de mandat",
+    "validationQueue": "Validation LDP",
     "analysisCatalog": "Catalogue d'analyses",
     "analysisProfiles": "Profils d'analyse",
     "analysisPrograms": "Programmes d'analyse",
@@ -151,6 +152,28 @@
     "allDistributors": "Tous les distributeurs",
     "allStatuses": "Tous les statuts",
     "searchPlaceholder": "Rechercher par nom ou code"
+  },
+  "changeRequests": {
+    "title": "Validation des demandes de modification",
+    "pending": "En attente",
+    "myRequests": "Mes demandes",
+    "create": "Cr\u00e9ation",
+    "update": "Modification",
+    "deactivate": "D\u00e9sactivation",
+    "approve": "Approuver",
+    "reject": "Rejeter",
+    "approved": "Approuv\u00e9e",
+    "rejected": "Rejet\u00e9e",
+    "proposedName": "Nom propos\u00e9",
+    "proposedCode": "Code propos\u00e9",
+    "requestedBy": "Demand\u00e9 par",
+    "reviewedBy": "Examin\u00e9 par",
+    "reviewComment": "Commentaire",
+    "confirmApprove": "\u00cates-vous s\u00fbr de vouloir approuver cette demande ?",
+    "confirmReject": "Motif du rejet",
+    "rejectCommentRequired": "Un commentaire est requis pour rejeter une demande",
+    "noRequestsPending": "Aucune demande en attente",
+    "submitRequest": "Soumettre la demande"
   },
   "analysisCatalog": {
     "categories": {

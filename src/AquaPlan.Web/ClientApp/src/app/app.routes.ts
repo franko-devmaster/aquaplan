@@ -9,6 +9,7 @@ import { DistributorListComponent } from './pages/distributors/distributor-list.
 import { UserListComponent } from './pages/admin/users/user-list.component';
 import { RoleListComponent } from './pages/admin/roles/role-list.component';
 import { OrderStatusComponent } from './pages/admin/order-status/order-status.component';
+import { ValidationQueueComponent } from './pages/admin/validation-queue/validation-queue.component';
 import { AuthCallbackComponent } from './pages/auth-callback/auth-callback.component';
 import { AnalysisProfilesComponent } from './pages/analysis-catalog/analysis-profiles.component';
 import { AnalysisProgramsComponent } from './pages/analysis-catalog/analysis-programs.component';
@@ -33,6 +34,7 @@ export const routes: Routes = [
       { path: 'admin/users', component: UserListComponent, canActivate: [featureGuard(['Administrator'])] },
       { path: 'admin/roles', component: RoleListComponent, canActivate: [featureGuard(['Administrator'])] },
       { path: 'admin/order-status', component: OrderStatusComponent, canActivate: [featureGuard(['Administrator'])] },
+      { path: 'admin/validation-queue', component: ValidationQueueComponent, canActivate: [featureGuard(['Administrator'])] },
     ],
   },
 ];

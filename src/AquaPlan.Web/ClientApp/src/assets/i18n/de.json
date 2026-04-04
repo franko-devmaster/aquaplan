@@ -14,6 +14,7 @@
     "users": "Benutzer",
     "roles": "Rollen",
     "orderStatus": "Auftragsstatus",
+    "validationQueue": "Validierung PNO",
     "settings": "Einstellungen"
   },
   "auth": {
@@ -127,6 +128,28 @@
       "completed": "Auftrag vollständig abgeschlossen",
       "cancelled": "Auftrag abgebrochen"
     }
+  },
+  "changeRequests": {
+    "title": "Validierung der \u00c4nderungsanfragen",
+    "pending": "Ausstehend",
+    "myRequests": "Meine Anfragen",
+    "create": "Erstellung",
+    "update": "\u00c4nderung",
+    "deactivate": "Deaktivierung",
+    "approve": "Genehmigen",
+    "reject": "Ablehnen",
+    "approved": "Genehmigt",
+    "rejected": "Abgelehnt",
+    "proposedName": "Vorgeschlagener Name",
+    "proposedCode": "Vorgeschlagener Code",
+    "requestedBy": "Angefragt von",
+    "reviewedBy": "\u00dcberpr\u00fcft von",
+    "reviewComment": "Kommentar",
+    "confirmApprove": "M\u00f6chten Sie diese Anfrage wirklich genehmigen?",
+    "confirmReject": "Ablehnungsgrund",
+    "rejectCommentRequired": "Ein Kommentar ist erforderlich, um eine Anfrage abzulehnen",
+    "noRequestsPending": "Keine ausstehenden Anfragen",
+    "submitRequest": "Anfrage einreichen"
   },
   "samplingLocations": {
     "title": "Probenahmeorte",
