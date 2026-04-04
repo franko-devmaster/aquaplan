@@ -1,0 +1,27 @@
+{
+  "name": "aquaplan-e2e",
+  "version": "0.3.0",
+  "private": true,
+  "description": "AquaPlan E2E tests — Playwright + Cucumber + Xray integration",
+  "scripts": {
+    "test": "cucumber-js",
+    "test:smoke": "cucumber-js --tags @smoke",
+    "test:api": "cucumber-js --tags @api",
+    "test:ui": "cucumber-js --tags @ui",
+    "test:e2e": "cucumber-js --tags @e2e",
+    "test:regression": "cucumber-js --tags @regression",
+    "xray:export": "node scripts/xray-export.mjs",
+    "xray:import": "node scripts/xray-import.mjs",
+    "report": "node scripts/generate-report.mjs"
+  },
+  "dependencies": {
+    "@cucumber/cucumber": "^11.2.0",
+    "@playwright/test": "^1.52.0",
+    "dotenv": "^16.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.0",
+    "typescript": "~5.7.2"
+  }
+}

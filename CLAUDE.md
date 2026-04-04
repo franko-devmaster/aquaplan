@@ -195,6 +195,29 @@ This project uses specialized Claude Code agents for different roles. Agent defi
 | Xray Test Manager | Xray Cloud operations, test suites, executions, Gherkin | `/.claude/agents/xray-tester.md` |
 | Jira Updater | Jira status transitions, story/epic propagation, Git workflow | `/.claude/agents/jira-updater.md` |
 
+## Skills
+
+Skills are reusable workflows in `/.claude/skills/`.
+
+| Skill | Description | File |
+|---|---|---|
+| Execute Gherkin Tests | Automated execution of Xray Gherkin scenarios in the running app | `/.claude/skills/execute-gherkin-tests.md` |
+
+## Quality Assurance Process
+
+### Test Levels (L1–L4)
+- **L1 Smoke**: API health, frontend accessible, login works — executed before any test campaign
+- **L2 API**: Backend Gherkin scenarios executed via real HTTP calls
+- **L3 UI**: Frontend Gherkin scenarios executed via Chrome MCP in the browser
+- **L4 E2E**: Cross-layer scenarios (API + UI combined)
+
+### Key Rules
+- Tests must be executed **in the real application**, not just validated by reading code
+- A test not executed in the app must be marked TO DO, never PASSED
+- Smoke tests (L1) must pass before starting L2/L3/L4
+- EF Core InMemory tests do NOT validate PostgreSQL LINQ translation — be aware of divergence
+- Frontend async race conditions must be tested with real navigation (not just unit tests)
+
 ## LIMS Integration
 
 AquaPlan integrates with **Limsophy** (by AAC Infotray) for laboratory data exchange:

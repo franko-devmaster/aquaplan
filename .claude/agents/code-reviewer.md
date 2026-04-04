@@ -41,9 +41,17 @@ Guardian of code quality, conventions enforcement, and security compliance for A
 - [ ] No unnecessary file changes (formatting-only commits)
 - [ ] Branch naming follows `feature/`, `bugfix/`, `hotfix/` convention
 
+### Quality Assurance
+- [ ] EF Core queries tested against PostgreSQL (not just InMemory) for complex projections
+- [ ] No `.ToList()` inside `.Select()` projection in EF Core queries (InMemory hides this bug)
+- [ ] Async operations properly awaited in Angular guards and interceptors
+- [ ] No circular DI in Angular (especially in HTTP interceptors)
+- [ ] Frontend authentication flow tested end-to-end (login → guard → page render)
+- [ ] Smoke test performed: API health + login + basic navigation
+
 ## Severity Levels
 
-- **Blocker**: Security vulnerability, data leak, broken auth → must fix before merge
+- **Blocker**: Security vulnerability, data leak, broken auth, LINQ translation bug → must fix before merge
 - **Major**: Missing tests, convention violation, performance issue → should fix before merge
 - **Minor**: Style preference, naming suggestion → can fix in follow-up
 - **Info**: Knowledge sharing, alternative approach suggestion → no action required

@@ -257,12 +257,60 @@ AQ-161→AQ-83, AQ-162→AQ-49, AQ-163→AQ-50, AQ-164→AQ-51, AQ-165→AQ-53
 3. Créer le Test Plan `TP - AquaPlan vX.Y`
 4. Créer la Test Execution `TE - AquaPlan vX.Y (DATE)`
 5. Lancer l'environnement local (docker compose up -d aquaplan-db, dotnet run, ng serve)
-6. Exécuter les tests (Chrome MCP pour FE, CLI/API pour BE)
-7. Importer les résultats dans Xray
-8. Si FAILED : créer Bug, lier au test run, créer Re-test Execution
-9. Créer `TE - Non-régression vX.Y (DATE)` avec les suites des versions précédentes
-10. Exécuter la non-régression
-11. Mettre à jour le Test Plan avec toutes les exécutions
+6. **L1 Smoke tests** : vérifier API health, login, frontend accessible
+7. **L2 Tests API** : exécuter les Gherkin backend via curl (voir skill `execute-gherkin-tests`)
+8. **L3 Tests UI** : exécuter les Gherkin frontend via Chrome MCP (voir skill `execute-gherkin-tests`)
+9. Importer les résultats dans Xray
+10. Si FAILED : créer Bug, lier au test run, créer Re-test Execution
+11. Créer `TE - Non-régression vX.Y (DATE)` avec les suites des versions précédentes
+12. Exécuter la non-régression (L1 → L2 → L3)
+13. Mettre à jour le Test Plan avec toutes les exécutions
+
+## Récupérer les Gherkin d'une Test Execution
+
+Pour exécuter automatiquement les tests, récupérer les scénarios Gherkin :
+
+```graphql
+{
+  getTestExecution(issueId: "<EXEC_INTERNAL_ID>") {
+    issueId
+    testRuns(limit: 100) {
+      results {
+        id
+        status { name }
+        test {
+          issueId
+          jira(fields: ["key", "summary"])
+          testType { name }
+          gherkin
+        }
+      }
+    }
+  }
+}
+```
+
+Pour obtenir l'ID interne Xray d'un issue Jira :
+```graphql
+{
+  getTests(jql: "key = AQ-XXX", limit: 1) {
+    results {
+      issueId
+      jira(fields: ["key", "summary"])
+      testType { name }
+      gherkin
+    }
+  }
+}
+```
+
+## Règle d'exécution réelle
+
+**IMPORTANT** : Les tests Gherkin doivent être exécutés **dans l'application réelle** :
+- Tests backend → appels HTTP réels vers `http://localhost:5002/api/...`
+- Tests frontend → actions réelles via Chrome MCP sur `http://localhost:4200`
+- Un test non exécuté dans l'app est marqué **TO DO**, jamais PASSED
+- Le commentaire Xray doit détailler chaque step (✅ ou ❌) avec les résultats concrets
 
 ## Environnement local pour l'exécution
 

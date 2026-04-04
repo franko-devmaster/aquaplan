@@ -48,6 +48,25 @@ services:
     networks:
       - aquaplan-net
 
+  aquaplan-e2e:
+    build:
+      context: .
+      dockerfile: tests/e2e/Dockerfile
+    container_name: aquaplan-e2e
+    environment:
+      BASE_URL: http://aquaplan-web
+      API_URL: http://aquaplan-api:8080
+      HEADLESS: "true"
+    depends_on:
+      - aquaplan-api
+      - aquaplan-web
+    volumes:
+      - ./tests/e2e/reports:/app/reports
+    networks:
+      - aquaplan-net
+    profiles:
+      - e2e
+
 networks:
   aquaplan-net:
     driver: bridge

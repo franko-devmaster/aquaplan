@@ -110,3 +110,29 @@ cd src/AquaPlan.Web/ClientApp && npm install
 - After completing a version, notify the QA Lead for test execution
 - Fix bugs found during test execution (linked to test runs in Xray)
 - Re-test cycle: QA creates re-test execution, DEV fixes, QA re-executes
+
+### Quality Checklist Before Handoff to QA
+
+Before declaring a version complete and handing off to QA, the DEV Senior MUST:
+
+1. **Build verification**:
+   - `dotnet build AquaPlan.slnx` → 0 errors
+   - `dotnet test AquaPlan.slnx` → all tests green
+   - `cd src/AquaPlan.Web/ClientApp && ng build` → 0 errors
+
+2. **Quick smoke test**:
+   - Start the full stack (DB + API + UI)
+   - Verify `/api/health` returns 200
+   - Verify login works with test credentials
+   - Navigate to the main page and verify basic rendering
+
+3. **LINQ translation awareness**:
+   - EF Core InMemory provider does NOT validate PostgreSQL LINQ translation
+   - Complex `.Select()` projections with `.ToList()` inside may fail on PostgreSQL
+   - Use `Include/ThenInclude` + client-side mapping for complex queries
+   - When in doubt, test the actual query against PostgreSQL before merging
+
+4. **Frontend async considerations**:
+   - Verify that all guards properly await async operations
+   - Check for race conditions between service initialization and component rendering
+   - Test authentication flow end-to-end (login → redirect → data loading)
