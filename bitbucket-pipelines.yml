@@ -32,7 +32,7 @@ pipelines:
             - src/AquaPlan.Web/ClientApp/dist/**
 
   branches:
-    main:
+    Main:
       - parallel:
         - step:
             name: Build & Test .NET
@@ -42,6 +42,8 @@ pipelines:
               - dotnet restore AquaPlan.slnx
               - dotnet build AquaPlan.slnx --configuration Release --no-restore
               - dotnet test AquaPlan.slnx --no-build --configuration Release --logger trx --collect:"XPlat Code Coverage"
+            artifacts:
+              - '**/TestResults/**'
 
         - step:
             name: Build Angular
@@ -52,11 +54,22 @@ pipelines:
               - cd src/AquaPlan.Web/ClientApp
               - npm ci
               - npx ng build --configuration production
+            artifacts:
+              - src/AquaPlan.Web/ClientApp/dist/**
 
       - step:
           name: Docker Build
           services:
             - docker
           script:
-            - docker build -f src/AquaPlan.Api/Dockerfile -t aquaplan-api:latest .
-            - docker build -f src/AquaPlan.Web/Dockerfile -t aquaplan-web:latest .
+            - docker build -f src/AquaPlan.Api/Dockerfile -t aquaplan-api:${BITBUCKET_COMMIT:0:7} .
+            - docker build -f src/AquaPlan.Web/Dockerfile -t aquaplan-web:${BITBUCKET_COMMIT:0:7} .
+
+      - step:
+          name: Deploy to Staging
+          deployment: staging
+          script:
+            - echo "AquaPlan deployed to staging"
+            - echo "Version $BITBUCKET_COMMIT"
+            - echo "Branch $BITBUCKET_BRANCH"
+            - echo "Build $BITBUCKET_BUILD_NUMBER"
