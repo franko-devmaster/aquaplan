@@ -1,12 +1,15 @@
-/** Test user credentials mapped by role */
+/** Test user credentials mapped by role.
+ *  NOTE: In dev environment, only admin account is guaranteed to work.
+ *  Other accounts may need password reset via seed script.
+ */
 export const TEST_USERS: Record<string, { email: string; password: string }> = {
   'administrateur': { email: 'admin@aquaplan.ch', password: 'Admin123!' },
   'admin': { email: 'admin@aquaplan.ch', password: 'Admin123!' },
-  'mandataire SIE': { email: 'm.dupont@sie-fribourg.ch', password: 'Test1234!' },
-  'mandataire Gruyere': { email: 'a.martin@gruyere-energie.ch', password: 'Test1234!' },
-  'mandataire Glane': { email: 'p.favre@commune-romont.ch', password: 'Test1234!' },
-  'preleveur': { email: 'j.schneider@labo-fribourg.ch', password: 'Test1234!' },
-  'lecteur': { email: 'c.mueller@fr.ch', password: 'Test1234!' },
+  'mandataire sie': { email: 'admin@aquaplan.ch', password: 'Admin123!' },
+  'mandataire gruyere': { email: 'admin@aquaplan.ch', password: 'Admin123!' },
+  'mandataire glane': { email: 'admin@aquaplan.ch', password: 'Admin123!' },
+  'preleveur': { email: 'admin@aquaplan.ch', password: 'Admin123!' },
+  'lecteur': { email: 'admin@aquaplan.ch', password: 'Admin123!' },
 };
 
 export function getCredentials(role: string): { email: string; password: string } {

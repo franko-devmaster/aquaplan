@@ -85,25 +85,40 @@ Pour chaque version vX.Y :
 ### Workflow par version (à partir de v0.3)
 
 ```
- 1. DEV termine la version → code mergé sur main
- 2. QA Lead crée le Test Set vX.Y
- 3. QA Lead crée les tests (Gherkin dans champ dédié, type Cucumber)
- 4. QA Lead crée le Test Plan + Test Execution
- 5. QA Lead lance l'environnement local (API + UI + DB)
- 6. QA Lead exécute L1 Smoke Tests → doit être 100% OK
- 7. QA Lead exécute L2 API Tests (Gherkin backend) via curl
- 8. QA Lead exécute L3 UI Tests (Gherkin frontend) via Chrome MCP
- 9. QA Lead exécute L4 E2E Tests si applicable
-10. Importer les résultats dans Xray
-11. Tests FAILED → créer Bug + lier au test run via addDefectsToTestRun
-12. QA Lead crée la non-régression (suites v0.1 + v0.2 + ... + v(X.Y-1))
-13. QA Lead exécute la non-régression (L1 → L2 → L3)
-14. Tests FAILED → créer Bug (régression) + lier au test run
-15. DEV corrige les bugs
-16. QA Lead crée Re-test avec les tests échoués
-17. QA Lead ré-exécute → répéter jusqu'à 100% PASSED
-18. Tous PASSED → version validée
+ 1. DEV termine la version → code committé et poussé sur Bitbucket
+ 2. QA Lead crée le Test Set vX.Y + tests Gherkin dans Xray
+ 3. QA Lead crée le Test Plan vX.Y + Test Execution vX.Y
+ 4. Lancer l'environnement (API + UI + DB)
+ 5. cd tests/e2e && npm run xray:export AQ-xxx (exporter Gherkin de l'exécution)
+ 6. npm run test:smoke → L1 doit être 100% OK
+ 7. npm test → exécuter tous les tests (L2 + L3 + L4)
+ 8. npm run xray:import AQ-xxx → importer les résultats dans Xray
+ 9. Tests FAILED → créer Bug + lier au test run
+10. ** Mettre à jour le plan de non-régression AQ-194 ** :
+    a. Ajouter les nouveaux tests de la version au plan AQ-194
+    b. Créer une nouvelle Test Execution : TE - Non-régression globale (date)
+    c. Lier la nouvelle exécution au plan AQ-194
+11. Exécuter la non-régression :
+    a. npm run xray:export AQ-yyy (exporter Gherkin de l'exécution non-régression)
+    b. npm test → exécuter TOUS les tests (nouvel incrément + tous les précédents)
+    c. npm run xray:import AQ-yyy → importer les résultats
+12. Tests FAILED → créer Bug (régression) + corriger
+13. Re-test → répéter jusqu'à 100% PASSED
+14. Tous PASSED → version validée
 ```
+
+### Plan de non-régression (AQ-194)
+
+Le plan de non-régression **AQ-194** (`TP - Non-régression AquaPlan`) est le plan cumulatif qui contient TOUS les tests de toutes les versions. Il est mis à jour à chaque itération :
+
+- **Contenu** : tous les tests existants (v0.1 + v0.2 + v0.3a + v0.3b + ...)
+- **Mise à jour** : à la fin de chaque version, ajouter les nouveaux tests
+- **Exécution** : créer une nouvelle TE à chaque itération, liée au plan AQ-194
+- **Objectif** : garantir qu'aucune régression n'est introduite par les nouveaux développements
+
+**Règle** : à la fin de chaque lot de développement, deux exécutions de tests sont requises :
+1. **Tests du nouvel incrément** : uniquement les tests de la version en cours (ex: TE - AquaPlan v0.4)
+2. **Tests de non-régression** : TOUS les tests cumulés (ex: TE - Non-régression globale)
 
 ### Critères de validation d'une version
 - L1 Smoke tests : 100% OK

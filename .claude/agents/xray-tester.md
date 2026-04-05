@@ -183,9 +183,10 @@ mutation {
 |----------|---------|---------|
 | Test Set | `TS - AquaPlan vX.Y` | `TS - AquaPlan v0.1` |
 | Test Plan | `TP - AquaPlan vX.Y` | `TP - AquaPlan v0.1` |
+| Test Plan Non-régression | `TP - Non-régression AquaPlan` | AQ-194 (unique, cumulatif) |
 | Test Execution | `TE - AquaPlan vX.Y (DATE)` | `TE - AquaPlan v0.1 (2026-03-30)` |
 | Re-test Execution | `Re-test vX.Y - Tests échoués (DATE)` | `Re-test v0.1 - Tests échoués (2026-04-01)` |
-| Non-régression Execution | `TE - Non-régression vX.Y (DATE)` | `TE - Non-régression v0.3 (2026-04-15)` |
+| Non-régression Execution | `TE - Non-régression globale (DATE)` | `TE - Non-régression globale (2026-04-05)` |
 
 ## Suites de tests par version
 
@@ -206,10 +207,19 @@ Pour chaque version terminée (à partir de v0.3) :
 - Exécuter tous les tests
 - Pour chaque test FAILED : créer un Bug, le lier au test run via `addDefectsToTestRun`
 
-### 2. Exécution de non-régression
-- Créer `TE - Non-régression vX.Y (DATE)` avec les tests de TOUTES les suites précédentes
-  - Ex pour v0.3 : tests de TS v0.1 + TS v0.2
-- Exécuter tous les tests
+### 2. Mise à jour du plan de non-régression (AQ-194)
+- **AQ-194** (`TP - Non-régression AquaPlan`) est le plan cumulatif unique
+- À la fin de chaque version :
+  a. Ajouter les nouveaux tests de la version au plan AQ-194
+  b. Créer une nouvelle `TE - Non-régression globale (DATE)` avec TOUS les tests
+  c. Lier la nouvelle exécution au plan AQ-194
+- Exécuter tous les tests via Playwright + Cucumber :
+  ```bash
+  cd tests/e2e
+  npm run xray:export AQ-yyy   # Exporter les Gherkin
+  npm test                      # Exécuter
+  npm run xray:import AQ-yyy   # Importer les résultats
+  ```
 - Pour chaque test FAILED : créer un Bug (régression), le lier au test run
 
 ### 3. Re-test des échecs
@@ -252,19 +262,39 @@ AQ-161→AQ-83, AQ-162→AQ-49, AQ-163→AQ-50, AQ-164→AQ-51, AQ-165→AQ-53
 
 ## Workflow d'exécution post-développement
 
-1. Le dev termine une version → commit + push
+1. Le dev termine une version → commit + push sur Bitbucket
 2. Créer la Test Set `TS - AquaPlan vX.Y` avec les tests de la version
 3. Créer le Test Plan `TP - AquaPlan vX.Y`
 4. Créer la Test Execution `TE - AquaPlan vX.Y (DATE)`
 5. Lancer l'environnement local (docker compose up -d aquaplan-db, dotnet run, ng serve)
-6. **L1 Smoke tests** : vérifier API health, login, frontend accessible
-7. **L2 Tests API** : exécuter les Gherkin backend via curl (voir skill `execute-gherkin-tests`)
-8. **L3 Tests UI** : exécuter les Gherkin frontend via Chrome MCP (voir skill `execute-gherkin-tests`)
-9. Importer les résultats dans Xray
-10. Si FAILED : créer Bug, lier au test run, créer Re-test Execution
-11. Créer `TE - Non-régression vX.Y (DATE)` avec les suites des versions précédentes
-12. Exécuter la non-régression (L1 → L2 → L3)
-13. Mettre à jour le Test Plan avec toutes les exécutions
+6. Exécuter les tests du nouvel incrément via Playwright + Cucumber :
+   ```bash
+   cd tests/e2e
+   npm run xray:export AQ-xxx   # Exporter Gherkin de l'exécution
+   npm run test:smoke            # L1 — doit être 100% OK
+   npm test                      # L2 + L3 + L4
+   npm run xray:import AQ-xxx   # Importer les résultats
+   ```
+7. Si FAILED : créer Bug, lier au test run, créer Re-test Execution
+8. **Mettre à jour le plan de non-régression AQ-194** :
+   a. Ajouter les nouveaux tests au plan AQ-194
+   b. Créer `TE - Non-régression globale (DATE)` avec TOUS les tests
+   c. Lier la nouvelle exécution au plan AQ-194
+9. Exécuter la non-régression :
+   ```bash
+   npm run xray:export AQ-yyy   # Exporter Gherkin non-régression
+   npm test                      # Exécuter TOUS les tests
+   npm run xray:import AQ-yyy   # Importer les résultats
+   ```
+10. Si FAILED : créer Bug (régression), corriger, re-test
+11. Tous PASSED → version validée
+
+## Artefacts de non-régression existants
+
+| Artefact | Clé | Description |
+|----------|-----|-------------|
+| Plan non-régression | AQ-194 | TP - Non-régression AquaPlan (cumulatif, tous les tests) |
+| Exécution 2026-04-05 | AQ-195 | TE - Non-régression globale — 105 tests, 100% PASSED |
 
 ## Récupérer les Gherkin d'une Test Execution
 

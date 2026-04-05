@@ -1,15 +1,18 @@
-import { Before, After, BeforeAll, AfterAll, BeforeStep, Status } from '@cucumber/cucumber';
+import { Before, After, BeforeAll, AfterAll, Status } from '@cucumber/cucumber';
 import { chromium, Browser } from '@playwright/test';
 import { AquaPlanWorld } from './world.js';
 
 let sharedBrowser: Browser | null = null;
 
-BeforeAll(async function () {
-  sharedBrowser = await chromium.launch({
-    headless: process.env.HEADLESS !== 'false',
-    slowMo: process.env.SLOW_MO ? parseInt(process.env.SLOW_MO, 10) : 0,
-  });
-});
+async function getOrLaunchBrowser(): Promise<Browser> {
+  if (!sharedBrowser) {
+    sharedBrowser = await chromium.launch({
+      headless: process.env.HEADLESS !== 'false',
+      slowMo: process.env.SLOW_MO ? parseInt(process.env.SLOW_MO, 10) : 0,
+    });
+  }
+  return sharedBrowser;
+}
 
 AfterAll(async function () {
   if (sharedBrowser) {
@@ -19,10 +22,8 @@ AfterAll(async function () {
 });
 
 Before({ tags: '@ui or @e2e' }, async function (this: AquaPlanWorld) {
-  if (!sharedBrowser) {
-    throw new Error('Browser not initialized');
-  }
-  this.browser = sharedBrowser;
+  const browser = await getOrLaunchBrowser();
+  this.browser = browser;
   this.context = await this.browser.newContext({
     viewport: { width: 1280, height: 720 },
     locale: 'fr-CH',
