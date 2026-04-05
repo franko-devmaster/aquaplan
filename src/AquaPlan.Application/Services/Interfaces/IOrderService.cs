@@ -4,10 +4,11 @@ namespace AquaPlan.Application.Services.Interfaces;
 
 public interface IOrderService
 {
-    Task<IList<OrderListDto>> GetOrdersForUserAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default);
-    Task<IList<OrderListDto>> GetAllOrdersAsync(Guid tenantId, CancellationToken cancellationToken = default);
+    Task<OrderPagedResultDto> GetOrdersFilteredAsync(string userId, Guid tenantId, OrderFilterDto filter, bool isAdmin, CancellationToken cancellationToken = default);
     Task<OrderDetailDto?> GetOrderByIdAsync(Guid orderId, Guid tenantId, CancellationToken cancellationToken = default);
     Task<OrderDetailDto> CreateOrderAsync(OrderCreateDto dto, string createdById, Guid tenantId, CancellationToken cancellationToken = default);
+    Task<OrderDetailDto?> UpdateOrderAsync(Guid orderId, OrderUpdateDto dto, string updatedBy, Guid tenantId, CancellationToken cancellationToken = default);
+    Task<bool> DeleteOrderAsync(Guid orderId, string deletedBy, Guid tenantId, CancellationToken cancellationToken = default);
     Task<OrderDetailDto?> AssignPreleveurAsync(Guid orderId, OrderAssignDto dto, string updatedBy, Guid tenantId, CancellationToken cancellationToken = default);
     Task<bool> UserHasDistributorAccessAsync(string userId, Guid distributorId, CancellationToken cancellationToken = default);
     Task<bool> UserCanAccessOrderAsync(string userId, Guid orderId, Guid tenantId, CancellationToken cancellationToken = default);

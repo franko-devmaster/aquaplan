@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using AquaPlan.Application.DTOs.Orders;
 using AquaPlan.Application.Services.Interfaces;
+using AquaPlan.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,18 +17,24 @@ public class OrdersController(
     ILogger<OrdersController> logger) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IList<OrderListDto>>> GetOrders(CancellationToken cancellationToken)
+    public async Task<ActionResult<OrderPagedResultDto>> GetOrders(
+        [FromQuery] List<OrderStatus>? statuses,
+        [FromQuery] bool? isUnassigned,
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] bool sortDescending = true,
+        CancellationToken cancellationToken = default)
     {
         var userId = GetUserId();
         var tenantId = GetTenantId();
+        var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
 
-        // Admins see all orders; others see only their own
-        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
-        var orders = hasViewAll
-            ? await orderService.GetAllOrdersAsync(tenantId, cancellationToken)
-            : await orderService.GetOrdersForUserAsync(userId, tenantId, cancellationToken);
+        var filter = new OrderFilterDto(statuses, isUnassigned, search, page, pageSize, sortBy, sortDescending);
+        var result = await orderService.GetOrdersFilteredAsync(userId, tenantId, filter, isAdmin, cancellationToken);
 
-        return Ok(orders);
+        return Ok(result);
     }
 
     [HttpGet("{id:guid}")]
@@ -42,7 +49,6 @@ public class OrdersController(
             return NotFound();
         }
 
-        // Per-resource authorization: admin bypasses, others must have access
         var hasViewAll = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
         if (!hasViewAll)
         {
@@ -62,7 +68,6 @@ public class OrdersController(
         var userId = GetUserId();
         var tenantId = GetTenantId();
 
-        // Validate user has access to the distributor (admin bypasses)
         var hasViewAll = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
         if (!hasViewAll)
         {
@@ -75,6 +80,70 @@ public class OrdersController(
 
         var order = await orderService.CreateOrderAsync(dto, userId, tenantId, cancellationToken);
         return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
+    }
+
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<OrderDetailDto>> UpdateOrder(Guid id, [FromBody] OrderUpdateDto dto, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+
+        // Verify access
+        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        if (!hasViewAll)
+        {
+            var canAccess = await orderService.UserCanAccessOrderAsync(userId, id, tenantId, cancellationToken);
+            if (!canAccess)
+            {
+                return Forbid();
+            }
+        }
+
+        try
+        {
+            var order = await orderService.UpdateOrderAsync(id, dto, userId, tenantId, cancellationToken);
+            if (order is null)
+            {
+                return NotFound();
+            }
+            return Ok(order);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult> DeleteOrder(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+
+        // Verify access
+        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        if (!hasViewAll)
+        {
+            var canAccess = await orderService.UserCanAccessOrderAsync(userId, id, tenantId, cancellationToken);
+            if (!canAccess)
+            {
+                return Forbid();
+            }
+        }
+
+        try
+        {
+            var deleted = await orderService.DeleteOrderAsync(id, userId, tenantId, cancellationToken);
+            if (!deleted)
+            {
+                return NotFound();
+            }
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpPost("{id:guid}/assign")]

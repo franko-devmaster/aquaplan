@@ -102,10 +102,22 @@
     "preleveur": "Préleveur",
     "createdBy": "Créé par",
     "createdAt": "Créé le",
+    "updatedAt": "Modifié le",
     "isUnplanned": "Hors planning",
+    "samplingLocation": "Lieu de prélèvement",
+    "plannedDate": "Date planifiée",
+    "notes": "Notes",
+    "analysisProfiles": "Profils d'analyse",
     "createOrder": "Créer un mandat",
+    "editOrder": "Modifier le mandat",
     "assignPreleveur": "Assigner un préleveur",
-    "details": "Détails du mandat"
+    "details": "Détails du mandat",
+    "searchPlaceholder": "Rechercher par n° de mandat, distributeur...",
+    "unassignedOnly": "Non assignés uniquement",
+    "deleteConfirmTitle": "Supprimer le mandat",
+    "deleteConfirmMessage": "Êtes-vous sûr de vouloir supprimer ce mandat ? Cette action est irréversible.",
+    "deleteSuccess": "Mandat supprimé avec succès",
+    "deleteError": "Erreur lors de la suppression du mandat"
   },
   "distributors": {
     "title": "Gestion des distributeurs",

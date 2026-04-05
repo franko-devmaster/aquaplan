@@ -95,10 +95,22 @@
     "preleveur": "Probenehmer",
     "createdBy": "Erstellt von",
     "createdAt": "Erstellt am",
+    "updatedAt": "Aktualisiert am",
     "isUnplanned": "Ungeplant",
+    "samplingLocation": "Probenahmeort",
+    "plannedDate": "Geplantes Datum",
+    "notes": "Notizen",
+    "analysisProfiles": "Analyseprofile",
     "createOrder": "Auftrag erstellen",
+    "editOrder": "Auftrag bearbeiten",
     "assignPreleveur": "Probenehmer zuweisen",
-    "details": "Auftragsdetails"
+    "details": "Auftragsdetails",
+    "searchPlaceholder": "Suche nach Auftragsnummer, Verteiler...",
+    "unassignedOnly": "Nur nicht zugewiesene",
+    "deleteConfirmTitle": "Auftrag löschen",
+    "deleteConfirmMessage": "Sind Sie sicher, dass Sie diesen Auftrag löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "deleteSuccess": "Auftrag erfolgreich gelöscht",
+    "deleteError": "Fehler beim Löschen des Auftrags"
   },
   "distributors": {
     "title": "Verteilerverwaltung",

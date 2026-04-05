@@ -14,6 +14,10 @@ public class Order
     public AppUser? Preleveur { get; set; }
     public Guid DistributorId { get; set; }
     public Distributor? Distributor { get; set; }
+    public Guid? SamplingLocationId { get; set; }
+    public SamplingLocation? SamplingLocation { get; set; }
+    public DateTime? PlannedDate { get; set; }
+    public string? Notes { get; set; }
     public Guid TenantId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
@@ -22,4 +26,5 @@ public class Order
     public string? StatusChangedBy { get; set; }
 
     public Sampling? Sampling { get; set; }
+    public ICollection<OrderAnalysisProfile> OrderAnalysisProfiles { get; set; } = new List<OrderAnalysisProfile>();
 }

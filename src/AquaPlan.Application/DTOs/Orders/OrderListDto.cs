@@ -13,4 +13,7 @@ public record OrderListDto(
     string? PreleveurName,
     Guid DistributorId,
     string DistributorName,
+    Guid? SamplingLocationId,
+    string? SamplingLocationName,
+    DateTime? PlannedDate,
     DateTime CreatedAt);

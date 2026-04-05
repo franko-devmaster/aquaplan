@@ -13,7 +13,17 @@ public record OrderDetailDto(
     string? PreleveurName,
     Guid DistributorId,
     string DistributorName,
+    Guid? SamplingLocationId,
+    string? SamplingLocationName,
+    DateTime? PlannedDate,
+    string? Notes,
+    List<OrderAnalysisProfileDto> AnalysisProfiles,
     Guid TenantId,
     DateTime CreatedAt,
     DateTime? UpdatedAt,
     SamplingDto? Sampling);
+
+public record OrderAnalysisProfileDto(
+    Guid AnalysisProfileId,
+    string Code,
+    string Name);

@@ -1,11 +1,10 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TranslateModule } from '@ngx-translate/core';
@@ -14,35 +13,22 @@ import { SamplingLocationApiService } from '../../services/sampling-location-api
 import { AnalysisProfileApiService } from '../../services/analysis-profile-api.service';
 import { SamplingLocationDto } from '../../models/sampling-location.model';
 import { AnalysisProfileListDto } from '../../models/analysis-profile.model';
+import { OrderDetailDto } from '../../models/order.model';
 import { firstValueFrom } from 'rxjs';
 
-interface DistributorOption {
-  id: string;
-  name: string;
-}
-
 @Component({
-  selector: 'app-order-create-dialog',
+  selector: 'app-order-edit-dialog',
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule,
-    MatSelectModule, MatButtonModule, MatCheckboxModule, MatDatepickerModule,
+    MatSelectModule, MatButtonModule, MatDatepickerModule,
     MatProgressSpinnerModule, TranslateModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h2 mat-dialog-title>{{ 'orders.createOrder' | translate }}</h2>
+    <h2 mat-dialog-title>{{ 'orders.editOrder' | translate }}</h2>
     <mat-dialog-content>
       <form [formGroup]="form" class="form-container">
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>{{ 'orders.distributor' | translate }}</mat-label>
-          <mat-select formControlName="distributorId" (selectionChange)="onDistributorChange()">
-            @for (dist of distributors(); track dist.id) {
-              <mat-option [value]="dist.id">{{ dist.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>{{ 'orders.samplingLocation' | translate }}</mat-label>
           <mat-select formControlName="samplingLocationId">
@@ -73,10 +59,6 @@ interface DistributorOption {
           <mat-label>{{ 'orders.notes' | translate }}</mat-label>
           <textarea matInput formControlName="notes" rows="3"></textarea>
         </mat-form-field>
-
-        <mat-checkbox formControlName="isUnplanned">
-          {{ 'orders.isUnplanned' | translate }}
-        </mat-checkbox>
       </form>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
@@ -86,7 +68,7 @@ interface DistributorOption {
         @if (saving()) {
           <mat-spinner diameter="20"></mat-spinner>
         } @else {
-          {{ 'common.create' | translate }}
+          {{ 'common.save' | translate }}
         }
       </button>
     </mat-dialog-actions>
@@ -96,14 +78,14 @@ interface DistributorOption {
     .full-width { width: 100%; }
   `],
 })
-export class OrderCreateDialogComponent implements OnInit {
-  private readonly dialogRef = inject(MatDialogRef<OrderCreateDialogComponent>);
+export class OrderEditDialogComponent implements OnInit {
+  private readonly dialogRef = inject(MatDialogRef<OrderEditDialogComponent>);
+  private readonly data: OrderDetailDto = inject(MAT_DIALOG_DATA);
   private readonly fb = inject(FormBuilder);
   private readonly orderStore = inject(OrderDatastore);
   private readonly locationApi = inject(SamplingLocationApiService);
   private readonly profileApi = inject(AnalysisProfileApiService);
 
-  readonly distributors = signal<DistributorOption[]>([]);
   readonly locations = signal<SamplingLocationDto[]>([]);
   readonly analysisProfiles = signal<AnalysisProfileListDto[]>([]);
   readonly saving = signal(false);
@@ -111,42 +93,31 @@ export class OrderCreateDialogComponent implements OnInit {
 
   constructor() {
     this.form = this.fb.group({
-      distributorId: ['', Validators.required],
       samplingLocationId: [null],
+      preleveurId: [null],
       plannedDate: [null],
       analysisProfileIds: [[]],
       notes: [''],
-      isUnplanned: [false],
     });
   }
 
   async ngOnInit(): Promise<void> {
-    // Load distributors from sampling locations
-    const allLocations = await firstValueFrom(this.locationApi.getForCurrentUser());
-    const uniqueDistributors = new Map<string, string>();
-    for (const loc of allLocations) {
-      if (!uniqueDistributors.has(loc.distributorId)) {
-        uniqueDistributors.set(loc.distributorId, loc.distributorName ?? '');
-      }
-    }
-    this.distributors.set(
-      Array.from(uniqueDistributors, ([id, name]) => ({ id, name }))
-    );
+    // Pre-fill form with current order data
+    this.form.patchValue({
+      samplingLocationId: this.data.samplingLocationId,
+      preleveurId: this.data.preleveurId,
+      plannedDate: this.data.plannedDate ? new Date(this.data.plannedDate) : null,
+      analysisProfileIds: this.data.analysisProfiles.map(p => p.analysisProfileId),
+      notes: this.data.notes ?? '',
+    });
+
+    // Load locations for the order's distributor
+    const locs = await firstValueFrom(this.locationApi.getByDistributor(this.data.distributorId));
+    this.locations.set(locs.filter(l => l.isActive));
 
     // Load analysis profiles (active only)
     const profiles = await firstValueFrom(this.profileApi.getAll({ isActive: true }));
     this.analysisProfiles.set(profiles);
-  }
-
-  async onDistributorChange(): Promise<void> {
-    const distributorId = this.form.value.distributorId;
-    this.form.patchValue({ samplingLocationId: null });
-    if (distributorId) {
-      const locs = await firstValueFrom(this.locationApi.getByDistributor(distributorId));
-      this.locations.set(locs.filter(l => l.isActive));
-    } else {
-      this.locations.set([]);
-    }
   }
 
   async onSubmit(): Promise<void> {
@@ -155,14 +126,12 @@ export class OrderCreateDialogComponent implements OnInit {
 
     try {
       const formValue = this.form.value;
-      await this.orderStore.create({
-        distributorId: formValue.distributorId,
+      await this.orderStore.update(this.data.id, {
         samplingLocationId: formValue.samplingLocationId || null,
-        preleveurId: null,
+        preleveurId: formValue.preleveurId || null,
         plannedDate: formValue.plannedDate ? new Date(formValue.plannedDate).toISOString() : null,
         analysisProfileIds: formValue.analysisProfileIds?.length > 0 ? formValue.analysisProfileIds : null,
         notes: formValue.notes || null,
-        isUnplanned: formValue.isUnplanned,
       });
       this.dialogRef.close(true);
     } finally {

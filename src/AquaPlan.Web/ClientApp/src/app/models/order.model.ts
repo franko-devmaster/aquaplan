@@ -38,6 +38,12 @@ export interface SamplingDto {
   createdAt: string;
 }
 
+export interface OrderAnalysisProfileDto {
+  analysisProfileId: string;
+  code: string;
+  name: string;
+}
+
 export interface OrderListDto {
   id: string;
   orderNumber: string;
@@ -49,6 +55,9 @@ export interface OrderListDto {
   preleveurName: string | null;
   distributorId: string;
   distributorName: string;
+  samplingLocationId: string | null;
+  samplingLocationName: string | null;
+  plannedDate: string | null;
   createdAt: string;
 }
 
@@ -63,6 +72,11 @@ export interface OrderDetailDto {
   preleveurName: string | null;
   distributorId: string;
   distributorName: string;
+  samplingLocationId: string | null;
+  samplingLocationName: string | null;
+  plannedDate: string | null;
+  notes: string | null;
+  analysisProfiles: OrderAnalysisProfileDto[];
   tenantId: string;
   createdAt: string;
   updatedAt: string | null;
@@ -71,10 +85,39 @@ export interface OrderDetailDto {
 
 export interface OrderCreateDto {
   distributorId: string;
+  samplingLocationId: string | null;
   preleveurId: string | null;
+  plannedDate: string | null;
+  analysisProfileIds: string[] | null;
+  notes: string | null;
   isUnplanned: boolean;
+}
+
+export interface OrderUpdateDto {
+  samplingLocationId: string | null;
+  preleveurId: string | null;
+  plannedDate: string | null;
+  analysisProfileIds: string[] | null;
+  notes: string | null;
 }
 
 export interface OrderAssignDto {
   preleveurId: string;
+}
+
+export interface OrderFilterDto {
+  statuses?: OrderStatus[];
+  isUnassigned?: boolean;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortDescending?: boolean;
+}
+
+export interface OrderPagedResultDto {
+  items: OrderListDto[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 }

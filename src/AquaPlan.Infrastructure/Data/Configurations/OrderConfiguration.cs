@@ -11,6 +11,7 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasKey(o => o.Id);
         builder.Property(o => o.OrderNumber).IsRequired().HasMaxLength(50);
         builder.HasIndex(o => o.OrderNumber).IsUnique();
+        builder.Property(o => o.Notes).HasMaxLength(2000);
 
         builder.HasOne(o => o.CreatedBy)
             .WithMany()
@@ -25,6 +26,29 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasOne(o => o.Distributor)
             .WithMany()
             .HasForeignKey(o => o.DistributorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(o => o.SamplingLocation)
+            .WithMany()
+            .HasForeignKey(o => o.SamplingLocationId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class OrderAnalysisProfileConfiguration : IEntityTypeConfiguration<OrderAnalysisProfile>
+{
+    public void Configure(EntityTypeBuilder<OrderAnalysisProfile> builder)
+    {
+        builder.HasKey(oap => new { oap.OrderId, oap.AnalysisProfileId });
+
+        builder.HasOne(oap => oap.Order)
+            .WithMany(o => o.OrderAnalysisProfiles)
+            .HasForeignKey(oap => oap.OrderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(oap => oap.AnalysisProfile)
+            .WithMany()
+            .HasForeignKey(oap => oap.AnalysisProfileId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

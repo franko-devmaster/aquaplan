@@ -95,10 +95,22 @@
     "preleveur": "Sampler",
     "createdBy": "Created by",
     "createdAt": "Created",
+    "updatedAt": "Updated",
     "isUnplanned": "Unplanned",
+    "samplingLocation": "Sampling location",
+    "plannedDate": "Planned date",
+    "notes": "Notes",
+    "analysisProfiles": "Analysis profiles",
     "createOrder": "Create order",
+    "editOrder": "Edit order",
     "assignPreleveur": "Assign sampler",
-    "details": "Order details"
+    "details": "Order details",
+    "searchPlaceholder": "Search by order number, distributor...",
+    "unassignedOnly": "Unassigned only",
+    "deleteConfirmTitle": "Delete order",
+    "deleteConfirmMessage": "Are you sure you want to delete this order? This action cannot be undone.",
+    "deleteSuccess": "Order deleted successfully",
+    "deleteError": "Error deleting order"
   },
   "distributors": {
     "title": "Distributor management",
