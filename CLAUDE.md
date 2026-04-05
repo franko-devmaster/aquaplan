@@ -203,6 +203,27 @@ Skills are reusable workflows in `/.claude/skills/`.
 |---|---|---|
 | Execute Gherkin Tests | Automated execution of Xray Gherkin scenarios in the running app | `/.claude/skills/execute-gherkin-tests.md` |
 
+## Version Lifecycle — Mandatory Process
+
+**Every version MUST follow this lifecycle. No step can be skipped.**
+
+### Before implementation (Definition of Ready)
+1. **Jira tickets → "En cours"**: All stories of the version must be transitioned from Backlog → En cours BEFORE any code is written. The parent epic must also be in En cours.
+
+### After implementation (Definition of Done — code)
+2. **Commit with AQ-xxx keys**: Every commit message must reference Jira ticket keys
+3. **Push to Bitbucket immediately**: `git push origin Main` — code not on Bitbucket is invisible
+4. **Jira tickets → "Terminé"**: Stories transitioned after code is pushed
+5. **Verify Jira Development tab**: Commits must appear linked to stories
+
+### After tests (Definition of Done — QA)
+6. **Test Set + Test Plan + Test Execution** created in Xray for the version
+7. **Non-regression plan AQ-194 updated**: new tests added
+8. **Non-regression execution created and run**: all cumulative tests pass
+9. **Results imported into Xray**
+
+**Rule: A version with unpushed code, un-updated Jira tickets, or missing test executions is NOT done.**
+
 ## Quality Assurance Process
 
 ### Test Levels (L1–L4)

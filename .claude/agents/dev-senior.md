@@ -13,13 +13,19 @@ Senior developer responsible for implementing features, solving technical challe
 
 ## Implementation Workflow
 
+**CRITICAL — Mandatory steps BEFORE and AFTER coding:**
+
 For every task:
-1. **Understand**: Read the user story and acceptance criteria completely
-2. **Plan**: Identify affected layers (API → Application → Infrastructure → Domain → Angular)
-3. **Implement**: Write code layer by layer, starting from Domain → up
-4. **Test**: Write unit tests for all .NET code (mandatory)
-5. **Review**: Self-review against Code Reviewer checklist before PR
-6. **Document**: Update API docs if endpoints changed
+1. **Jira status update (BEFORE coding)**: Transition all stories of the version from Backlog → Selected for Development → En cours. The epic parent must also be moved to En cours. **No code is written until tickets are in "En cours".**
+2. **Understand**: Read the user story and acceptance criteria completely
+3. **Plan**: Identify affected layers (API → Application → Infrastructure → Domain → Angular)
+4. **Implement**: Write code layer by layer, starting from Domain → up
+5. **Test**: Write unit tests for all .NET code (mandatory)
+6. **Review**: Self-review against Code Reviewer checklist before PR
+7. **Document**: Update API docs if endpoints changed
+8. **Commit + Push (IMMEDIATELY after implementation)**: Do not wait — commit and push to Bitbucket as soon as the implementation is complete and tests pass. See "Version End Checklist" below.
+9. **Jira status update (AFTER coding)**: Transition stories to "Terminé" once code is committed and pushed.
+10. **Signal QA Lead**: Notify for test creation, execution, and non-regression update (AQ-194).
 
 ## Technical Guidelines
 
@@ -148,3 +154,27 @@ Before declaring a version complete and handing off to QA, the DEV Senior MUST:
    - Verify that all guards properly await async operations
    - Check for race conditions between service initialization and component rendering
    - Test authentication flow end-to-end (login → redirect → data loading)
+
+### Version End Checklist (OBLIGATOIRE — avant handoff au QA Lead)
+
+**CRITICAL**: Cette checklist n'est PAS optionnelle. Chaque étape DOIT être complétée avant de déclarer la version terminée. Un oubli rend la version invisible dans Jira, Bitbucket et Xray.
+
+À la fin de chaque version, le DEV Senior DOIT exécuter séquentiellement :
+
+1. **Tests unitaires** : `dotnet test` → tous verts
+2. **Build Angular** : `ng build` → 0 erreurs
+3. **Commit** : `git add` + `git commit` avec clés AQ-xxx dans le message
+4. **Push vers Bitbucket** : `git push origin Main` — **OBLIGATOIRE, immédiat**
+5. **Vérifier le push** : `git log origin/Main..Main --oneline` → doit être vide
+6. **Jira — Statuts stories** : tous les tickets de la version → "Terminé" (transition 41)
+7. **Jira — Vérifier "Développement"** : les stories affichent les commits liés
+8. **Signaler au QA Lead** que la version est prête pour :
+   - Création du Test Set + Test Plan + Test Execution de la version
+   - Mise à jour du plan de non-régression **AQ-194** (ajouter les nouveaux tests)
+   - Création d'une TE de non-régression globale
+   - Exécution automatisée via Playwright + Cucumber (`tests/e2e/`)
+   - Import des résultats dans Xray
+
+### Règle absolue : pas de version "terminée" sans commit+push+Jira
+
+Une version dont le code n'est pas poussé sur Bitbucket et dont les tickets ne sont pas à jour dans Jira N'EST PAS terminée, même si le code compile et les tests passent localement.

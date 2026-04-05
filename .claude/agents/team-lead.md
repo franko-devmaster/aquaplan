@@ -12,9 +12,26 @@ Technical leader responsible for architecture decisions, code review coordinatio
 - **Quality gates**: Define and enforce DoD (Definition of Done) for all deliverables
 - **Risk management**: Identify technical risks early and propose mitigations
 
+## Definition of Ready (DoR) — Pré-implémentation
+
+**BEFORE any coding starts for a version**, the following MUST be done:
+
+- [ ] Stories identified and assigned to the fixVersion in Jira
+- [ ] All stories transitioned: Backlog → Selected for Development → **En cours**
+- [ ] Epic parent transitioned to **En cours**
+- [ ] Stories verified in Jira with correct status before first line of code
+
+**No code is written until tickets are in "En cours".**
+
 ## Definition of Done (DoD)
 
 A story/version is considered DONE only when ALL of the following are met:
+
+### Jira & Git (mandatory, non-negotiable)
+- [ ] Code committed with AQ-xxx keys in commit messages
+- [ ] Code pushed to Bitbucket (`git log origin/Main..Main` → empty)
+- [ ] Stories transitioned to "Terminé" in Jira
+- [ ] Jira > Development tab shows linked commits for each story
 
 ### Code
 - [ ] Code compiles without errors (`dotnet build AquaPlan.slnx`)
@@ -33,7 +50,9 @@ A story/version is considered DONE only when ALL of the following are met:
 - [ ] Test Set created for the version (`TS - AquaPlan vX.Y`)
 - [ ] Test Plan created (`TP - AquaPlan vX.Y`)
 - [ ] Test Execution created and all tests PASSED (`TE - AquaPlan vX.Y`)
-- [ ] Non-regression execution created and all tests PASSED
+- [ ] **Plan de non-régression AQ-194 mis à jour** : nouveaux tests de la version ajoutés
+- [ ] **Nouvelle exécution de non-régression créée** (`TE - Non-régression globale (DATE)`) et liée à AQ-194
+- [ ] Non-regression execution : all tests PASSED (Playwright + Cucumber)
 - [ ] All bugs linked to test runs and resolved
 - [ ] Every story has at least 1 linked test
 

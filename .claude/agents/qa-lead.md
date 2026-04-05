@@ -84,27 +84,33 @@ Pour chaque version vX.Y :
 
 ### Workflow par version (à partir de v0.3)
 
+**Pré-requis QA (vérifier AVANT de commencer les tests) :**
+- [ ] Code committé et poussé sur Bitbucket (vérifier avec DEV)
+- [ ] Stories de la version à statut "Terminé" dans Jira
+- [ ] Jira > Développement affiche les commits liés aux stories
+
 ```
  1. DEV termine la version → code committé et poussé sur Bitbucket
- 2. QA Lead crée le Test Set vX.Y + tests Gherkin dans Xray
- 3. QA Lead crée le Test Plan vX.Y + Test Execution vX.Y
- 4. Lancer l'environnement (API + UI + DB)
- 5. cd tests/e2e && npm run xray:export AQ-xxx (exporter Gherkin de l'exécution)
- 6. npm run test:smoke → L1 doit être 100% OK
- 7. npm test → exécuter tous les tests (L2 + L3 + L4)
- 8. npm run xray:import AQ-xxx → importer les résultats dans Xray
- 9. Tests FAILED → créer Bug + lier au test run
-10. ** Mettre à jour le plan de non-régression AQ-194 ** :
+ 2. QA Lead VÉRIFIE que Bitbucket a le commit + Jira a les stories à "Terminé"
+ 3. QA Lead crée le Test Set vX.Y + tests Gherkin dans Xray
+ 4. QA Lead crée le Test Plan vX.Y + Test Execution vX.Y
+ 5. Lancer l'environnement (API + UI + DB)
+ 6. cd tests/e2e && npm run xray:export AQ-xxx (exporter Gherkin de l'exécution)
+ 7. npm run test:smoke → L1 doit être 100% OK
+ 8. npm test → exécuter tous les tests (L2 + L3 + L4)
+ 9. npm run xray:import AQ-xxx → importer les résultats dans Xray
+10. Tests FAILED → créer Bug + lier au test run
+11. ** Mettre à jour le plan de non-régression AQ-194 ** :
     a. Ajouter les nouveaux tests de la version au plan AQ-194
     b. Créer une nouvelle Test Execution : TE - Non-régression globale (date)
     c. Lier la nouvelle exécution au plan AQ-194
-11. Exécuter la non-régression :
+12. Exécuter la non-régression :
     a. npm run xray:export AQ-yyy (exporter Gherkin de l'exécution non-régression)
     b. npm test → exécuter TOUS les tests (nouvel incrément + tous les précédents)
     c. npm run xray:import AQ-yyy → importer les résultats
-12. Tests FAILED → créer Bug (régression) + corriger
-13. Re-test → répéter jusqu'à 100% PASSED
-14. Tous PASSED → version validée
+13. Tests FAILED → créer Bug (régression) + corriger
+14. Re-test → répéter jusqu'à 100% PASSED
+15. Tous PASSED → version validée
 ```
 
 ### Plan de non-régression (AQ-194)

@@ -422,21 +422,48 @@ Résumé du workflow à suivre pour chaque story :
 
 ## Workflow complet par version
 
-**IMPORTANT** : Chaque version testée et validée DOIT être commitée et poussée vers Bitbucket.
+**CRITICAL** : Ce workflow est OBLIGATOIRE. Il couvre le cycle de vie complet d'une version, du début à la fin. Aucune étape ne peut être sautée.
 
+### Phase 1 — Pré-implémentation (AVANT de coder)
 ```
- 1. DEV termine toutes les stories de la version
- 2. Committer tout le code modifié (feat/fix/test commits avec clés AQ-xxx)
- 3. git push origin Main   ← OBLIGATOIRE — le code doit être sur Bitbucket
- 4. QA exécute les tests (smoke → API → UI → E2E)
- 5. QA rapporte les résultats dans Xray
- 6. Si bugs : DEV corrige → commit → push → QA re-test
- 7. Quand tous les tests sont PASSED :
-    - Vérifier que tous les commits sont poussés sur Bitbucket
-    - Vérifier que Jira affiche les commits dans "Développement"
+ 1. Identifier les stories de la version (fixVersion dans Jira)
+ 2. Transition des stories : Backlog → Selected for Development (21) → En cours (31)
+ 3. Transition de l'épic parent : Backlog → Selected for Development (21) → En cours (31)
+ 4. Vérifier dans Jira que les statuts sont corrects AVANT de commencer à coder
+```
+
+### Phase 2 — Implémentation
+```
+ 5. DEV implémente les stories de la version
+ 6. Tests unitaires écrits et passants
+```
+
+### Phase 3 — Post-implémentation (IMMÉDIATEMENT après le code)
+```
+ 7. Committer tout le code modifié (feat/fix/test commits avec clés AQ-xxx)
+ 8. git push origin Main   ← OBLIGATOIRE — le code DOIT être sur Bitbucket
+ 9. Vérifier : git log origin/Main..Main --oneline → vide (tout est poussé)
+10. Transition des stories : En cours → Terminé (41)
+11. Vérifier dans Jira > Développement que les commits sont liés aux stories
+```
+
+### Phase 4 — Tests (QA Lead)
+```
+12. QA crée Test Set + Test Plan + Test Execution de la version
+13. QA met à jour le plan de non-régression AQ-194 (ajouter nouveaux tests)
+14. QA exécute les tests via Playwright + Cucumber (smoke → API → UI → E2E)
+15. QA crée une nouvelle TE non-régression liée à AQ-194 et exécute
+16. QA importe les résultats dans Xray
+17. Si bugs : DEV corrige → commit → push → QA re-test
+18. Quand tous les tests sont PASSED :
     - @jira-updater sync-status   ← met à jour les statuts Jira
- 8. Version validée et déployable
+19. Version validée et déployable
 ```
+
+### Règle absolue
+
+**Aucune implémentation ne commence sans que les tickets soient en "En cours" dans Jira.**
+**Aucune version n'est "terminée" sans commit+push sur Bitbucket et tickets à "Terminé" dans Jira.**
 
 ### Vérification avant validation de version
 
@@ -445,7 +472,9 @@ Avant de déclarer une version complète, vérifier :
 - [ ] `git log origin/Main..Main` → vide (tout est poussé)
 - [ ] Bitbucket affiche les commits de la version
 - [ ] Jira > Développement affiche les commits liés aux stories
-- [ ] Xray > Test Execution → 100% PASSED
+- [ ] Xray > Test Execution version → 100% PASSED
+- [ ] Xray > AQ-194 mis à jour avec les nouveaux tests de la version
+- [ ] Xray > TE Non-régression globale → 100% PASSED
 
 ### Règle de push
 
