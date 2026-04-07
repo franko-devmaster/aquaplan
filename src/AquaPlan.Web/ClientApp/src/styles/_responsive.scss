@@ -20,6 +20,16 @@ $breakpoint-tablet: 1200px;
 }
 
 // =============================================================================
+// Mobile typography & touch targets
+// =============================================================================
+@include responsive(mobile) {
+  body {
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
+}
+
+// =============================================================================
 // Global responsive utilities (AQ-220 to AQ-224)
 // =============================================================================
 
@@ -35,11 +45,18 @@ $breakpoint-tablet: 1200px;
 // --- AQ-221: Responsive tables → cards ---
 .responsive-table-container {
   @include responsive(mobile) {
+    overflow: visible !important;
     table.mat-mdc-table {
+      display: block !important;
+      height: auto !important;
       thead { display: none; }
-      tbody tr {
-        display: flex;
+      tbody {
+        display: block !important;
+      }
+      tr {
+        display: flex !important;
         flex-direction: column;
+        height: auto !important;
         border: 1px solid #e0e0e0;
         border-radius: 8px;
         margin-bottom: 12px;
@@ -49,26 +66,42 @@ $breakpoint-tablet: 1200px;
       }
       td.mat-mdc-cell {
         display: flex;
-        align-items: center;
-        padding: 4px 0;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 8px 0;
         border-bottom: none;
-        min-height: auto;
+        height: auto !important;
+        min-height: auto !important;
+        overflow: visible !important;
+        word-break: break-word;
+        font-size: 16px;
+        line-height: 1.4;
         &::before {
           content: attr(data-label);
-          font-weight: 500;
-          font-size: 12px;
+          font-weight: 600;
+          font-size: 13px;
           color: #666;
-          min-width: 120px;
-          flex-shrink: 0;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+          margin-bottom: 2px;
         }
+        // Ensure chips inside cards are readable
+        .mat-mdc-chip { font-size: 14px; }
       }
-      // Actions row: right-align
+      // Actions row: horizontal, right-aligned, touch-friendly
       td.mat-mdc-cell:last-child {
+        flex-direction: row;
         justify-content: flex-end;
-        padding-top: 8px;
+        gap: 8px;
+        padding-top: 12px;
         border-top: 1px solid #f0f0f0;
         margin-top: 4px;
         &::before { display: none; }
+        .mat-mdc-icon-button {
+          width: 44px;
+          height: 44px;
+          padding: 10px;
+        }
       }
     }
   }
@@ -117,8 +150,55 @@ $breakpoint-tablet: 1200px;
     align-items: stretch !important;
     gap: 12px;
 
+    h2 {
+      font-size: 20px;
+      margin: 0;
+    }
+
     button {
       width: 100%;
+      min-height: 44px;
+      font-size: 15px;
+    }
+  }
+}
+
+// Header with back button + title + actions (e.g. order detail)
+.header-left {
+  @include responsive(mobile) {
+    min-width: 0;
+    h2 {
+      font-size: 18px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}
+.header-actions {
+  @include responsive(mobile) {
+    display: flex;
+    gap: 8px;
+    button {
+      flex: 1;
+      min-height: 44px;
+      font-size: 15px;
+    }
+  }
+}
+
+// Detail grid: single column on mobile
+.detail-grid {
+  @include responsive(mobile) {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+    padding: 12px !important;
+
+    .detail-item label {
+      font-size: 13px;
+    }
+    .detail-item span {
+      font-size: 16px;
     }
   }
 }
@@ -131,17 +211,30 @@ $breakpoint-tablet: 1200px;
 
     .filter-field,
     mat-form-field {
-      min-width: unset;
+      min-width: unset !important;
       width: 100%;
+      font-size: 16px;
+    }
+
+    mat-checkbox {
+      padding: 8px 0;
+      font-size: 16px;
     }
   }
+}
+
+// Global overflow protection
+mat-sidenav-content.content-mobile {
+  overflow-x: hidden;
 }
 
 // Paginator: compact on mobile
 .mat-mdc-paginator {
   @include responsive(mobile) {
-    .mat-mdc-paginator-range-label { margin: 0 4px; }
+    font-size: 14px;
+    .mat-mdc-paginator-range-label { margin: 0 4px; font-size: 14px; }
     .mat-mdc-paginator-page-size-label { display: none; }
+    .mat-mdc-icon-button { width: 40px; height: 40px; }
   }
 }
 
