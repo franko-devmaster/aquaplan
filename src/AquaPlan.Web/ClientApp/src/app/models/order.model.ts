@@ -130,6 +130,10 @@ export interface OrderFilterDto {
   pageSize?: number;
   sortBy?: string;
   sortDescending?: boolean;
+  distributorId?: string;
+  preleveurId?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export interface OrderPagedResultDto {

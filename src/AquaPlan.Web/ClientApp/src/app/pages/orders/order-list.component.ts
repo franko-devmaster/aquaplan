@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
@@ -12,12 +12,19 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { provideNativeDateAdapter } from '@angular/material/core';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { DatePipe } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
+import { firstValueFrom } from 'rxjs';
 import { OrderDatastore } from '../../datastore/order.datastore';
+import { OrderApiService } from '../../services/order-api.service';
+import { AuthService } from '../../services/auth.service';
 import { OrderListDto, OrderStatus, OrderStatusLabels } from '../../models/order.model';
+import { DistributorApiService } from '../../services/distributor-api.service';
+import { DistributorListDto } from '../../models/distributor.model';
 import { OrderCreateDialogComponent } from './order-create-dialog.component';
 
 @Component({
@@ -27,17 +34,26 @@ import { OrderCreateDialogComponent } from './order-create-dialog.component';
     FormsModule, MatTableModule, MatButtonModule, MatIconModule, MatChipsModule,
     MatDialogModule, MatProgressSpinnerModule, MatTooltipModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule,
-    MatPaginatorModule, MatSortModule,
+    MatDatepickerModule, MatPaginatorModule, MatSortModule,
     DatePipe, TranslateModule,
   ],
+  providers: [provideNativeDateAdapter()],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page-header">
       <h2>{{ 'orders.title' | translate }}</h2>
-      <button mat-raised-button color="primary" (click)="openCreateDialog()">
-        <mat-icon>add</mat-icon>
-        {{ 'orders.createOrder' | translate }}
-      </button>
+      <div class="header-actions">
+        @if (isAdmin()) {
+          <button mat-stroked-button (click)="exportCsv()">
+            <mat-icon>download</mat-icon>
+            {{ 'orders.export' | translate }}
+          </button>
+        }
+        <button mat-raised-button color="primary" (click)="openCreateDialog()">
+          <mat-icon>add</mat-icon>
+          {{ 'orders.createOrder' | translate }}
+        </button>
+      </div>
     </div>
 
     <div class="filters-row">
@@ -62,6 +78,34 @@ import { OrderCreateDialogComponent } from './order-create-dialog.component';
         {{ 'orders.unassignedOnly' | translate }}
       </mat-checkbox>
     </div>
+
+    @if (isAdmin()) {
+      <div class="filters-row">
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>{{ 'orders.distributor' | translate }}</mat-label>
+          <mat-select [ngModel]="store.distributorFilter()" (ngModelChange)="onDistributorChange($event)">
+            <mat-option [value]="undefined">{{ 'common.all' | translate }}</mat-option>
+            @for (dist of distributors(); track dist.id) {
+              <mat-option [value]="dist.id">{{ dist.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>{{ 'orders.dateFrom' | translate }}</mat-label>
+          <input matInput [matDatepicker]="pickerFrom" [ngModel]="store.dateFromFilter()" (dateChange)="onDateFromChange($event.value)">
+          <mat-datepicker-toggle matIconSuffix [for]="pickerFrom"></mat-datepicker-toggle>
+          <mat-datepicker #pickerFrom></mat-datepicker>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>{{ 'orders.dateTo' | translate }}</mat-label>
+          <input matInput [matDatepicker]="pickerTo" [ngModel]="store.dateToFilter()" (dateChange)="onDateToChange($event.value)">
+          <mat-datepicker-toggle matIconSuffix [for]="pickerTo"></mat-datepicker-toggle>
+          <mat-datepicker #pickerTo></mat-datepicker>
+        </mat-form-field>
+      </div>
+    }
 
     @if (store.loading()) {
       <div class="loading-container">
@@ -129,6 +173,7 @@ import { OrderCreateDialogComponent } from './order-create-dialog.component';
   `,
   styles: [`
     .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .header-actions { display: flex; gap: 8px; }
     .filters-row { display: flex; gap: 16px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
     .filter-field { min-width: 200px; }
     .full-width { width: 100%; }
@@ -140,7 +185,14 @@ export class OrderListComponent implements OnInit {
   readonly store = inject(OrderDatastore);
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
+  private readonly authService = inject(AuthService);
+  private readonly distributorApi = inject(DistributorApiService);
+  private readonly orderApi = inject(OrderApiService);
 
+  readonly isAdmin = computed(() =>
+    this.authService.currentUser()?.roles.includes('Administrator') ?? false
+  );
+  readonly distributors = signal<DistributorListDto[]>([]);
   readonly searchValue = signal('');
   private searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -161,8 +213,12 @@ export class OrderListComponent implements OnInit {
     { value: OrderStatus.Cancelled, label: OrderStatusLabels[OrderStatus.Cancelled] },
   ];
 
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
     this.store.loadFiltered();
+    if (this.isAdmin()) {
+      const dists = await firstValueFrom(this.distributorApi.getAll({ isActive: true }));
+      this.distributors.set(dists);
+    }
   }
 
   getStatusLabel(order: OrderListDto): string {
@@ -215,5 +271,39 @@ export class OrderListComponent implements OnInit {
 
   viewDetail(order: OrderListDto): void {
     this.router.navigate(['/orders', order.id]);
+  }
+
+  onDistributorChange(distributorId: string | undefined): void {
+    this.store.distributorFilter.set(distributorId || undefined);
+    this.store.currentPage.set(1);
+    this.store.loadFiltered();
+  }
+
+  onDateFromChange(date: Date | null): void {
+    this.store.dateFromFilter.set(date ? date.toISOString() : undefined);
+    this.store.currentPage.set(1);
+    this.store.loadFiltered();
+  }
+
+  onDateToChange(date: Date | null): void {
+    this.store.dateToFilter.set(date ? date.toISOString() : undefined);
+    this.store.currentPage.set(1);
+    this.store.loadFiltered();
+  }
+
+  async exportCsv(): Promise<void> {
+    const blob = await firstValueFrom(this.orderApi.exportCsv({
+      statuses: this.store.statusFilter().length > 0 ? this.store.statusFilter() : undefined,
+      search: this.store.searchFilter() || undefined,
+      distributorId: this.store.distributorFilter(),
+      dateFrom: this.store.dateFromFilter(),
+      dateTo: this.store.dateToFilter(),
+    }));
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `orders-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 }

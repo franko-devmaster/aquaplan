@@ -196,6 +196,53 @@ public class OrderServiceTest : IDisposable
             .WithMessage("*Draft and Assigned*");
     }
 
+    // ─── AQ-29: Advanced filters + CSV export ──────────────────
+
+    [Fact]
+    public async Task GetOrdersFilteredAsync_ShouldFilterByDistributor()
+    {
+        var otherDistId = Guid.NewGuid();
+        _dbContext.Distributors.Add(new Distributor { Id = otherDistId, Name = "Other Dist", TenantId = TenantId, IsActive = true });
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-DIST-01", Status = OrderStatus.Draft, IsUnplanned = false, CreatedById = UserId, DistributorId = DistributorId, TenantId = TenantId });
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-DIST-02", Status = OrderStatus.Draft, IsUnplanned = false, CreatedById = UserId, DistributorId = otherDistId, TenantId = TenantId });
+        _dbContext.UserDistributors.Add(new UserDistributor { UserId = UserId, DistributorId = otherDistId });
+        await _dbContext.SaveChangesAsync();
+
+        var filter = new OrderFilterDto(null, null, null, DistributorId: DistributorId);
+        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: true);
+
+        result.Items.Should().AllSatisfy(o => o.DistributorId.Should().Be(DistributorId));
+    }
+
+    [Fact]
+    public async Task GetOrdersFilteredAsync_ShouldFilterByDateRange()
+    {
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-DATE-01", Status = OrderStatus.Draft, IsUnplanned = false, CreatedById = UserId, DistributorId = DistributorId, TenantId = TenantId, PlannedDate = new DateTime(2026, 3, 15) });
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-DATE-02", Status = OrderStatus.Draft, IsUnplanned = false, CreatedById = UserId, DistributorId = DistributorId, TenantId = TenantId, PlannedDate = new DateTime(2026, 5, 20) });
+        await _dbContext.SaveChangesAsync();
+
+        var filter = new OrderFilterDto(null, null, null, DateFrom: new DateTime(2026, 4, 1), DateTo: new DateTime(2026, 6, 1));
+        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: true);
+
+        result.Items.Should().HaveCount(1);
+        result.Items[0].OrderNumber.Should().Be("ORD-DATE-02");
+    }
+
+    [Fact]
+    public async Task ExportOrdersCsvAsync_ShouldReturnCsvBytes()
+    {
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-CSV-01", Status = OrderStatus.Draft, IsUnplanned = false, CreatedById = UserId, DistributorId = DistributorId, TenantId = TenantId });
+        await _dbContext.SaveChangesAsync();
+
+        var filter = new OrderFilterDto(null, null, null);
+        var csv = await _sut.ExportOrdersCsvAsync(TenantId, filter);
+
+        csv.Should().NotBeEmpty();
+        var content = System.Text.Encoding.UTF8.GetString(csv);
+        content.Should().Contain("OrderNumber;Status");
+        content.Should().Contain("ORD-CSV-01");
+    }
+
     private async Task<Order> CreateSeedOrder(OrderStatus status)
     {
         var order = new Order

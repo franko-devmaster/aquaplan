@@ -25,16 +25,44 @@ public class OrdersController(
         [FromQuery] int pageSize = 20,
         [FromQuery] string? sortBy = null,
         [FromQuery] bool sortDescending = true,
+        [FromQuery] Guid? distributorId = null,
+        [FromQuery] string? preleveurId = null,
+        [FromQuery] DateTime? dateFrom = null,
+        [FromQuery] DateTime? dateTo = null,
         CancellationToken cancellationToken = default)
     {
         var userId = GetUserId();
         var tenantId = GetTenantId();
         var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
 
-        var filter = new OrderFilterDto(statuses, isUnassigned, search, page, pageSize, sortBy, sortDescending);
+        var filter = new OrderFilterDto(statuses, isUnassigned, search, page, pageSize, sortBy, sortDescending, distributorId, preleveurId, dateFrom, dateTo);
         var result = await orderService.GetOrdersFilteredAsync(userId, tenantId, filter, isAdmin, cancellationToken);
 
         return Ok(result);
+    }
+
+    [HttpGet("export")]
+    public async Task<ActionResult> ExportOrders(
+        [FromQuery] List<OrderStatus>? statuses,
+        [FromQuery] string? search,
+        [FromQuery] Guid? distributorId = null,
+        [FromQuery] string? preleveurId = null,
+        [FromQuery] DateTime? dateFrom = null,
+        [FromQuery] DateTime? dateTo = null,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+        var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+
+        if (!isAdmin)
+        {
+            return Forbid();
+        }
+
+        var filter = new OrderFilterDto(statuses, null, search, DistributorId: distributorId, PreleveurId: preleveurId, DateFrom: dateFrom, DateTo: dateTo);
+        var csvBytes = await orderService.ExportOrdersCsvAsync(tenantId, filter, cancellationToken);
+        return File(csvBytes, "text/csv", $"orders-export-{DateTime.UtcNow:yyyyMMdd}.csv");
     }
 
     [HttpGet("{id:guid}")]

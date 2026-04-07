@@ -9,4 +9,8 @@ public record OrderFilterDto(
     int Page = 1,
     int PageSize = 20,
     string? SortBy = null,
-    bool SortDescending = true);
+    bool SortDescending = true,
+    Guid? DistributorId = null,
+    string? PreleveurId = null,
+    DateTime? DateFrom = null,
+    DateTime? DateTo = null);

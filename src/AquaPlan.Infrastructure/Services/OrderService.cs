@@ -45,6 +45,28 @@ internal class OrderService(
             query = query.Where(o => o.PreleveurId == null);
         }
 
+        // Filter by distributor (admin filter)
+        if (filter.DistributorId.HasValue)
+        {
+            query = query.Where(o => o.DistributorId == filter.DistributorId.Value);
+        }
+
+        // Filter by préleveur (admin filter)
+        if (!string.IsNullOrWhiteSpace(filter.PreleveurId))
+        {
+            query = query.Where(o => o.PreleveurId == filter.PreleveurId);
+        }
+
+        // Filter by date range
+        if (filter.DateFrom.HasValue)
+        {
+            query = query.Where(o => o.PlannedDate >= filter.DateFrom.Value);
+        }
+        if (filter.DateTo.HasValue)
+        {
+            query = query.Where(o => o.PlannedDate <= filter.DateTo.Value);
+        }
+
         // Search (order number, distributor name, LDP name, préleveur name)
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
@@ -301,6 +323,78 @@ internal class OrderService(
         logger.LogInformation("Order {OrderId} assigned to préleveur {PreleveurId}", orderId, dto.PreleveurId);
 
         return await GetOrderByIdAsync(orderId, tenantId, cancellationToken);
+    }
+
+    public async Task<byte[]> ExportOrdersCsvAsync(Guid tenantId, OrderFilterDto filter, CancellationToken cancellationToken = default)
+    {
+        var query = dbContext.Orders
+            .Where(o => o.TenantId == tenantId)
+            .Include(o => o.CreatedBy)
+            .Include(o => o.Preleveur)
+            .Include(o => o.Distributor)
+            .Include(o => o.SamplingLocation)
+            .AsQueryable();
+
+        // Apply same filters as GetOrdersFilteredAsync
+        if (filter.Statuses is { Count: > 0 })
+        {
+            query = query.Where(o => filter.Statuses.Contains(o.Status));
+        }
+        if (filter.DistributorId.HasValue)
+        {
+            query = query.Where(o => o.DistributorId == filter.DistributorId.Value);
+        }
+        if (!string.IsNullOrWhiteSpace(filter.PreleveurId))
+        {
+            query = query.Where(o => o.PreleveurId == filter.PreleveurId);
+        }
+        if (filter.DateFrom.HasValue)
+        {
+            query = query.Where(o => o.PlannedDate >= filter.DateFrom.Value);
+        }
+        if (filter.DateTo.HasValue)
+        {
+            query = query.Where(o => o.PlannedDate <= filter.DateTo.Value);
+        }
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            var search = filter.Search.ToLower();
+            query = query.Where(o =>
+                o.OrderNumber.ToLower().Contains(search)
+                || (o.Distributor != null && o.Distributor.Name.ToLower().Contains(search)));
+        }
+
+        var orders = await query
+            .OrderByDescending(o => o.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        using var ms = new MemoryStream();
+        using var writer = new StreamWriter(ms, System.Text.Encoding.UTF8);
+
+        // Header
+        await writer.WriteLineAsync("OrderNumber;Status;IsUnplanned;UnplannedReason;Distributor;SamplingLocation;Preleveur;PlannedDate;CreatedBy;CreatedAt");
+
+        // Rows
+        foreach (var o in orders)
+        {
+            var preleveurName = o.Preleveur is not null ? $"{o.Preleveur.FirstName} {o.Preleveur.LastName}" : "";
+            var createdByName = o.CreatedBy is not null ? $"{o.CreatedBy.FirstName} {o.CreatedBy.LastName}" : "";
+            var line = string.Join(";",
+                o.OrderNumber,
+                o.Status,
+                o.IsUnplanned ? "Yes" : "No",
+                o.UnplannedReason?.ToString() ?? "",
+                o.Distributor?.Name ?? "",
+                o.SamplingLocation?.Name ?? "",
+                preleveurName,
+                o.PlannedDate?.ToString("yyyy-MM-dd") ?? "",
+                createdByName,
+                o.CreatedAt.ToString("yyyy-MM-dd HH:mm"));
+            await writer.WriteLineAsync(line);
+        }
+
+        await writer.FlushAsync(cancellationToken);
+        return ms.ToArray();
     }
 
     public async Task<bool> UserHasDistributorAccessAsync(string userId, Guid distributorId, CancellationToken cancellationToken = default)

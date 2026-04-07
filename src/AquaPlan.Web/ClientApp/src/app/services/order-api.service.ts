@@ -40,6 +40,18 @@ export class OrderApiService {
     if (filter.sortDescending !== undefined) {
       params = params.set('sortDescending', filter.sortDescending.toString());
     }
+    if (filter.distributorId) {
+      params = params.set('distributorId', filter.distributorId);
+    }
+    if (filter.preleveurId) {
+      params = params.set('preleveurId', filter.preleveurId);
+    }
+    if (filter.dateFrom) {
+      params = params.set('dateFrom', filter.dateFrom);
+    }
+    if (filter.dateTo) {
+      params = params.set('dateTo', filter.dateTo);
+    }
     return this.http.get<OrderPagedResultDto>(this.baseUrl, { params });
   }
 
@@ -61,5 +73,30 @@ export class OrderApiService {
 
   assignPreleveur(orderId: string, dto: OrderAssignDto): Observable<OrderDetailDto> {
     return this.http.post<OrderDetailDto>(`${this.baseUrl}/${orderId}/assign`, dto);
+  }
+
+  exportCsv(filter: OrderFilterDto): Observable<Blob> {
+    let params = new HttpParams();
+    if (filter.statuses && filter.statuses.length > 0) {
+      for (const status of filter.statuses) {
+        params = params.append('statuses', status.toString());
+      }
+    }
+    if (filter.search) {
+      params = params.set('search', filter.search);
+    }
+    if (filter.distributorId) {
+      params = params.set('distributorId', filter.distributorId);
+    }
+    if (filter.preleveurId) {
+      params = params.set('preleveurId', filter.preleveurId);
+    }
+    if (filter.dateFrom) {
+      params = params.set('dateFrom', filter.dateFrom);
+    }
+    if (filter.dateTo) {
+      params = params.set('dateTo', filter.dateTo);
+    }
+    return this.http.get(`${this.baseUrl}/export`, { params, responseType: 'blob' });
   }
 }

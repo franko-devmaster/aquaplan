@@ -28,6 +28,10 @@ export class OrderDatastore {
   readonly searchFilter = signal('');
   readonly sortBy = signal<string | undefined>(undefined);
   readonly sortDescending = signal(true);
+  readonly distributorFilter = signal<string | undefined>(undefined);
+  readonly preleveurFilter = signal<string | undefined>(undefined);
+  readonly dateFromFilter = signal<string | undefined>(undefined);
+  readonly dateToFilter = signal<string | undefined>(undefined);
 
   readonly totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
 
@@ -42,6 +46,10 @@ export class OrderDatastore {
         pageSize: this.pageSize(),
         sortBy: this.sortBy(),
         sortDescending: this.sortDescending(),
+        distributorId: this.distributorFilter(),
+        preleveurId: this.preleveurFilter(),
+        dateFrom: this.dateFromFilter(),
+        dateTo: this.dateToFilter(),
       };
       const result = await firstValueFrom(this.api.getFiltered(filter));
       this.orders.set(result.items);
