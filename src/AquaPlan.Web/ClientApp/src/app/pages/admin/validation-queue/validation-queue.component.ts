@@ -31,60 +31,62 @@ import { RejectDialogComponent, RejectDialogResult } from './reject-dialog.compo
         <mat-spinner diameter="40"></mat-spinner>
       </div>
     } @else {
-      <table mat-table [dataSource]="store.pendingRequests()" class="full-width">
-        <ng-container matColumnDef="requestType">
-          <th mat-header-cell *matHeaderCellDef>{{ 'common.status' | translate }}</th>
-          <td mat-cell *matCellDef="let r">
-            <mat-chip>
-              {{ 'changeRequests.' + requestTypeKey(r.requestType) | translate }}
-            </mat-chip>
-          </td>
-        </ng-container>
+      <div class="responsive-table-container">
+        <table mat-table [dataSource]="store.pendingRequests()" class="full-width">
+          <ng-container matColumnDef="requestType">
+            <th mat-header-cell *matHeaderCellDef>{{ 'common.status' | translate }}</th>
+            <td mat-cell *matCellDef="let r" [attr.data-label]="'common.status' | translate">
+              <mat-chip>
+                {{ 'changeRequests.' + requestTypeKey(r.requestType) | translate }}
+              </mat-chip>
+            </td>
+          </ng-container>
 
-        <ng-container matColumnDef="distributorName">
-          <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.distributor' | translate }}</th>
-          <td mat-cell *matCellDef="let r">{{ r.distributorName ?? '-' }}</td>
-        </ng-container>
+          <ng-container matColumnDef="distributorName">
+            <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.distributor' | translate }}</th>
+            <td mat-cell *matCellDef="let r" [attr.data-label]="'samplingLocations.distributor' | translate">{{ r.distributorName ?? '-' }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="proposedName">
-          <th mat-header-cell *matHeaderCellDef>{{ 'changeRequests.proposedName' | translate }}</th>
-          <td mat-cell *matCellDef="let r">{{ r.proposedName ?? '-' }}</td>
-        </ng-container>
+          <ng-container matColumnDef="proposedName">
+            <th mat-header-cell *matHeaderCellDef>{{ 'changeRequests.proposedName' | translate }}</th>
+            <td mat-cell *matCellDef="let r" [attr.data-label]="'changeRequests.proposedName' | translate">{{ r.proposedName ?? '-' }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="proposedLocationCode">
-          <th mat-header-cell *matHeaderCellDef>{{ 'changeRequests.proposedCode' | translate }}</th>
-          <td mat-cell *matCellDef="let r">{{ r.proposedLocationCode ?? '-' }}</td>
-        </ng-container>
+          <ng-container matColumnDef="proposedLocationCode">
+            <th mat-header-cell *matHeaderCellDef>{{ 'changeRequests.proposedCode' | translate }}</th>
+            <td mat-cell *matCellDef="let r" [attr.data-label]="'changeRequests.proposedCode' | translate">{{ r.proposedLocationCode ?? '-' }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="requestedByName">
-          <th mat-header-cell *matHeaderCellDef>{{ 'changeRequests.requestedBy' | translate }}</th>
-          <td mat-cell *matCellDef="let r">{{ r.requestedByName ?? '-' }}</td>
-        </ng-container>
+          <ng-container matColumnDef="requestedByName">
+            <th mat-header-cell *matHeaderCellDef>{{ 'changeRequests.requestedBy' | translate }}</th>
+            <td mat-cell *matCellDef="let r" [attr.data-label]="'changeRequests.requestedBy' | translate">{{ r.requestedByName ?? '-' }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="requestedAt">
-          <th mat-header-cell *matHeaderCellDef>{{ 'orders.createdAt' | translate }}</th>
-          <td mat-cell *matCellDef="let r">{{ r.requestedAt | date:'dd.MM.yyyy HH:mm' }}</td>
-        </ng-container>
+          <ng-container matColumnDef="requestedAt">
+            <th mat-header-cell *matHeaderCellDef>{{ 'orders.createdAt' | translate }}</th>
+            <td mat-cell *matCellDef="let r" [attr.data-label]="'orders.createdAt' | translate">{{ r.requestedAt | date:'dd.MM.yyyy HH:mm' }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
-          <td mat-cell *matCellDef="let r">
-            <button mat-icon-button color="primary"
-                    [matTooltip]="'changeRequests.approve' | translate"
-                    (click)="approveRequest(r)">
-              <mat-icon>check_circle</mat-icon>
-            </button>
-            <button mat-icon-button color="warn"
-                    [matTooltip]="'changeRequests.reject' | translate"
-                    (click)="openRejectDialog(r)">
-              <mat-icon>cancel</mat-icon>
-            </button>
-          </td>
-        </ng-container>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
+            <td mat-cell *matCellDef="let r">
+              <button mat-icon-button color="primary"
+                      [matTooltip]="'changeRequests.approve' | translate"
+                      (click)="approveRequest(r)">
+                <mat-icon>check_circle</mat-icon>
+              </button>
+              <button mat-icon-button color="warn"
+                      [matTooltip]="'changeRequests.reject' | translate"
+                      (click)="openRejectDialog(r)">
+                <mat-icon>cancel</mat-icon>
+              </button>
+            </td>
+          </ng-container>
 
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-      </table>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+      </div>
 
       @if (store.pendingRequests().length === 0) {
         <p class="no-data">{{ 'changeRequests.noRequestsPending' | translate }}</p>
@@ -127,6 +129,7 @@ export class ValidationQueueComponent implements OnInit {
   openRejectDialog(request: ChangeRequestDto): void {
     const dialogRef = this.dialog.open(RejectDialogComponent, {
       width: '450px',
+      panelClass: 'responsive-dialog',
     });
     dialogRef.afterClosed().subscribe((result: RejectDialogResult | undefined) => {
       if (result?.comment) {

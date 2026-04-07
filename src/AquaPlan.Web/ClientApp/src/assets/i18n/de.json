@@ -178,6 +178,7 @@
     "deactivate": "Ort deaktivieren",
     "allDistributors": "Alle Verteiler",
     "allStatuses": "Alle Status",
-    "searchPlaceholder": "Nach Name oder Code suchen"
+    "searchPlaceholder": "Nach Name oder Code suchen",
+    "coordinates": "Koordinaten"
   }
 }

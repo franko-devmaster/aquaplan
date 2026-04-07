@@ -34,54 +34,56 @@ import { UserFormDialogComponent } from './user-form-dialog.component';
         <mat-spinner diameter="40"></mat-spinner>
       </div>
     } @else {
-      <table mat-table [dataSource]="store.users()" class="full-width">
-        <ng-container matColumnDef="name">
-          <th mat-header-cell *matHeaderCellDef>{{ 'users.lastName' | translate }}</th>
-          <td mat-cell *matCellDef="let user">{{ user.lastName }}, {{ user.firstName }}</td>
-        </ng-container>
+      <div class="responsive-table-container">
+        <table mat-table [dataSource]="store.users()" class="full-width">
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef>{{ 'users.lastName' | translate }}</th>
+            <td mat-cell *matCellDef="let user" [attr.data-label]="'users.lastName' | translate">{{ user.lastName }}, {{ user.firstName }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="email">
-          <th mat-header-cell *matHeaderCellDef>{{ 'users.email' | translate }}</th>
-          <td mat-cell *matCellDef="let user">{{ user.email }}</td>
-        </ng-container>
+          <ng-container matColumnDef="email">
+            <th mat-header-cell *matHeaderCellDef>{{ 'users.email' | translate }}</th>
+            <td mat-cell *matCellDef="let user" [attr.data-label]="'users.email' | translate">{{ user.email }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="roles">
-          <th mat-header-cell *matHeaderCellDef>{{ 'users.roles' | translate }}</th>
-          <td mat-cell *matCellDef="let user">
-            @for (role of user.roles; track role) {
-              <mat-chip>{{ role }}</mat-chip>
-            }
-          </td>
-        </ng-container>
+          <ng-container matColumnDef="roles">
+            <th mat-header-cell *matHeaderCellDef>{{ 'users.roles' | translate }}</th>
+            <td mat-cell *matCellDef="let user" [attr.data-label]="'users.roles' | translate">
+              @for (role of user.roles; track role) {
+                <mat-chip>{{ role }}</mat-chip>
+              }
+            </td>
+          </ng-container>
 
-        <ng-container matColumnDef="status">
-          <th mat-header-cell *matHeaderCellDef>{{ 'users.status' | translate }}</th>
-          <td mat-cell *matCellDef="let user">
-            <mat-chip [highlighted]="user.isActive" [class.inactive]="!user.isActive">
-              {{ (user.isActive ? 'common.active' : 'common.inactive') | translate }}
-            </mat-chip>
-          </td>
-        </ng-container>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>{{ 'users.status' | translate }}</th>
+            <td mat-cell *matCellDef="let user" [attr.data-label]="'users.status' | translate">
+              <mat-chip [highlighted]="user.isActive" [class.inactive]="!user.isActive">
+                {{ (user.isActive ? 'common.active' : 'common.inactive') | translate }}
+              </mat-chip>
+            </td>
+          </ng-container>
 
-        <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
-          <td mat-cell *matCellDef="let user">
-            <button mat-icon-button [matTooltip]="'common.edit' | translate"
-                    (click)="openEditDialog(user)">
-              <mat-icon>edit</mat-icon>
-            </button>
-            @if (user.isActive) {
-              <button mat-icon-button [matTooltip]="'users.deactivateUser' | translate"
-                      color="warn" (click)="deactivate(user)">
-                <mat-icon>person_off</mat-icon>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
+            <td mat-cell *matCellDef="let user">
+              <button mat-icon-button [matTooltip]="'common.edit' | translate"
+                      (click)="openEditDialog(user)">
+                <mat-icon>edit</mat-icon>
               </button>
-            }
-          </td>
-        </ng-container>
+              @if (user.isActive) {
+                <button mat-icon-button [matTooltip]="'users.deactivateUser' | translate"
+                        color="warn" (click)="deactivate(user)">
+                  <mat-icon>person_off</mat-icon>
+                </button>
+              }
+            </td>
+          </ng-container>
 
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-      </table>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+      </div>
 
       @if (store.users().length === 0) {
         <p class="no-data">{{ 'common.noData' | translate }}</p>
@@ -110,6 +112,7 @@ export class UserListComponent implements OnInit {
   openCreateDialog(): void {
     const dialogRef = this.dialog.open(UserFormDialogComponent, {
       width: '500px',
+      panelClass: 'responsive-dialog',
       data: { mode: 'create' },
     });
     dialogRef.afterClosed().subscribe((result) => {
@@ -122,6 +125,7 @@ export class UserListComponent implements OnInit {
   openEditDialog(user: UserListDto): void {
     const dialogRef = this.dialog.open(UserFormDialogComponent, {
       width: '500px',
+      panelClass: 'responsive-dialog',
       data: { mode: 'edit', userId: user.id },
     });
     dialogRef.afterClosed().subscribe((result) => {

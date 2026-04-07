@@ -178,6 +178,7 @@
     "deactivate": "Deactivate location",
     "allDistributors": "All distributors",
     "allStatuses": "All statuses",
-    "searchPlaceholder": "Search by name or code"
+    "searchPlaceholder": "Search by name or code",
+    "coordinates": "Coordinates"
   }
 }

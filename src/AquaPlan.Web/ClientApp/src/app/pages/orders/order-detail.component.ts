@@ -180,6 +180,7 @@ export class OrderDetailComponent implements OnInit {
   openEditDialog(): void {
     const dialogRef = this.dialog.open(OrderEditDialogComponent, {
       width: '550px',
+      panelClass: 'responsive-dialog',
       data: this.order(),
     });
     dialogRef.afterClosed().subscribe((result) => {
@@ -192,6 +193,7 @@ export class OrderDetailComponent implements OnInit {
   confirmDelete(): void {
     const dialogRef = this.dialog.open(ConfirmDialogComponent, {
       width: '400px',
+      panelClass: 'responsive-dialog',
       data: {
         title: this.translate.instant('orders.deleteConfirmTitle'),
         message: this.translate.instant('orders.deleteConfirmMessage'),

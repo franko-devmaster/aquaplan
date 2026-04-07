@@ -34,7 +34,7 @@ import { DistributorFormDialogComponent } from './distributor-form-dialog.compon
       </button>
     </div>
 
-    <div class="filters">
+    <div class="filters filters-row">
       <mat-form-field appearance="outline">
         <mat-label>{{ 'distributors.name' | translate }}</mat-label>
         <input matInput [(ngModel)]="filterName" (keyup.enter)="applyFilter()">
@@ -57,50 +57,52 @@ import { DistributorFormDialogComponent } from './distributor-form-dialog.compon
         <mat-spinner diameter="40"></mat-spinner>
       </div>
     } @else {
-      <table mat-table [dataSource]="store.distributors()" class="full-width">
-        <ng-container matColumnDef="name">
-          <th mat-header-cell *matHeaderCellDef>{{ 'distributors.name' | translate }}</th>
-          <td mat-cell *matCellDef="let d">{{ d.name }}</td>
-        </ng-container>
+      <div class="responsive-table-container">
+        <table mat-table [dataSource]="store.distributors()" class="full-width">
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef>{{ 'distributors.name' | translate }}</th>
+            <td mat-cell *matCellDef="let d" [attr.data-label]="'distributors.name' | translate">{{ d.name }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="cantonRegion">
-          <th mat-header-cell *matHeaderCellDef>{{ 'distributors.cantonRegion' | translate }}</th>
-          <td mat-cell *matCellDef="let d">{{ d.cantonRegion ?? '-' }}</td>
-        </ng-container>
+          <ng-container matColumnDef="cantonRegion">
+            <th mat-header-cell *matHeaderCellDef>{{ 'distributors.cantonRegion' | translate }}</th>
+            <td mat-cell *matCellDef="let d" [attr.data-label]="'distributors.cantonRegion' | translate">{{ d.cantonRegion ?? '-' }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="distributionNetwork">
-          <th mat-header-cell *matHeaderCellDef>{{ 'distributors.distributionNetwork' | translate }}</th>
-          <td mat-cell *matCellDef="let d">{{ d.distributionNetwork ?? '-' }}</td>
-        </ng-container>
+          <ng-container matColumnDef="distributionNetwork">
+            <th mat-header-cell *matHeaderCellDef>{{ 'distributors.distributionNetwork' | translate }}</th>
+            <td mat-cell *matCellDef="let d" [attr.data-label]="'distributors.distributionNetwork' | translate">{{ d.distributionNetwork ?? '-' }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="status">
-          <th mat-header-cell *matHeaderCellDef>{{ 'distributors.status' | translate }}</th>
-          <td mat-cell *matCellDef="let d">
-            <mat-chip [highlighted]="d.isActive" [class.inactive]="!d.isActive">
-              {{ (d.isActive ? 'common.active' : 'common.inactive') | translate }}
-            </mat-chip>
-          </td>
-        </ng-container>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>{{ 'distributors.status' | translate }}</th>
+            <td mat-cell *matCellDef="let d" [attr.data-label]="'distributors.status' | translate">
+              <mat-chip [highlighted]="d.isActive" [class.inactive]="!d.isActive">
+                {{ (d.isActive ? 'common.active' : 'common.inactive') | translate }}
+              </mat-chip>
+            </td>
+          </ng-container>
 
-        <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
-          <td mat-cell *matCellDef="let d">
-            <button mat-icon-button [matTooltip]="'common.edit' | translate"
-                    (click)="openEditDialog(d)">
-              <mat-icon>edit</mat-icon>
-            </button>
-            <button mat-icon-button
-                    [matTooltip]="(d.isActive ? 'distributors.deactivate' : 'distributors.activate') | translate"
-                    [color]="d.isActive ? 'warn' : 'primary'"
-                    (click)="toggleStatus(d)">
-              <mat-icon>{{ d.isActive ? 'toggle_off' : 'toggle_on' }}</mat-icon>
-            </button>
-          </td>
-        </ng-container>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
+            <td mat-cell *matCellDef="let d">
+              <button mat-icon-button [matTooltip]="'common.edit' | translate"
+                      (click)="openEditDialog(d)">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button
+                      [matTooltip]="(d.isActive ? 'distributors.deactivate' : 'distributors.activate') | translate"
+                      [color]="d.isActive ? 'warn' : 'primary'"
+                      (click)="toggleStatus(d)">
+                <mat-icon>{{ d.isActive ? 'toggle_off' : 'toggle_on' }}</mat-icon>
+              </button>
+            </td>
+          </ng-container>
 
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-      </table>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+      </div>
 
       @if (store.distributors().length === 0) {
         <p class="no-data">{{ 'common.noData' | translate }}</p>
@@ -109,7 +111,7 @@ import { DistributorFormDialogComponent } from './distributor-form-dialog.compon
   `,
   styles: [`
     .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .filters { display: flex; gap: 16px; align-items: center; margin-bottom: 16px; }
+    .filters { display: flex; gap: 16px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
     .full-width { width: 100%; }
     .loading-container { display: flex; justify-content: center; padding: 48px; }
     .no-data { text-align: center; padding: 24px; color: #666; }
@@ -139,6 +141,7 @@ export class DistributorListComponent implements OnInit {
   openCreateDialog(): void {
     const dialogRef = this.dialog.open(DistributorFormDialogComponent, {
       width: '500px',
+      panelClass: 'responsive-dialog',
       data: { mode: 'create' },
     });
     dialogRef.afterClosed().subscribe((result) => {
@@ -151,6 +154,7 @@ export class DistributorListComponent implements OnInit {
   openEditDialog(distributor: DistributorListDto): void {
     const dialogRef = this.dialog.open(DistributorFormDialogComponent, {
       width: '500px',
+      panelClass: 'responsive-dialog',
       data: { mode: 'edit', distributorId: distributor.id },
     });
     dialogRef.afterClosed().subscribe((result) => {

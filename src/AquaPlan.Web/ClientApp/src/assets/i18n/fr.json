@@ -163,7 +163,8 @@
     "deactivate": "Désactiver le lieu",
     "allDistributors": "Tous les distributeurs",
     "allStatuses": "Tous les statuts",
-    "searchPlaceholder": "Rechercher par nom ou code"
+    "searchPlaceholder": "Rechercher par nom ou code",
+    "coordinates": "Coordonnées"
   },
   "changeRequests": {
     "title": "Validation des demandes de modification",

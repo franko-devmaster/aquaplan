@@ -68,58 +68,60 @@ import { OrderCreateDialogComponent } from './order-create-dialog.component';
         <mat-spinner diameter="40"></mat-spinner>
       </div>
     } @else {
-      <table mat-table [dataSource]="store.orders()" matSort (matSortChange)="onSortChange($event)"
-             class="full-width">
-        <ng-container matColumnDef="orderNumber">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header="ordernumber">{{ 'orders.orderNumber' | translate }}</th>
-          <td mat-cell *matCellDef="let order">{{ order.orderNumber }}</td>
-        </ng-container>
+      <div class="responsive-table-container">
+        <table mat-table [dataSource]="store.orders()" matSort (matSortChange)="onSortChange($event)"
+               class="full-width">
+          <ng-container matColumnDef="orderNumber">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header="ordernumber">{{ 'orders.orderNumber' | translate }}</th>
+            <td mat-cell *matCellDef="let order" [attr.data-label]="'orders.orderNumber' | translate">{{ order.orderNumber }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="status">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header="status">{{ 'orders.status.label' | translate }}</th>
-          <td mat-cell *matCellDef="let order">
-            <mat-chip>{{ getStatusLabel(order) | translate }}</mat-chip>
-          </td>
-        </ng-container>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header="status">{{ 'orders.status.label' | translate }}</th>
+            <td mat-cell *matCellDef="let order" [attr.data-label]="'orders.status.label' | translate">
+              <mat-chip>{{ getStatusLabel(order) | translate }}</mat-chip>
+            </td>
+          </ng-container>
 
-        <ng-container matColumnDef="distributor">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header="distributor">{{ 'orders.distributor' | translate }}</th>
-          <td mat-cell *matCellDef="let order">{{ order.distributorName }}</td>
-        </ng-container>
+          <ng-container matColumnDef="distributor">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header="distributor">{{ 'orders.distributor' | translate }}</th>
+            <td mat-cell *matCellDef="let order" [attr.data-label]="'orders.distributor' | translate">{{ order.distributorName }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="samplingLocation">
-          <th mat-header-cell *matHeaderCellDef>{{ 'orders.samplingLocation' | translate }}</th>
-          <td mat-cell *matCellDef="let order">{{ order.samplingLocationName ?? '-' }}</td>
-        </ng-container>
+          <ng-container matColumnDef="samplingLocation">
+            <th mat-header-cell *matHeaderCellDef>{{ 'orders.samplingLocation' | translate }}</th>
+            <td mat-cell *matCellDef="let order" [attr.data-label]="'orders.samplingLocation' | translate">{{ order.samplingLocationName ?? '-' }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="preleveur">
-          <th mat-header-cell *matHeaderCellDef>{{ 'orders.preleveur' | translate }}</th>
-          <td mat-cell *matCellDef="let order">{{ order.preleveurName ?? '-' }}</td>
-        </ng-container>
+          <ng-container matColumnDef="preleveur">
+            <th mat-header-cell *matHeaderCellDef>{{ 'orders.preleveur' | translate }}</th>
+            <td mat-cell *matCellDef="let order" [attr.data-label]="'orders.preleveur' | translate">{{ order.preleveurName ?? '-' }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="plannedDate">
-          <th mat-header-cell *matHeaderCellDef mat-sort-header="planneddate">{{ 'orders.plannedDate' | translate }}</th>
-          <td mat-cell *matCellDef="let order">{{ order.plannedDate ? (order.plannedDate | date:'shortDate') : '-' }}</td>
-        </ng-container>
+          <ng-container matColumnDef="plannedDate">
+            <th mat-header-cell *matHeaderCellDef mat-sort-header="planneddate">{{ 'orders.plannedDate' | translate }}</th>
+            <td mat-cell *matCellDef="let order" [attr.data-label]="'orders.plannedDate' | translate">{{ order.plannedDate ? (order.plannedDate | date:'shortDate') : '-' }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="createdAt">
-          <th mat-header-cell *matHeaderCellDef>{{ 'orders.createdAt' | translate }}</th>
-          <td mat-cell *matCellDef="let order">{{ order.createdAt | date:'shortDate' }}</td>
-        </ng-container>
+          <ng-container matColumnDef="createdAt">
+            <th mat-header-cell *matHeaderCellDef>{{ 'orders.createdAt' | translate }}</th>
+            <td mat-cell *matCellDef="let order" [attr.data-label]="'orders.createdAt' | translate">{{ order.createdAt | date:'shortDate' }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
-          <td mat-cell *matCellDef="let order">
-            <button mat-icon-button [matTooltip]="'orders.details' | translate"
-                    (click)="viewDetail(order)">
-              <mat-icon>visibility</mat-icon>
-            </button>
-          </td>
-        </ng-container>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
+            <td mat-cell *matCellDef="let order">
+              <button mat-icon-button [matTooltip]="'orders.details' | translate"
+                      (click)="viewDetail(order)">
+                <mat-icon>visibility</mat-icon>
+              </button>
+            </td>
+          </ng-container>
 
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
-      </table>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+      </div>
 
       @if (store.orders().length === 0) {
         <p class="no-data">{{ 'common.noData' | translate }}</p>
@@ -212,7 +214,7 @@ export class OrderListComponent implements OnInit {
   }
 
   openCreateDialog(): void {
-    const dialogRef = this.dialog.open(OrderCreateDialogComponent, { width: '550px' });
+    const dialogRef = this.dialog.open(OrderCreateDialogComponent, { width: '550px', panelClass: 'responsive-dialog' });
     dialogRef.afterClosed().subscribe((result) => {
       if (result) {
         this.store.loadFiltered();

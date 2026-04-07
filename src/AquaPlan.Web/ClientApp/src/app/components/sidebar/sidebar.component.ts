@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterModule } from '@angular/router';
@@ -12,47 +12,57 @@ import { AuthService } from '../../services/auth.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <mat-nav-list>
-      <a mat-list-item routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+      <a mat-list-item routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }"
+         (click)="navigated.emit()">
         <mat-icon matListItemIcon>home</mat-icon>
         <span matListItemTitle>{{ 'nav.home' | translate }}</span>
       </a>
-      <a mat-list-item routerLink="/orders" routerLinkActive="active">
+      <a mat-list-item routerLink="/orders" routerLinkActive="active"
+         (click)="navigated.emit()">
         <mat-icon matListItemIcon>assignment</mat-icon>
         <span matListItemTitle>{{ 'nav.orders' | translate }}</span>
       </a>
-      <a mat-list-item routerLink="/sampling-locations" routerLinkActive="active">
+      <a mat-list-item routerLink="/sampling-locations" routerLinkActive="active"
+         (click)="navigated.emit()">
         <mat-icon matListItemIcon>place</mat-icon>
         <span matListItemTitle>{{ 'nav.samplingLocations' | translate }}</span>
       </a>
       <mat-divider></mat-divider>
       <div class="nav-section-label">{{ 'nav.analysisCatalog' | translate }}</div>
-      <a mat-list-item routerLink="/analysis-profiles" routerLinkActive="active">
+      <a mat-list-item routerLink="/analysis-profiles" routerLinkActive="active"
+         (click)="navigated.emit()">
         <mat-icon matListItemIcon>science</mat-icon>
         <span matListItemTitle>{{ 'nav.analysisProfiles' | translate }}</span>
       </a>
-      <a mat-list-item routerLink="/analysis-programs" routerLinkActive="active">
+      <a mat-list-item routerLink="/analysis-programs" routerLinkActive="active"
+         (click)="navigated.emit()">
         <mat-icon matListItemIcon>playlist_add_check</mat-icon>
         <span matListItemTitle>{{ 'nav.analysisPrograms' | translate }}</span>
       </a>
       @if (isAdmin()) {
-        <a mat-list-item routerLink="/distributors" routerLinkActive="active">
+        <a mat-list-item routerLink="/distributors" routerLinkActive="active"
+           (click)="navigated.emit()">
           <mat-icon matListItemIcon>water_drop</mat-icon>
           <span matListItemTitle>{{ 'nav.distributors' | translate }}</span>
         </a>
         <mat-divider></mat-divider>
-        <a mat-list-item routerLink="/admin/users" routerLinkActive="active">
+        <a mat-list-item routerLink="/admin/users" routerLinkActive="active"
+           (click)="navigated.emit()">
           <mat-icon matListItemIcon>people</mat-icon>
           <span matListItemTitle>{{ 'nav.users' | translate }}</span>
         </a>
-        <a mat-list-item routerLink="/admin/roles" routerLinkActive="active">
+        <a mat-list-item routerLink="/admin/roles" routerLinkActive="active"
+           (click)="navigated.emit()">
           <mat-icon matListItemIcon>admin_panel_settings</mat-icon>
           <span matListItemTitle>{{ 'nav.roles' | translate }}</span>
         </a>
-        <a mat-list-item routerLink="/admin/order-status" routerLinkActive="active">
+        <a mat-list-item routerLink="/admin/order-status" routerLinkActive="active"
+           (click)="navigated.emit()">
           <mat-icon matListItemIcon>swap_horiz</mat-icon>
           <span matListItemTitle>{{ 'nav.orderStatus' | translate }}</span>
         </a>
-        <a mat-list-item routerLink="/admin/validation-queue" routerLinkActive="active">
+        <a mat-list-item routerLink="/admin/validation-queue" routerLinkActive="active"
+           (click)="navigated.emit()">
           <mat-icon matListItemIcon>fact_check</mat-icon>
           <span matListItemTitle>{{ 'nav.validationQueue' | translate }}</span>
         </a>
@@ -66,6 +76,7 @@ import { AuthService } from '../../services/auth.service';
 })
 export class SidebarComponent {
   private readonly authService = inject(AuthService);
+  readonly navigated = output();
 
   isAdmin(): boolean {
     const user = this.authService.currentUser();

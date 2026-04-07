@@ -69,66 +69,68 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
         <mat-spinner diameter="40"></mat-spinner>
       </div>
     } @else {
-      <table mat-table [dataSource]="filteredLocations()" class="full-width">
-        <ng-container matColumnDef="locationCode">
-          <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.locationCode' | translate }}</th>
-          <td mat-cell *matCellDef="let loc">{{ loc.locationCode }}</td>
-        </ng-container>
+      <div class="responsive-table-container">
+        <table mat-table [dataSource]="filteredLocations()" class="full-width">
+          <ng-container matColumnDef="locationCode">
+            <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.locationCode' | translate }}</th>
+            <td mat-cell *matCellDef="let loc" [attr.data-label]="'samplingLocations.locationCode' | translate">{{ loc.locationCode }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="name">
-          <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.name' | translate }}</th>
-          <td mat-cell *matCellDef="let loc">{{ loc.name }}</td>
-        </ng-container>
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.name' | translate }}</th>
+            <td mat-cell *matCellDef="let loc" [attr.data-label]="'samplingLocations.name' | translate">{{ loc.name }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="distributor">
-          <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.distributor' | translate }}</th>
-          <td mat-cell *matCellDef="let loc">{{ loc.distributorName }}</td>
-        </ng-container>
+          <ng-container matColumnDef="distributor">
+            <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.distributor' | translate }}</th>
+            <td mat-cell *matCellDef="let loc" [attr.data-label]="'samplingLocations.distributor' | translate">{{ loc.distributorName }}</td>
+          </ng-container>
 
-        <ng-container matColumnDef="coordinates">
-          <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.latitude' | translate }} / {{ 'samplingLocations.longitude' | translate }}</th>
-          <td mat-cell *matCellDef="let loc">
-            @if (loc.latitude && loc.longitude) {
-              {{ loc.latitude | number:'1.4-4' }}, {{ loc.longitude | number:'1.4-4' }}
-            } @else {
-              -
-            }
-          </td>
-        </ng-container>
+          <ng-container matColumnDef="coordinates">
+            <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.latitude' | translate }} / {{ 'samplingLocations.longitude' | translate }}</th>
+            <td mat-cell *matCellDef="let loc" [attr.data-label]="'samplingLocations.coordinates' | translate">
+              @if (loc.latitude && loc.longitude) {
+                {{ loc.latitude | number:'1.4-4' }}, {{ loc.longitude | number:'1.4-4' }}
+              } @else {
+                -
+              }
+            </td>
+          </ng-container>
 
-        <ng-container matColumnDef="status">
-          <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.status' | translate }}</th>
-          <td mat-cell *matCellDef="let loc">
-            <mat-chip [class.inactive]="!loc.isActive">
-              {{ (loc.isActive ? 'common.active' : 'common.inactive') | translate }}
-            </mat-chip>
-          </td>
-        </ng-container>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.status' | translate }}</th>
+            <td mat-cell *matCellDef="let loc" [attr.data-label]="'samplingLocations.status' | translate">
+              <mat-chip [class.inactive]="!loc.isActive">
+                {{ (loc.isActive ? 'common.active' : 'common.inactive') | translate }}
+              </mat-chip>
+            </td>
+          </ng-container>
 
-        <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
-          <td mat-cell *matCellDef="let loc">
-            <button mat-icon-button [matTooltip]="'common.edit' | translate"
-                    (click)="openEditDialog(loc)">
-              <mat-icon>edit</mat-icon>
-            </button>
-            @if (loc.isActive) {
-              <button mat-icon-button [matTooltip]="'samplingLocations.deactivate' | translate"
-                      color="warn" (click)="toggleStatus(loc)">
-                <mat-icon>toggle_off</mat-icon>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
+            <td mat-cell *matCellDef="let loc">
+              <button mat-icon-button [matTooltip]="'common.edit' | translate"
+                      (click)="openEditDialog(loc)">
+                <mat-icon>edit</mat-icon>
               </button>
-            } @else {
-              <button mat-icon-button [matTooltip]="'samplingLocations.activate' | translate"
-                      color="primary" (click)="toggleStatus(loc)">
-                <mat-icon>toggle_on</mat-icon>
-              </button>
-            }
-          </td>
-        </ng-container>
+              @if (loc.isActive) {
+                <button mat-icon-button [matTooltip]="'samplingLocations.deactivate' | translate"
+                        color="warn" (click)="toggleStatus(loc)">
+                  <mat-icon>toggle_off</mat-icon>
+                </button>
+              } @else {
+                <button mat-icon-button [matTooltip]="'samplingLocations.activate' | translate"
+                        color="primary" (click)="toggleStatus(loc)">
+                  <mat-icon>toggle_on</mat-icon>
+                </button>
+              }
+            </td>
+          </ng-container>
 
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.inactive-row]="!row.isActive"></tr>
-      </table>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.inactive-row]="!row.isActive"></tr>
+        </table>
+      </div>
 
       @if (filteredLocations().length === 0) {
         <p class="no-data">{{ 'common.noData' | translate }}</p>
@@ -214,6 +216,7 @@ export class SamplingLocationListComponent implements OnInit {
   openCreateDialog(): void {
     const dialogRef = this.dialog.open(SamplingLocationFormDialogComponent, {
       width: '550px',
+      panelClass: 'responsive-dialog',
       data: { mode: 'create' },
     });
     dialogRef.afterClosed().subscribe((result) => {
@@ -226,6 +229,7 @@ export class SamplingLocationListComponent implements OnInit {
   openEditDialog(location: SamplingLocationDto): void {
     const dialogRef = this.dialog.open(SamplingLocationFormDialogComponent, {
       width: '550px',
+      panelClass: 'responsive-dialog',
       data: { mode: 'edit', locationId: location.id },
     });
     dialogRef.afterClosed().subscribe((result) => {
