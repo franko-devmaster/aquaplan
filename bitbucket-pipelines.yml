@@ -59,7 +59,6 @@ pipelines:
 
       - step:
           name: Docker Build & Push
-          size: 2x
           services:
             - docker
           script:
@@ -69,8 +68,9 @@ pipelines:
             - docker build -f src/AquaPlan.Api/Dockerfile -t francoischarriere/aquaplan-api:$TAG -t francoischarriere/aquaplan-api:latest .
             - docker push francoischarriere/aquaplan-api:$TAG
             - docker push francoischarriere/aquaplan-api:latest
-            # Build and push Web image
-            - docker build -f src/AquaPlan.Web/Dockerfile -t francoischarriere/aquaplan-web:$TAG -t francoischarriere/aquaplan-web:latest .
+            # Build and push Web image (using pre-built Angular artifacts)
+            - cp -r src/AquaPlan.Web/ClientApp/dist/client-app/browser dist/
+            - docker build -f src/AquaPlan.Web/Dockerfile.ci -t francoischarriere/aquaplan-web:$TAG -t francoischarriere/aquaplan-web:latest .
             - docker push francoischarriere/aquaplan-web:$TAG
             - docker push francoischarriere/aquaplan-web:latest
 
