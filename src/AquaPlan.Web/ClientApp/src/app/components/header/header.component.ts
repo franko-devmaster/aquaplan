@@ -15,14 +15,14 @@ import { LocaleService } from '../../services/locale.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <mat-toolbar color="primary" class="header">
-      <button mat-icon-button (click)="menuToggle.emit()">
+      <button mat-icon-button (click)="menuToggle.emit()" aria-label="Toggle navigation menu">
         <mat-icon>menu</mat-icon>
       </button>
       <span class="logo">{{ 'app.title' | translate }}</span>
       <span class="spacer"></span>
 
       @if (!isMobile()) {
-        <button mat-button [matMenuTriggerFor]="langMenu">
+        <button mat-button [matMenuTriggerFor]="langMenu" aria-label="Change language">
           {{ localeService.currentLang().toUpperCase() }}
         </button>
       }
@@ -35,7 +35,7 @@ import { LocaleService } from '../../services/locale.service';
       </mat-menu>
 
       @if (authService.isAuthenticated()) {
-        <button mat-icon-button [matMenuTriggerFor]="userMenu">
+        <button mat-icon-button [matMenuTriggerFor]="userMenu" aria-label="User menu">
           <mat-icon>person</mat-icon>
         </button>
         <mat-menu #userMenu="matMenu">
@@ -56,6 +56,10 @@ import { LocaleService } from '../../services/locale.service';
             {{ 'auth.logout' | translate }}
           </button>
         </mat-menu>
+      } @else if (isMobile()) {
+        <button mat-button [matMenuTriggerFor]="langMenu" aria-label="Change language">
+          {{ localeService.currentLang().toUpperCase() }}
+        </button>
       }
     </mat-toolbar>
   `,

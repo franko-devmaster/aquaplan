@@ -1,8 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, ViewChild } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { MatSidenavModule, MatSidenav } from '@angular/material/sidenav';
 import { NavigationEnd, Router, RouterModule } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map } from 'rxjs';
 import { HeaderComponent } from '../header/header.component';
 import { SidebarComponent } from '../sidebar/sidebar.component';
@@ -43,6 +43,7 @@ export class LayoutComponent {
 
   private readonly breakpointObserver = inject(BreakpointObserver);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   private readonly mobileBreakpoint = toSignal(
     this.breakpointObserver.observe('(max-width: 767px)').pipe(
@@ -56,7 +57,8 @@ export class LayoutComponent {
   constructor() {
     // Close drawer on navigation in mobile mode
     this.router.events.pipe(
-      filter(e => e instanceof NavigationEnd)
+      filter(e => e instanceof NavigationEnd),
+      takeUntilDestroyed(this.destroyRef)
     ).subscribe(() => {
       if (this.isMobile() && this.sidenav?.opened) {
         this.sidenav.close();

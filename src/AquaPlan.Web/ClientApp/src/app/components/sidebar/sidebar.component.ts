@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
+import { MatDividerModule } from '@angular/material/divider';
 import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { AuthService } from '../../services/auth.service';
@@ -8,9 +9,10 @@ import { AuthService } from '../../services/auth.service';
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [MatListModule, MatIconModule, RouterModule, TranslateModule],
+  imports: [MatListModule, MatIconModule, MatDividerModule, RouterModule, TranslateModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <nav aria-label="Main navigation">
     <mat-nav-list>
       <a mat-list-item routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }"
          (click)="navigated.emit()">
@@ -68,6 +70,7 @@ import { AuthService } from '../../services/auth.service';
         </a>
       }
     </mat-nav-list>
+    </nav>
   `,
   styles: [`
     .active { background-color: rgba(0, 0, 0, 0.04); }
@@ -78,8 +81,7 @@ export class SidebarComponent {
   private readonly authService = inject(AuthService);
   readonly navigated = output();
 
-  isAdmin(): boolean {
-    const user = this.authService.currentUser();
-    return user?.roles.includes('Administrator') ?? false;
-  }
+  readonly isAdmin = computed(() =>
+    this.authService.currentUser()?.roles.includes('Administrator') ?? false
+  );
 }
