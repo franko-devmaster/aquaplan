@@ -77,7 +77,7 @@ internal class OrderService(
             .Include(o => o.Distributor)
             .Include(o => o.SamplingLocation)
             .Select(o => new OrderListDto(
-                o.Id, o.OrderNumber, o.Status, o.IsUnplanned,
+                o.Id, o.OrderNumber, o.Status, o.IsUnplanned, o.UnplannedReason,
                 o.CreatedById,
                 o.CreatedBy != null ? o.CreatedBy.FirstName + " " + o.CreatedBy.LastName : null,
                 o.PreleveurId,
@@ -118,6 +118,12 @@ internal class OrderService(
     {
         var orderNumber = await GenerateOrderNumberAsync(cancellationToken);
 
+        // Validation: unplanned orders must have a reason
+        if (dto.IsUnplanned && dto.UnplannedReason is null)
+        {
+            throw new InvalidOperationException("An unplanned order must have an UnplannedReason.");
+        }
+
         var initialStatus = dto.IsUnplanned ? OrderStatus.InProgress : OrderStatus.Draft;
 
         // If a préleveur is assigned at creation and it's not unplanned, auto-transition to Assigned
@@ -132,6 +138,8 @@ internal class OrderService(
             OrderNumber = orderNumber,
             Status = initialStatus,
             IsUnplanned = dto.IsUnplanned,
+            UnplannedReason = dto.IsUnplanned ? dto.UnplannedReason : null,
+            UnplannedReasonDetails = dto.IsUnplanned ? dto.UnplannedReasonDetails : null,
             CreatedById = createdById,
             PreleveurId = dto.PreleveurId,
             DistributorId = dto.DistributorId,
@@ -328,6 +336,7 @@ internal class OrderService(
 
         return new OrderDetailDto(
             order.Id, order.OrderNumber, order.Status, order.IsUnplanned,
+            order.UnplannedReason, order.UnplannedReasonDetails,
             order.CreatedById,
             order.CreatedBy is not null ? order.CreatedBy.FirstName + " " + order.CreatedBy.LastName : null,
             order.PreleveurId,

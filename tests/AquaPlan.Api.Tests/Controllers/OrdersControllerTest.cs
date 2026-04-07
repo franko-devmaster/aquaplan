@@ -47,6 +47,7 @@ public class OrdersControllerTest
     {
         return new OrderDetailDto(
             id ?? OrderId, orderNumber, status, false,
+            null, null,
             UserId, "John Doe", preleveurId, preleveurName,
             DistributorId, "Distributor A",
             null, null, null, null, [],
@@ -56,7 +57,7 @@ public class OrdersControllerTest
     private static OrderListDto CreateOrderList(Guid? id = null, string orderNumber = "ORD-001")
     {
         return new OrderListDto(
-            id ?? OrderId, orderNumber, OrderStatus.Draft, false,
+            id ?? OrderId, orderNumber, OrderStatus.Draft, false, null,
             UserId, "John Doe", null, null,
             DistributorId, "Distributor A",
             null, null, null, DateTime.UtcNow);

@@ -104,6 +104,13 @@
     "createdAt": "Créé le",
     "updatedAt": "Modifié le",
     "isUnplanned": "Hors planning",
+    "unplannedReason": {
+      "label": "Motif",
+      "details": "Détails du motif",
+      "pollution": "Pollution",
+      "urgency": "Urgence",
+      "complementaryControl": "Contrôle complémentaire"
+    },
     "samplingLocation": "Lieu de prélèvement",
     "plannedDate": "Date planifiée",
     "notes": "Notes",

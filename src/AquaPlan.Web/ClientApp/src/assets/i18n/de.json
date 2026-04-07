@@ -97,6 +97,13 @@
     "createdAt": "Erstellt am",
     "updatedAt": "Aktualisiert am",
     "isUnplanned": "Ungeplant",
+    "unplannedReason": {
+      "label": "Grund",
+      "details": "Grunddetails",
+      "pollution": "Verschmutzung",
+      "urgency": "Dringlichkeit",
+      "complementaryControl": "Ergänzende Kontrolle"
+    },
     "samplingLocation": "Probenahmeort",
     "plannedDate": "Geplantes Datum",
     "notes": "Notizen",

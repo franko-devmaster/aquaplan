@@ -7,6 +7,7 @@ public record OrderListDto(
     string OrderNumber,
     OrderStatus Status,
     bool IsUnplanned,
+    UnplannedReason? UnplannedReason,
     string CreatedById,
     string? CreatedByName,
     string? PreleveurId,

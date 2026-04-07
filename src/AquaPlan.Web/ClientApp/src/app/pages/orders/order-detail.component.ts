@@ -12,7 +12,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { OrderApiService } from '../../services/order-api.service';
 import { OrderDatastore } from '../../datastore/order.datastore';
-import { OrderDetailDto, OrderStatus, OrderStatusLabels } from '../../models/order.model';
+import { OrderDetailDto, OrderStatus, OrderStatusLabels, UnplannedReasonLabels } from '../../models/order.model';
 import { OrderEditDialogComponent } from './order-edit-dialog.component';
 import { ConfirmDialogComponent } from '../../components/confirm-dialog.component';
 
@@ -91,6 +91,18 @@ import { ConfirmDialogComponent } from '../../components/confirm-dialog.componen
               <label>{{ 'orders.isUnplanned' | translate }}</label>
               <span>{{ (order()!.isUnplanned ? 'common.yes' : 'common.no') | translate }}</span>
             </div>
+            @if (order()!.isUnplanned && order()!.unplannedReason !== null) {
+              <div class="detail-item">
+                <label>{{ 'orders.unplannedReason.label' | translate }}</label>
+                <span>{{ getUnplannedReasonLabel() | translate }}</span>
+              </div>
+            }
+            @if (order()!.unplannedReasonDetails) {
+              <div class="detail-item">
+                <label>{{ 'orders.unplannedReason.details' | translate }}</label>
+                <span>{{ order()!.unplannedReasonDetails }}</span>
+              </div>
+            }
             @if (order()!.updatedAt) {
               <div class="detail-item">
                 <label>{{ 'orders.updatedAt' | translate }}</label>
@@ -175,6 +187,12 @@ export class OrderDetailComponent implements OnInit {
     const o = this.order();
     if (!o) return '';
     return OrderStatusLabels[o.status] ?? 'orders.status.draft';
+  }
+
+  getUnplannedReasonLabel(): string {
+    const o = this.order();
+    if (!o || o.unplannedReason === null) return '';
+    return UnplannedReasonLabels[o.unplannedReason] ?? '';
   }
 
   openEditDialog(): void {

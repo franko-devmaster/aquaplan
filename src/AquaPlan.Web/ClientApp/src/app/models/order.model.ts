@@ -10,6 +10,18 @@ export enum OrderStatus {
   Cancelled = 8,
 }
 
+export enum UnplannedReason {
+  Pollution = 0,
+  Urgency = 1,
+  ComplementaryControl = 2,
+}
+
+export const UnplannedReasonLabels: Record<UnplannedReason, string> = {
+  [UnplannedReason.Pollution]: 'orders.unplannedReason.pollution',
+  [UnplannedReason.Urgency]: 'orders.unplannedReason.urgency',
+  [UnplannedReason.ComplementaryControl]: 'orders.unplannedReason.complementaryControl',
+};
+
 export const OrderStatusLabels: Record<OrderStatus, string> = {
   [OrderStatus.Draft]: 'orders.status.draft',
   [OrderStatus.Assigned]: 'orders.status.assigned',
@@ -49,6 +61,7 @@ export interface OrderListDto {
   orderNumber: string;
   status: OrderStatus;
   isUnplanned: boolean;
+  unplannedReason: UnplannedReason | null;
   createdById: string;
   createdByName: string | null;
   preleveurId: string | null;
@@ -66,6 +79,8 @@ export interface OrderDetailDto {
   orderNumber: string;
   status: OrderStatus;
   isUnplanned: boolean;
+  unplannedReason: UnplannedReason | null;
+  unplannedReasonDetails: string | null;
   createdById: string;
   createdByName: string | null;
   preleveurId: string | null;
@@ -91,6 +106,8 @@ export interface OrderCreateDto {
   analysisProfileIds: string[] | null;
   notes: string | null;
   isUnplanned: boolean;
+  unplannedReason?: UnplannedReason | null;
+  unplannedReasonDetails?: string | null;
 }
 
 export interface OrderUpdateDto {

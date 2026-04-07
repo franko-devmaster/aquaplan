@@ -12,6 +12,7 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(o => o.OrderNumber).IsRequired().HasMaxLength(50);
         builder.HasIndex(o => o.OrderNumber).IsUnique();
         builder.Property(o => o.Notes).HasMaxLength(2000);
+        builder.Property(o => o.UnplannedReasonDetails).HasMaxLength(1000);
 
         builder.HasOne(o => o.CreatedBy)
             .WithMany()

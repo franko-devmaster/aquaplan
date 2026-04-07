@@ -10,6 +10,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { provideNativeDateAdapter } from '@angular/material/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TranslateModule } from '@ngx-translate/core';
+import { UnplannedReason, UnplannedReasonLabels } from '../../models/order.model';
 import { OrderDatastore } from '../../datastore/order.datastore';
 import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
 import { AnalysisProfileApiService } from '../../services/analysis-profile-api.service';
@@ -79,6 +80,22 @@ interface DistributorOption {
         <mat-checkbox formControlName="isUnplanned">
           {{ 'orders.isUnplanned' | translate }}
         </mat-checkbox>
+
+        @if (form.value.isUnplanned) {
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>{{ 'orders.unplannedReason.label' | translate }}</mat-label>
+            <mat-select formControlName="unplannedReason">
+              @for (reason of unplannedReasons; track reason.value) {
+                <mat-option [value]="reason.value">{{ reason.label | translate }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>{{ 'orders.unplannedReason.details' | translate }}</mat-label>
+            <textarea matInput formControlName="unplannedReasonDetails" rows="2"></textarea>
+          </mat-form-field>
+        }
       </form>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
@@ -110,6 +127,11 @@ export class OrderCreateDialogComponent implements OnInit {
   readonly analysisProfiles = signal<AnalysisProfileListDto[]>([]);
   readonly saving = signal(false);
   readonly form: FormGroup;
+  readonly unplannedReasons = [
+    { value: UnplannedReason.Pollution, label: UnplannedReasonLabels[UnplannedReason.Pollution] },
+    { value: UnplannedReason.Urgency, label: UnplannedReasonLabels[UnplannedReason.Urgency] },
+    { value: UnplannedReason.ComplementaryControl, label: UnplannedReasonLabels[UnplannedReason.ComplementaryControl] },
+  ];
 
   constructor() {
     this.form = this.fb.group({
@@ -119,6 +141,8 @@ export class OrderCreateDialogComponent implements OnInit {
       analysisProfileIds: [[]],
       notes: [''],
       isUnplanned: [false],
+      unplannedReason: [null],
+      unplannedReasonDetails: [''],
     });
   }
 
@@ -165,6 +189,8 @@ export class OrderCreateDialogComponent implements OnInit {
         analysisProfileIds: formValue.analysisProfileIds?.length > 0 ? formValue.analysisProfileIds : null,
         notes: formValue.notes || null,
         isUnplanned: formValue.isUnplanned,
+        unplannedReason: formValue.isUnplanned ? formValue.unplannedReason : null,
+        unplannedReasonDetails: formValue.isUnplanned ? (formValue.unplannedReasonDetails || null) : null,
       });
       this.dialogRef.close(true);
     } finally {

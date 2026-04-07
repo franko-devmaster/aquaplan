@@ -1,3 +1,5 @@
+using AquaPlan.Domain.Enums;
+
 namespace AquaPlan.Application.DTOs.Orders;
 
 public record OrderCreateDto(
@@ -7,4 +9,6 @@ public record OrderCreateDto(
     DateTime? PlannedDate,
     List<Guid>? AnalysisProfileIds,
     string? Notes,
-    bool IsUnplanned);
+    bool IsUnplanned,
+    UnplannedReason? UnplannedReason = null,
+    string? UnplannedReasonDetails = null);

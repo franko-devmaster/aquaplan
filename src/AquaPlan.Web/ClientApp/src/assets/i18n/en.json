@@ -97,6 +97,13 @@
     "createdAt": "Created",
     "updatedAt": "Updated",
     "isUnplanned": "Unplanned",
+    "unplannedReason": {
+      "label": "Reason",
+      "details": "Reason details",
+      "pollution": "Pollution",
+      "urgency": "Urgency",
+      "complementaryControl": "Complementary control"
+    },
     "samplingLocation": "Sampling location",
     "plannedDate": "Planned date",
     "notes": "Notes",
