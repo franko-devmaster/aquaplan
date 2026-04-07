@@ -7,6 +7,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDatepickerModule } from '@angular/material/datepicker';
+import { provideNativeDateAdapter } from '@angular/material/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TranslateModule } from '@ngx-translate/core';
 import { OrderDatastore } from '../../datastore/order.datastore';
@@ -29,6 +30,7 @@ interface DistributorOption {
     MatSelectModule, MatButtonModule, MatCheckboxModule, MatDatepickerModule,
     MatProgressSpinnerModule, TranslateModule,
   ],
+  providers: [provideNativeDateAdapter()],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h2 mat-dialog-title>{{ 'orders.createOrder' | translate }}</h2>

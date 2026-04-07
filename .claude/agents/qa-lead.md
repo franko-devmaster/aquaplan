@@ -90,28 +90,36 @@ Pour chaque version vX.Y :
 - [ ] Jira > Développement affiche les commits liés aux stories
 
 ```
+ PHASE 1 — Tests du nouvel incrément (AUTOMATIQUE)
  1. DEV termine la version → code committé et poussé sur Bitbucket
  2. QA Lead VÉRIFIE que Bitbucket a le commit + Jira a les stories à "Terminé"
  3. QA Lead crée le Test Set vX.Y + tests Gherkin dans Xray
  4. QA Lead crée le Test Plan vX.Y + Test Execution vX.Y
  5. Lancer l'environnement (API + UI + DB)
- 6. cd tests/e2e && npm run xray:export AQ-xxx (exporter Gherkin de l'exécution)
- 7. npm run test:smoke → L1 doit être 100% OK
- 8. npm test → exécuter tous les tests (L2 + L3 + L4)
- 9. npm run xray:import AQ-xxx → importer les résultats dans Xray
-10. Tests FAILED → créer Bug + lier au test run
-11. ** Mettre à jour le plan de non-régression AQ-194 ** :
+ 6. npm run test:smoke → L1 doit être 100% OK
+ 7. Exécuter TOUS les tests du nouvel incrément (L2 + L3 + L4)
+ 8. Importer les résultats dans Xray (TE de la version)
+ 9. Tests FAILED → créer Bug + lier au test run
+
+ PHASE 2 — Préparation non-régression (AUTOMATIQUE)
+10. Mettre à jour le plan de non-régression AQ-194 :
     a. Ajouter les nouveaux tests de la version au plan AQ-194
     b. Créer une nouvelle Test Execution : TE - Non-régression globale (date)
     c. Lier la nouvelle exécution au plan AQ-194
-12. Exécuter la non-régression :
-    a. npm run xray:export AQ-yyy (exporter Gherkin de l'exécution non-régression)
-    b. npm test → exécuter TOUS les tests (nouvel incrément + tous les précédents)
-    c. npm run xray:import AQ-yyy → importer les résultats
+
+ PHASE 3 — Exécution non-régression (VALIDATION UTILISATEUR REQUISE)
+11. ⚠️ DEMANDER VALIDATION à l'utilisateur avant d'exécuter la non-régression
+    → Afficher : nombre de tests, estimation de durée, TE créée
+    → Attendre confirmation explicite ("oui", "lance", etc.)
+12. Après validation :
+    a. Exécuter TOUS les tests cumulés (nouvel incrément + tous les précédents)
+    b. Importer les résultats dans Xray
 13. Tests FAILED → créer Bug (régression) + corriger
 14. Re-test → répéter jusqu'à 100% PASSED
 15. Tous PASSED → version validée
 ```
+
+**IMPORTANT** : La phase 1 (tests du nouvel incrément) s'exécute automatiquement sans demander de validation. Seule la phase 3 (non-régression) nécessite une validation explicite de l'utilisateur avant exécution, car elle peut être longue et impacter l'environnement.
 
 ### Plan de non-régression (AQ-194)
 
@@ -123,8 +131,13 @@ Le plan de non-régression **AQ-194** (`TP - Non-régression AquaPlan`) est le p
 - **Objectif** : garantir qu'aucune régression n'est introduite par les nouveaux développements
 
 **Règle** : à la fin de chaque lot de développement, deux exécutions de tests sont requises :
-1. **Tests du nouvel incrément** : uniquement les tests de la version en cours (ex: TE - AquaPlan v0.4)
-2. **Tests de non-régression** : TOUS les tests cumulés (ex: TE - Non-régression globale)
+1. **Tests du nouvel incrément** (exécution automatique) : uniquement les tests de la version en cours (ex: TE - AquaPlan v0.4a)
+2. **Tests de non-régression** (validation utilisateur requise) : TOUS les tests cumulés (ex: TE - Non-régression globale)
+
+**Workflow non-régression** :
+- La mise à jour du plan AQ-194 et la création de l'exécution de non-régression se font **automatiquement**
+- L'**exécution** des tests de non-régression nécessite une **validation explicite de l'utilisateur** avant lancement
+- Raison : la non-régression peut être longue (60+ tests) et l'utilisateur peut vouloir planifier le moment
 
 ### Critères de validation d'une version
 - L1 Smoke tests : 100% OK

@@ -50,9 +50,10 @@ A story/version is considered DONE only when ALL of the following are met:
 - [ ] Test Set created for the version (`TS - AquaPlan vX.Y`)
 - [ ] Test Plan created (`TP - AquaPlan vX.Y`)
 - [ ] Test Execution created and all tests PASSED (`TE - AquaPlan vX.Y`)
-- [ ] **Plan de non-régression AQ-194 mis à jour** : nouveaux tests de la version ajoutés
-- [ ] **Nouvelle exécution de non-régression créée** (`TE - Non-régression globale (DATE)`) et liée à AQ-194
-- [ ] Non-regression execution : all tests PASSED (Playwright + Cucumber)
+- [ ] **Plan de non-régression AQ-194 mis à jour** : nouveaux tests de la version ajoutés (automatique)
+- [ ] **Nouvelle exécution de non-régression créée** (`TE - Non-régression globale (DATE)`) et liée à AQ-194 (automatique)
+- [ ] **Validation utilisateur obtenue** avant exécution de la non-régression (obligatoire — ne pas lancer automatiquement)
+- [ ] Non-regression execution : all tests PASSED (après validation utilisateur)
 - [ ] All bugs linked to test runs and resolved
 - [ ] Every story has at least 1 linked test
 

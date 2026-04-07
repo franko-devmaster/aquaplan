@@ -9,3 +9,11 @@
 **/.vscode
 *.user
 *.suo
+**/logs
+**/*.log
+.env
+.git
+.claude
+tests/e2e/reports
+docker-compose*.yml
+scripts

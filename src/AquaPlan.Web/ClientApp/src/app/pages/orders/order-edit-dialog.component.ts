@@ -6,6 +6,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
+import { provideNativeDateAdapter } from '@angular/material/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TranslateModule } from '@ngx-translate/core';
 import { OrderDatastore } from '../../datastore/order.datastore';
@@ -24,6 +25,7 @@ import { firstValueFrom } from 'rxjs';
     MatSelectModule, MatButtonModule, MatDatepickerModule,
     MatProgressSpinnerModule, TranslateModule,
   ],
+  providers: [provideNativeDateAdapter()],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h2 mat-dialog-title>{{ 'orders.editOrder' | translate }}</h2>

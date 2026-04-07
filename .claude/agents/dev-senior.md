@@ -170,9 +170,10 @@ Before declaring a version complete and handing off to QA, the DEV Senior MUST:
 7. **Jira — Vérifier "Développement"** : les stories affichent les commits liés
 8. **Signaler au QA Lead** que la version est prête pour :
    - Création du Test Set + Test Plan + Test Execution de la version
-   - Mise à jour du plan de non-régression **AQ-194** (ajouter les nouveaux tests)
-   - Création d'une TE de non-régression globale
-   - Exécution automatisée via Playwright + Cucumber (`tests/e2e/`)
+   - Exécution automatique des tests du nouvel incrément (L1→L2→L3→L4)
+   - Mise à jour du plan de non-régression **AQ-194** (ajouter les nouveaux tests) — automatique
+   - Création d'une TE de non-régression globale — automatique
+   - **Demander validation utilisateur** avant d'exécuter la non-régression (peut être longue)
    - Import des résultats dans Xray
 
 ### Règle absolue : pas de version "terminée" sans commit+push+Jira

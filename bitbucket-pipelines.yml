@@ -21,7 +21,7 @@ pipelines:
 
       - step:
           name: Build Angular
-          image: node:20-alpine
+          image: node:22-alpine
           caches:
             - npm
           script:
@@ -47,7 +47,7 @@ pipelines:
 
         - step:
             name: Build Angular
-            image: node:20-alpine
+            image: node:22-alpine
             caches:
               - npm
             script:
@@ -58,18 +58,31 @@ pipelines:
               - src/AquaPlan.Web/ClientApp/dist/**
 
       - step:
-          name: Docker Build
+          name: Docker Build & Push
           services:
             - docker
           script:
-            - docker build -f src/AquaPlan.Api/Dockerfile -t aquaplan-api:${BITBUCKET_COMMIT:0:7} .
-            - docker build -f src/AquaPlan.Web/Dockerfile -t aquaplan-web:${BITBUCKET_COMMIT:0:7} .
+            - export TAG=${BITBUCKET_COMMIT:0:7}
+            - echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+            # Build and push API image
+            - docker build -f src/AquaPlan.Api/Dockerfile -t francoischarriere/aquaplan-api:$TAG -t francoischarriere/aquaplan-api:latest .
+            - docker push francoischarriere/aquaplan-api:$TAG
+            - docker push francoischarriere/aquaplan-api:latest
+            # Build and push Web image
+            - docker build -f src/AquaPlan.Web/Dockerfile -t francoischarriere/aquaplan-web:$TAG -t francoischarriere/aquaplan-web:latest .
+            - docker push francoischarriere/aquaplan-web:$TAG
+            - docker push francoischarriere/aquaplan-web:latest
 
       - step:
-          name: Deploy to Staging
+          name: Tag for Deployment
           deployment: staging
           script:
-            - echo "AquaPlan deployed to staging"
-            - echo "Version $BITBUCKET_COMMIT"
-            - echo "Branch $BITBUCKET_BRANCH"
-            - echo "Build $BITBUCKET_BUILD_NUMBER"
+            - export TAG=${BITBUCKET_COMMIT:0:7}
+            - echo "Images pushed to Docker Hub:"
+            - echo "  francoischarriere/aquaplan-api:$TAG"
+            - echo "  francoischarriere/aquaplan-web:$TAG"
+            - echo ""
+            - echo "To deploy on Synology, run on the NAS:"
+            - echo "  cd /volume1/docker/aquaplan && sudo ./update.sh $TAG"
+            - echo ""
+            - echo "Or use 'latest' tag (auto-pulled by Synology scheduled task)"

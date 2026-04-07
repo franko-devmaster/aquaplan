@@ -218,11 +218,14 @@ Skills are reusable workflows in `/.claude/skills/`.
 
 ### After tests (Definition of Done — QA)
 6. **Test Set + Test Plan + Test Execution** created in Xray for the version
-7. **Non-regression plan AQ-194 updated**: new tests added
-8. **Non-regression execution created and run**: all cumulative tests pass
-9. **Results imported into Xray**
+7. **Version tests executed automatically**: L1 smoke → L2 API → L3 UI → L4 E2E, results imported into Xray
+8. **Non-regression plan AQ-194 updated**: new tests added (automatic)
+9. **Non-regression execution created** in Xray, linked to AQ-194 (automatic)
+10. **Non-regression execution run only after user validation**: ask user before launching (can be long: 60+ tests)
+11. **Results imported into Xray**
 
 **Rule: A version with unpushed code, un-updated Jira tickets, or missing test executions is NOT done.**
+**Rule: Non-regression execution requires explicit user approval before launch. Version increment tests run automatically.**
 
 ## Quality Assurance Process
 
