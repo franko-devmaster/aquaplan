@@ -4,9 +4,9 @@
     {
       "name": "angular",
       "runtimeExecutable": "/usr/local/bin/node",
-      "runtimeArgs": ["node_modules/@angular/cli/bin/ng.js", "serve"],
+      "runtimeArgs": ["/Users/francois/Documents/Claude/Projects/AquaPlan/src/AquaPlan.Web/ClientApp/node_modules/@angular/cli/bin/ng.js", "serve"],
       "port": 4200,
-      "cwd": "src/AquaPlan.Web/ClientApp"
+      "cwd": "/Users/francois/Documents/Claude/Projects/AquaPlan/src/AquaPlan.Web/ClientApp"
     }
   ]
 }

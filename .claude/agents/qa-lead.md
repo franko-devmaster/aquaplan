@@ -82,6 +82,36 @@ Pour chaque version vX.Y :
 4. **Re-test Execution** (si nécessaire) : `Re-test vX.Y - Tests échoués`
 5. **Non-régression Execution** : `TE - Non-régression vX.Y` avec toutes les suites précédentes
 
+### Gestion des statuts (OBLIGATOIRE)
+
+**Règle** : les statuts des artefacts de test doivent être maintenus à jour en permanence.
+
+| Type | En utilisation | Terminé | Non commencé |
+|------|---------------|---------|--------------|
+| Test Plan | **Active** | Active (reste actif) | Brouillon |
+| Test Set | **Active** | Active (reste actif) | Brouillon |
+| Test (cas de test) | **Active** | Active (reste actif) | Brouillon |
+| Test Execution | **En cours** (durant exécution) | **Terminé** (après import résultats) | Backlog |
+
+- Un **Test Plan** en utilisation est au statut **Active** (transition id: 4)
+- Un **Test Set** en utilisation est au statut **Active**
+- Un **cas de test** en utilisation est au statut **Active**
+- Une **Test Execution** en cours d'exécution est au statut **En cours** (transition id: 31)
+- Une **Test Execution** terminée (résultats importés) est au statut **Terminé** (transition id: 41)
+- **Après chaque import de résultats**, transitionner immédiatement la TE vers Terminé
+
+### Liens entre artefacts (OBLIGATOIRE)
+
+Chaque Test Execution **DOIT** être liée à son Test Plan via un lien Jira de type "Test" (id: 10008).
+
+```
+Test Plan (outward) --[tests]--> Test Execution (inward)
+```
+
+- `TP - AquaPlan vX.Y` → `TE - AquaPlan vX.Y`
+- `TP - Non-régression AquaPlan (AQ-194)` → `TE - Non-régression globale (date)`
+- Vérifier les liens après création : chaque TP doit afficher "is tested by" ses TEs
+
 ### Workflow par version (à partir de v0.3)
 
 **Pré-requis QA (vérifier AVANT de commencer les tests) :**
@@ -184,13 +214,36 @@ Les exécutions AQ-192 et AQ-193 ont révélé des faux positifs : tests marqué
 |---------|----------|-------|-----------|
 | v0.1 | AQ-173 | 8 BE | Infrastructure |
 | v0.2 | AQ-174 | 14 BE + 9 FE | Auth & Rôles |
+| v0.4Design | AQ-232 | 6 UI | Design responsive |
+
+## Plans de test
+
+| Plan | Clé | Statut | Exécutions liées |
+|------|-----|--------|-----------------|
+| TP v0.1 | AQ-150 | Active | AQ-152, AQ-170 |
+| TP v0.2 | AQ-167 | Active | AQ-153, AQ-166 |
+| TP v0.3 | AQ-184 | Active | AQ-185, AQ-186, AQ-192 |
+| TP Non-régression | AQ-194 | Active | AQ-193, AQ-195, AQ-217, AQ-235 |
+| TP v0.4a | AQ-215 | Active | AQ-216 |
+| TP v0.4Design | AQ-233 | Active | AQ-234 |
 
 ## Exécutions existantes
 
-| Version | Exécution | Statut | Re-test |
-|---------|-----------|--------|---------|
-| v0.1 | AQ-152 | 6 PASSED, 2 FAILED | AQ-170 |
-| v0.2 | AQ-153 | - | - |
+| Version | Exécution | Statut | Type |
+|---------|-----------|--------|------|
+| v0.1 | AQ-152 | Terminé | Version |
+| v0.1 | AQ-170 | Terminé | Re-test |
+| v0.2 | AQ-153 | Terminé | Version (API) |
+| v0.2 | AQ-166 | Terminé | Version (UI) |
+| v0.3a | AQ-185 | Terminé | Version |
+| v0.3a | AQ-186 | Terminé | Non-régression |
+| v0.3b | AQ-192 | Terminé | Version |
+| v0.3b | AQ-193 | Terminé | Non-régression |
+| v0.4a | AQ-216 | Terminé | Version |
+| post v0.4a | AQ-195 | Terminé | Non-régression |
+| post v0.4a | AQ-217 | Terminé | Non-régression |
+| v0.4Design | AQ-234 | Terminé | Version |
+| post v0.4Design | AQ-235 | Backlog | Non-régression (67 tests, en attente) |
 
 ## Bugs ouverts
 
