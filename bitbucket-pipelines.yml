@@ -69,9 +69,8 @@ pipelines:
             - docker push francoischarriere/aquaplan-api:$TAG
             - docker push francoischarriere/aquaplan-api:latest
             # Build and push Web image (using pre-built Angular artifacts)
-            - mkdir -p dist
-            - cp -r src/AquaPlan.Web/ClientApp/dist/client-app/browser/* dist/
-            - ls -la dist/
+            - mkdir -p _web-dist
+            - cp -r src/AquaPlan.Web/ClientApp/dist/client-app/browser/* _web-dist/
             - docker build -f src/AquaPlan.Web/Dockerfile.ci -t francoischarriere/aquaplan-web:$TAG -t francoischarriere/aquaplan-web:latest .
             - docker push francoischarriere/aquaplan-web:$TAG
             - docker push francoischarriere/aquaplan-web:latest
