@@ -59,6 +59,7 @@ pipelines:
 
       - step:
           name: Docker Build & Push
+          size: 2x
           services:
             - docker
           script:
