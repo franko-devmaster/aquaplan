@@ -101,7 +101,7 @@ public class OrdersController(
 
         try
         {
-            var order = await orderService.UpdateOrderAsync(id, dto, userId, tenantId, cancellationToken);
+            var order = await orderService.UpdateOrderAsync(id, dto, userId, tenantId, hasViewAll, cancellationToken);
             if (order is null)
             {
                 return NotFound();
@@ -133,7 +133,7 @@ public class OrdersController(
 
         try
         {
-            var deleted = await orderService.DeleteOrderAsync(id, userId, tenantId, cancellationToken);
+            var deleted = await orderService.DeleteOrderAsync(id, userId, tenantId, hasViewAll, cancellationToken);
             if (!deleted)
             {
                 return NotFound();

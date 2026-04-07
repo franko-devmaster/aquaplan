@@ -13,6 +13,7 @@ import { firstValueFrom } from 'rxjs';
 import { OrderApiService } from '../../services/order-api.service';
 import { OrderDatastore } from '../../datastore/order.datastore';
 import { OrderDetailDto, OrderStatus, OrderStatusLabels, UnplannedReasonLabels } from '../../models/order.model';
+import { AuthService } from '../../services/auth.service';
 import { OrderEditDialogComponent } from './order-edit-dialog.component';
 import { ConfirmDialogComponent } from '../../components/confirm-dialog.component';
 
@@ -38,16 +39,20 @@ import { ConfirmDialogComponent } from '../../components/confirm-dialog.componen
           </button>
           <h2>{{ 'orders.details' | translate }} — {{ order()!.orderNumber }}</h2>
         </div>
-        @if (canEdit()) {
+        @if (canEdit() || canDelete()) {
           <div class="header-actions">
-            <button mat-raised-button color="primary" (click)="openEditDialog()">
-              <mat-icon>edit</mat-icon>
-              {{ 'common.edit' | translate }}
-            </button>
-            <button mat-raised-button color="warn" (click)="confirmDelete()">
-              <mat-icon>delete</mat-icon>
-              {{ 'common.delete' | translate }}
-            </button>
+            @if (canEdit()) {
+              <button mat-raised-button color="primary" (click)="openEditDialog()">
+                <mat-icon>edit</mat-icon>
+                {{ 'common.edit' | translate }}
+              </button>
+            }
+            @if (canDelete()) {
+              <button mat-raised-button color="warn" (click)="confirmDelete()">
+                <mat-icon>delete</mat-icon>
+                {{ 'common.delete' | translate }}
+              </button>
+            }
           </div>
         }
       </div>
@@ -157,6 +162,7 @@ export class OrderDetailComponent implements OnInit {
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly translate = inject(TranslateService);
+  private readonly authService = inject(AuthService);
 
   readonly order = signal<OrderDetailDto | null>(null);
   readonly loading = signal(false);
@@ -178,9 +184,26 @@ export class OrderDetailComponent implements OnInit {
     }
   }
 
+  private isAdmin(): boolean {
+    return this.authService.currentUser()?.roles.includes('Administrator') ?? false;
+  }
+
   canEdit(): boolean {
     const o = this.order();
-    return o !== null && (o.status === OrderStatus.Draft || o.status === OrderStatus.Assigned);
+    if (!o) return false;
+    if (this.isAdmin()) {
+      return o.status !== OrderStatus.Completed && o.status !== OrderStatus.Cancelled;
+    }
+    return o.status === OrderStatus.Draft || o.status === OrderStatus.Assigned;
+  }
+
+  canDelete(): boolean {
+    const o = this.order();
+    if (!o) return false;
+    if (this.isAdmin()) {
+      return o.status < OrderStatus.SamplingCompleted;
+    }
+    return o.status === OrderStatus.Draft || o.status === OrderStatus.Assigned;
   }
 
   getStatusLabel(): string {

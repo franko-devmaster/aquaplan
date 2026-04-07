@@ -195,7 +195,7 @@ public class OrdersControllerTest
             .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _orderServiceMock
-            .Setup(x => x.UpdateOrderAsync(OrderId, updateDto, UserId, TenantId, It.IsAny<CancellationToken>()))
+            .Setup(x => x.UpdateOrderAsync(OrderId, updateDto, UserId, TenantId, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(updatedOrder);
 
         var result = await _sut.UpdateOrder(OrderId, updateDto, CancellationToken.None);
@@ -211,7 +211,7 @@ public class OrdersControllerTest
             .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _orderServiceMock
-            .Setup(x => x.UpdateOrderAsync(OrderId, updateDto, UserId, TenantId, It.IsAny<CancellationToken>()))
+            .Setup(x => x.UpdateOrderAsync(OrderId, updateDto, UserId, TenantId, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((OrderDetailDto?)null);
 
         var result = await _sut.UpdateOrder(OrderId, updateDto, CancellationToken.None);
@@ -227,7 +227,7 @@ public class OrdersControllerTest
             .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _orderServiceMock
-            .Setup(x => x.UpdateOrderAsync(OrderId, updateDto, UserId, TenantId, It.IsAny<CancellationToken>()))
+            .Setup(x => x.UpdateOrderAsync(OrderId, updateDto, UserId, TenantId, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Cannot modify order in status InProgress."));
 
         var result = await _sut.UpdateOrder(OrderId, updateDto, CancellationToken.None);
@@ -243,7 +243,7 @@ public class OrdersControllerTest
             .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _orderServiceMock
-            .Setup(x => x.DeleteOrderAsync(OrderId, UserId, TenantId, It.IsAny<CancellationToken>()))
+            .Setup(x => x.DeleteOrderAsync(OrderId, UserId, TenantId, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
         var result = await _sut.DeleteOrder(OrderId, CancellationToken.None);
@@ -258,7 +258,7 @@ public class OrdersControllerTest
             .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _orderServiceMock
-            .Setup(x => x.DeleteOrderAsync(OrderId, UserId, TenantId, It.IsAny<CancellationToken>()))
+            .Setup(x => x.DeleteOrderAsync(OrderId, UserId, TenantId, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         var result = await _sut.DeleteOrder(OrderId, CancellationToken.None);
@@ -273,7 +273,7 @@ public class OrdersControllerTest
             .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _orderServiceMock
-            .Setup(x => x.DeleteOrderAsync(OrderId, UserId, TenantId, It.IsAny<CancellationToken>()))
+            .Setup(x => x.DeleteOrderAsync(OrderId, UserId, TenantId, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Cannot delete order in status Completed."));
 
         var result = await _sut.DeleteOrder(OrderId, CancellationToken.None);

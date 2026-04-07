@@ -120,6 +120,99 @@ public class OrderServiceTest : IDisposable
         result.UnplannedReason.Should().Be(reason);
     }
 
+    // ─── AQ-40: Admin order management ─────────────────────────
+
+    [Fact]
+    public async Task UpdateOrderAsync_ShouldAllowAdmin_WhenStatusInProgress()
+    {
+        var order = await CreateSeedOrder(OrderStatus.InProgress);
+        var dto = new OrderUpdateDto(null, null, DateTime.UtcNow.AddDays(5), null, "Admin update");
+
+        var result = await _sut.UpdateOrderAsync(order.Id, dto, UserId, TenantId, isAdmin: true);
+
+        result.Should().NotBeNull();
+        result!.Notes.Should().Be("Admin update");
+    }
+
+    [Fact]
+    public async Task UpdateOrderAsync_ShouldThrowForAdmin_WhenStatusCompleted()
+    {
+        var order = await CreateSeedOrder(OrderStatus.Completed);
+        var dto = new OrderUpdateDto(null, null, null, null, "Should fail");
+
+        await _sut.Awaiting(s => s.UpdateOrderAsync(order.Id, dto, UserId, TenantId, isAdmin: true))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*terminal*");
+    }
+
+    [Fact]
+    public async Task UpdateOrderAsync_ShouldThrowForNonAdmin_WhenStatusInProgress()
+    {
+        var order = await CreateSeedOrder(OrderStatus.InProgress);
+        var dto = new OrderUpdateDto(null, null, null, null, "Should fail");
+
+        await _sut.Awaiting(s => s.UpdateOrderAsync(order.Id, dto, UserId, TenantId, isAdmin: false))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Draft and Assigned*");
+    }
+
+    [Fact]
+    public async Task DeleteOrderAsync_ShouldAllowAdmin_WhenStatusAssigned()
+    {
+        var order = await CreateSeedOrder(OrderStatus.Assigned);
+
+        var deleted = await _sut.DeleteOrderAsync(order.Id, UserId, TenantId, isAdmin: true);
+
+        deleted.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DeleteOrderAsync_ShouldAllowAdmin_WhenStatusInProgress()
+    {
+        var order = await CreateSeedOrder(OrderStatus.InProgress);
+
+        var deleted = await _sut.DeleteOrderAsync(order.Id, UserId, TenantId, isAdmin: true);
+
+        deleted.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DeleteOrderAsync_ShouldThrowForAdmin_WhenStatusSamplingCompleted()
+    {
+        var order = await CreateSeedOrder(OrderStatus.SamplingCompleted);
+
+        await _sut.Awaiting(s => s.DeleteOrderAsync(order.Id, UserId, TenantId, isAdmin: true))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*before sampling*");
+    }
+
+    [Fact]
+    public async Task DeleteOrderAsync_ShouldThrowForNonAdmin_WhenStatusInProgress()
+    {
+        var order = await CreateSeedOrder(OrderStatus.InProgress);
+
+        await _sut.Awaiting(s => s.DeleteOrderAsync(order.Id, UserId, TenantId, isAdmin: false))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Draft and Assigned*");
+    }
+
+    private async Task<Order> CreateSeedOrder(OrderStatus status)
+    {
+        var order = new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = $"ORD-TEST-{Guid.NewGuid():N}".Substring(0, 20),
+            Status = status,
+            IsUnplanned = false,
+            CreatedById = UserId,
+            DistributorId = DistributorId,
+            TenantId = TenantId,
+        };
+        _dbContext.Orders.Add(order);
+        await _dbContext.SaveChangesAsync();
+        return order;
+    }
+
     private async Task SeedData()
     {
         _dbContext.Users.Add(new AppUser

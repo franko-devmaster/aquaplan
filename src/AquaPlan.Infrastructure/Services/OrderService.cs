@@ -173,7 +173,7 @@ internal class OrderService(
         return (await GetOrderByIdAsync(order.Id, tenantId, cancellationToken))!;
     }
 
-    public async Task<OrderDetailDto?> UpdateOrderAsync(Guid orderId, OrderUpdateDto dto, string updatedBy, Guid tenantId, CancellationToken cancellationToken = default)
+    public async Task<OrderDetailDto?> UpdateOrderAsync(Guid orderId, OrderUpdateDto dto, string updatedBy, Guid tenantId, bool isAdmin = false, CancellationToken cancellationToken = default)
     {
         var order = await dbContext.Orders
             .Include(o => o.OrderAnalysisProfiles)
@@ -184,8 +184,16 @@ internal class OrderService(
             return null;
         }
 
-        // Business rule: can only modify if status is Draft or Assigned
-        if (order.Status != OrderStatus.Draft && order.Status != OrderStatus.Assigned)
+        // Business rule: admin can edit non-terminal orders; regular users only Draft/Assigned
+        var terminalStatuses = new[] { OrderStatus.Completed, OrderStatus.Cancelled };
+        if (isAdmin)
+        {
+            if (terminalStatuses.Contains(order.Status))
+            {
+                throw new InvalidOperationException($"Cannot modify order in terminal status {order.Status}.");
+            }
+        }
+        else if (order.Status != OrderStatus.Draft && order.Status != OrderStatus.Assigned)
         {
             throw new InvalidOperationException($"Cannot modify order in status {order.Status}. Only Draft and Assigned orders can be modified.");
         }
@@ -235,7 +243,7 @@ internal class OrderService(
         return await GetOrderByIdAsync(orderId, tenantId, cancellationToken);
     }
 
-    public async Task<bool> DeleteOrderAsync(Guid orderId, string deletedBy, Guid tenantId, CancellationToken cancellationToken = default)
+    public async Task<bool> DeleteOrderAsync(Guid orderId, string deletedBy, Guid tenantId, bool isAdmin = false, CancellationToken cancellationToken = default)
     {
         var order = await dbContext.Orders
             .FirstOrDefaultAsync(o => o.Id == orderId && o.TenantId == tenantId, cancellationToken);
@@ -245,8 +253,15 @@ internal class OrderService(
             return false;
         }
 
-        // Business rule: can only delete if status is Draft or Assigned
-        if (order.Status != OrderStatus.Draft && order.Status != OrderStatus.Assigned)
+        // Business rule: admin can delete non-treated orders (< SamplingCompleted); regular users only Draft/Assigned
+        if (isAdmin)
+        {
+            if (order.Status >= OrderStatus.SamplingCompleted)
+            {
+                throw new InvalidOperationException($"Cannot delete order in status {order.Status}. Admin can only delete orders before sampling is completed.");
+            }
+        }
+        else if (order.Status != OrderStatus.Draft && order.Status != OrderStatus.Assigned)
         {
             throw new InvalidOperationException($"Cannot delete order in status {order.Status}. Only Draft and Assigned orders can be deleted.");
         }
