@@ -58,30 +58,15 @@ import { UserFormDialogComponent } from './user-form-dialog.component';
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef>{{ 'users.status' | translate }}</th>
             <td mat-cell *matCellDef="let user" [attr.data-label]="'users.status' | translate">
-              <mat-chip [highlighted]="user.isActive" [class.inactive]="!user.isActive">
+              <mat-chip class="status-chip" [highlighted]="user.isActive" [class.inactive]="!user.isActive">
                 {{ (user.isActive ? 'common.active' : 'common.inactive') | translate }}
               </mat-chip>
             </td>
           </ng-container>
 
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
-            <td mat-cell *matCellDef="let user">
-              <button mat-icon-button [matTooltip]="'common.edit' | translate"
-                      (click)="openEditDialog(user)">
-                <mat-icon>edit</mat-icon>
-              </button>
-              @if (user.isActive) {
-                <button mat-icon-button [matTooltip]="'users.deactivateUser' | translate"
-                        color="warn" (click)="deactivate(user)">
-                  <mat-icon>person_off</mat-icon>
-                </button>
-              }
-            </td>
-          </ng-container>
-
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"
+              class="clickable-row" (click)="openEditDialog(row)"></tr>
         </table>
       </div>
 
@@ -103,7 +88,7 @@ export class UserListComponent implements OnInit {
   readonly store = inject(UserDatastore);
   private readonly dialog = inject(MatDialog);
 
-  readonly displayedColumns = ['name', 'email', 'roles', 'status', 'actions'];
+  readonly displayedColumns = ['name', 'email', 'roles', 'status'];
 
   ngOnInit(): void {
     this.store.loadAll();
@@ -135,7 +120,4 @@ export class UserListComponent implements OnInit {
     });
   }
 
-  async deactivate(user: UserListDto): Promise<void> {
-    await this.store.deactivate(user.id);
-  }
 }

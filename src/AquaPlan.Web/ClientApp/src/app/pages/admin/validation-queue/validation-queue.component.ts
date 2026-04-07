@@ -36,7 +36,7 @@ import { RejectDialogComponent, RejectDialogResult } from './reject-dialog.compo
           <ng-container matColumnDef="requestType">
             <th mat-header-cell *matHeaderCellDef>{{ 'common.status' | translate }}</th>
             <td mat-cell *matCellDef="let r" [attr.data-label]="'common.status' | translate">
-              <mat-chip>
+              <mat-chip class="status-chip">
                 {{ 'changeRequests.' + requestTypeKey(r.requestType) | translate }}
               </mat-chip>
             </td>

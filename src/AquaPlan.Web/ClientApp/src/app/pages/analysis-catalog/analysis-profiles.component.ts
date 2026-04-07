@@ -80,26 +80,15 @@ import { AuthService } from '../../services/auth.service';
         <ng-container matColumnDef="status">
           <th mat-header-cell *matHeaderCellDef>{{ 'common.status' | translate }}</th>
           <td mat-cell *matCellDef="let p">
-            <mat-chip [class.inactive]="!p.isActive">
+            <mat-chip class="status-chip" [class.inactive]="!p.isActive">
               {{ (p.isActive ? 'common.active' : 'common.inactive') | translate }}
             </mat-chip>
           </td>
         </ng-container>
 
-        <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
-          <td mat-cell *matCellDef="let p">
-            @if (isAdmin()) {
-              <button mat-icon-button [matTooltip]="(p.isActive ? 'common.deactivate' : 'common.activate') | translate"
-                      (click)="toggleStatus(p.id)">
-                <mat-icon>{{ p.isActive ? 'toggle_on' : 'toggle_off' }}</mat-icon>
-              </button>
-            }
-          </td>
-        </ng-container>
-
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"
+            class="clickable-row" (click)="openEditForm(row)"></tr>
       </table>
 
       @if (store.profiles().length === 0) {
@@ -161,7 +150,7 @@ export class AnalysisProfilesComponent implements OnInit {
   readonly store = inject(AnalysisProfileDatastore);
   private readonly authService = inject(AuthService);
 
-  readonly displayedColumns = ['code', 'name', 'category', 'status', 'actions'];
+  readonly displayedColumns = ['code', 'name', 'category', 'status'];
   readonly categories: AnalysisCategory[] = ['Bacteriology', 'Chemistry', 'Physical', 'Other'];
 
   searchText = '';
@@ -199,6 +188,15 @@ export class AnalysisProfilesComponent implements OnInit {
     this.showForm.set(true);
   }
 
+  openEditForm(profile: { id: string; code: string; name: string; description?: string; category: AnalysisCategory }): void {
+    this.editingId.set(profile.id);
+    this.formCode = profile.code;
+    this.formName = profile.name;
+    this.formDescription = profile.description ?? '';
+    this.formCategory = profile.category;
+    this.showForm.set(true);
+  }
+
   closeForm(): void {
     this.showForm.set(false);
   }
@@ -225,7 +223,4 @@ export class AnalysisProfilesComponent implements OnInit {
     this.closeForm();
   }
 
-  async toggleStatus(id: string): Promise<void> {
-    await this.store.toggleStatus(id);
-  }
 }

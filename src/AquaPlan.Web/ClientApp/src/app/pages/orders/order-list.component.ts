@@ -79,7 +79,7 @@ import { OrderCreateDialogComponent } from './order-create-dialog.component';
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef mat-sort-header="status">{{ 'orders.status.label' | translate }}</th>
             <td mat-cell *matCellDef="let order" [attr.data-label]="'orders.status.label' | translate">
-              <mat-chip>{{ getStatusLabel(order) | translate }}</mat-chip>
+              <mat-chip class="status-chip">{{ getStatusLabel(order) | translate }}</mat-chip>
             </td>
           </ng-container>
 
@@ -108,18 +108,9 @@ import { OrderCreateDialogComponent } from './order-create-dialog.component';
             <td mat-cell *matCellDef="let order" [attr.data-label]="'orders.createdAt' | translate">{{ order.createdAt | date:'shortDate' }}</td>
           </ng-container>
 
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
-            <td mat-cell *matCellDef="let order">
-              <button mat-icon-button [matTooltip]="'orders.details' | translate"
-                      (click)="viewDetail(order)">
-                <mat-icon>visibility</mat-icon>
-              </button>
-            </td>
-          </ng-container>
-
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"
+              class="clickable-row" (click)="viewDetail(row)"></tr>
         </table>
       </div>
 
@@ -155,7 +146,7 @@ export class OrderListComponent implements OnInit {
 
   readonly displayedColumns = [
     'orderNumber', 'status', 'distributor', 'samplingLocation',
-    'preleveur', 'plannedDate', 'createdAt', 'actions',
+    'preleveur', 'plannedDate', 'createdAt',
   ];
 
   readonly availableStatuses = [

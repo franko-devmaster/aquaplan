@@ -100,35 +100,16 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.status' | translate }}</th>
             <td mat-cell *matCellDef="let loc" [attr.data-label]="'samplingLocations.status' | translate">
-              <mat-chip [class.inactive]="!loc.isActive">
+              <mat-chip class="status-chip" [class.inactive]="!loc.isActive">
                 {{ (loc.isActive ? 'common.active' : 'common.inactive') | translate }}
               </mat-chip>
             </td>
           </ng-container>
 
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
-            <td mat-cell *matCellDef="let loc">
-              <button mat-icon-button [matTooltip]="'common.edit' | translate"
-                      (click)="openEditDialog(loc)">
-                <mat-icon>edit</mat-icon>
-              </button>
-              @if (loc.isActive) {
-                <button mat-icon-button [matTooltip]="'samplingLocations.deactivate' | translate"
-                        color="warn" (click)="toggleStatus(loc)">
-                  <mat-icon>toggle_off</mat-icon>
-                </button>
-              } @else {
-                <button mat-icon-button [matTooltip]="'samplingLocations.activate' | translate"
-                        color="primary" (click)="toggleStatus(loc)">
-                  <mat-icon>toggle_on</mat-icon>
-                </button>
-              }
-            </td>
-          </ng-container>
-
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns;" [class.inactive-row]="!row.isActive"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"
+              class="clickable-row" [class.inactive-row]="!row.isActive"
+              (click)="openEditDialog(row)"></tr>
         </table>
       </div>
 
@@ -162,7 +143,7 @@ export class SamplingLocationListComponent implements OnInit {
   readonly store = inject(SamplingLocationDatastore);
   private readonly dialog = inject(MatDialog);
 
-  readonly displayedColumns = ['locationCode', 'name', 'distributor', 'coordinates', 'status', 'actions'];
+  readonly displayedColumns = ['locationCode', 'name', 'distributor', 'coordinates', 'status'];
 
   searchText = '';
   selectedDistributorId = '';
@@ -237,11 +218,6 @@ export class SamplingLocationListComponent implements OnInit {
         this.store.loadAll().then(() => this.applyFilters());
       }
     });
-  }
-
-  async toggleStatus(location: SamplingLocationDto): Promise<void> {
-    await this.store.toggleStatus(location.id);
-    this.applyFilters();
   }
 
   private getFilteredAll(): SamplingLocationDto[] {

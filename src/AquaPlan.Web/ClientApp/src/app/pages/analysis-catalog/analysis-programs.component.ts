@@ -69,30 +69,15 @@ import { AuthService } from '../../services/auth.service';
         <ng-container matColumnDef="status">
           <th mat-header-cell *matHeaderCellDef>{{ 'common.status' | translate }}</th>
           <td mat-cell *matCellDef="let p">
-            <mat-chip [class.inactive]="!p.isActive">
+            <mat-chip class="status-chip" [class.inactive]="!p.isActive">
               {{ (p.isActive ? 'common.active' : 'common.inactive') | translate }}
             </mat-chip>
           </td>
         </ng-container>
 
-        <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
-          <td mat-cell *matCellDef="let p">
-            <button mat-icon-button [matTooltip]="'analysisCatalog.programs.manageProfiles' | translate"
-                    (click)="openManageProfiles(p.id)">
-              <mat-icon>list</mat-icon>
-            </button>
-            @if (isAdmin()) {
-              <button mat-icon-button [matTooltip]="(p.isActive ? 'common.deactivate' : 'common.activate') | translate"
-                      (click)="toggleStatus(p.id)">
-                <mat-icon>{{ p.isActive ? 'toggle_on' : 'toggle_off' }}</mat-icon>
-              </button>
-            }
-          </td>
-        </ng-container>
-
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"
+            class="clickable-row" (click)="openManageProfiles(row.id)"></tr>
       </table>
 
       @if (store.programs().length === 0) {
@@ -202,7 +187,7 @@ export class AnalysisProgramsComponent implements OnInit {
   private readonly profileStore = inject(AnalysisProfileDatastore);
   private readonly authService = inject(AuthService);
 
-  readonly displayedColumns = ['code', 'name', 'profileCount', 'status', 'actions'];
+  readonly displayedColumns = ['code', 'name', 'profileCount', 'status'];
 
   searchText = '';
 
@@ -261,10 +246,6 @@ export class AnalysisProgramsComponent implements OnInit {
       await this.store.create(dto);
     }
     this.closeForm();
-  }
-
-  async toggleStatus(id: string): Promise<void> {
-    await this.store.toggleStatus(id);
   }
 
   async openManageProfiles(programId: string): Promise<void> {

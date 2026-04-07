@@ -77,30 +77,15 @@ import { DistributorFormDialogComponent } from './distributor-form-dialog.compon
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef>{{ 'distributors.status' | translate }}</th>
             <td mat-cell *matCellDef="let d" [attr.data-label]="'distributors.status' | translate">
-              <mat-chip [highlighted]="d.isActive" [class.inactive]="!d.isActive">
+              <mat-chip class="status-chip" [highlighted]="d.isActive" [class.inactive]="!d.isActive">
                 {{ (d.isActive ? 'common.active' : 'common.inactive') | translate }}
               </mat-chip>
             </td>
           </ng-container>
 
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
-            <td mat-cell *matCellDef="let d">
-              <button mat-icon-button [matTooltip]="'common.edit' | translate"
-                      (click)="openEditDialog(d)">
-                <mat-icon>edit</mat-icon>
-              </button>
-              <button mat-icon-button
-                      [matTooltip]="(d.isActive ? 'distributors.deactivate' : 'distributors.activate') | translate"
-                      [color]="d.isActive ? 'warn' : 'primary'"
-                      (click)="toggleStatus(d)">
-                <mat-icon>{{ d.isActive ? 'toggle_off' : 'toggle_on' }}</mat-icon>
-              </button>
-            </td>
-          </ng-container>
-
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"
+              class="clickable-row" (click)="openEditDialog(row)"></tr>
         </table>
       </div>
 
@@ -122,7 +107,7 @@ export class DistributorListComponent implements OnInit {
   readonly store = inject(DistributorDatastore);
   private readonly dialog = inject(MatDialog);
 
-  readonly displayedColumns = ['name', 'cantonRegion', 'distributionNetwork', 'status', 'actions'];
+  readonly displayedColumns = ['name', 'cantonRegion', 'distributionNetwork', 'status'];
 
   filterName = '';
   filterStatus: boolean | undefined;
@@ -164,7 +149,4 @@ export class DistributorListComponent implements OnInit {
     });
   }
 
-  async toggleStatus(distributor: DistributorListDto): Promise<void> {
-    await this.store.toggleStatus(distributor.id);
-  }
 }

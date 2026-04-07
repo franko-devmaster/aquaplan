@@ -223,6 +223,23 @@ $breakpoint-tablet: 1200px;
   }
 }
 
+// --- AQ-225: Clickable rows ---
+tr.mat-mdc-row.clickable-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  &:hover { background-color: rgba(0, 0, 0, 0.04); }
+
+  @include responsive(mobile) {
+    &:active { background-color: rgba(0, 0, 0, 0.08); }
+  }
+}
+
+// --- AQ-225: Status chips — no hover effect, not clickable ---
+.mat-mdc-chip.status-chip {
+  cursor: default;
+  pointer-events: none;
+}
+
 // Global overflow protection
 mat-sidenav-content.content-mobile {
   overflow-x: hidden;
