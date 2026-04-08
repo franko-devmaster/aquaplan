@@ -69,14 +69,16 @@ internal class OrderService(
             query = query.Where(o => o.PreleveurId == filter.PreleveurId);
         }
 
-        // Filter by date range
+        // Filter by date range (ensure UTC kind for PostgreSQL compatibility)
         if (filter.DateFrom.HasValue)
         {
-            query = query.Where(o => o.PlannedDate >= filter.DateFrom.Value);
+            var dateFrom = DateTime.SpecifyKind(filter.DateFrom.Value, DateTimeKind.Utc);
+            query = query.Where(o => o.PlannedDate >= dateFrom);
         }
         if (filter.DateTo.HasValue)
         {
-            query = query.Where(o => o.PlannedDate <= filter.DateTo.Value);
+            var dateTo = DateTime.SpecifyKind(filter.DateTo.Value, DateTimeKind.Utc);
+            query = query.Where(o => o.PlannedDate <= dateTo);
         }
 
         // Search (order number, distributor name, LDP name, préleveur name)
@@ -371,11 +373,13 @@ internal class OrderService(
         }
         if (filter.DateFrom.HasValue)
         {
-            query = query.Where(o => o.PlannedDate >= filter.DateFrom.Value);
+            var dateFrom = DateTime.SpecifyKind(filter.DateFrom.Value, DateTimeKind.Utc);
+            query = query.Where(o => o.PlannedDate >= dateFrom);
         }
         if (filter.DateTo.HasValue)
         {
-            query = query.Where(o => o.PlannedDate <= filter.DateTo.Value);
+            var dateTo = DateTime.SpecifyKind(filter.DateTo.Value, DateTimeKind.Utc);
+            query = query.Where(o => o.PlannedDate <= dateTo);
         }
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
