@@ -20,6 +20,7 @@ public class AquaPlanDbContext(DbContextOptions<AquaPlanDbContext> options)
     public DbSet<AnalysisProgramProfile> AnalysisProgramProfiles => Set<AnalysisProgramProfile>();
     public DbSet<SamplingLocationChangeRequest> SamplingLocationChangeRequests => Set<SamplingLocationChangeRequest>();
     public DbSet<OrderAnalysisProfile> OrderAnalysisProfiles => Set<OrderAnalysisProfile>();
+    public DbSet<DistributorDelegation> DistributorDelegations => Set<DistributorDelegation>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

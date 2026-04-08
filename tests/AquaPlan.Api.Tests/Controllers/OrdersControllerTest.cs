@@ -50,7 +50,7 @@ public class OrdersControllerTest
             null, null,
             UserId, "John Doe", preleveurId, preleveurName,
             DistributorId, "Distributor A",
-            null, null, null, null, [],
+            null, null, null, null, false, [],
             TenantId, DateTime.UtcNow, null, null);
     }
 
@@ -60,7 +60,7 @@ public class OrdersControllerTest
             id ?? OrderId, orderNumber, OrderStatus.Draft, false, null,
             UserId, "John Doe", null, null,
             DistributorId, "Distributor A",
-            null, null, null, DateTime.UtcNow);
+            null, null, null, false, DateTime.UtcNow);
     }
 
     // ─── GetOrders ─────────────────────────────────────────────

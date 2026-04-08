@@ -15,6 +15,7 @@
     "roles": "Roles",
     "orderStatus": "Order statuses",
     "validationQueue": "SL Validation",
+    "delegations": "Delegations",
     "settings": "Settings"
   },
   "auth": {
@@ -120,7 +121,21 @@
     "deleteConfirmTitle": "Delete order",
     "deleteConfirmMessage": "Are you sure you want to delete this order? This action cannot be undone.",
     "deleteSuccess": "Order deleted successfully",
-    "deleteError": "Error deleting order"
+    "deleteError": "Error deleting order",
+    "delegation": "Delegation",
+    "delegated": "Delegated"
+  },
+  "delegations": {
+    "title": "Delegations",
+    "delegatingDistributor": "Delegating distributor",
+    "delegatedToDistributor": "Delegated to distributor",
+    "validFrom": "Valid from",
+    "validTo": "Valid to",
+    "createDelegation": "Create delegation",
+    "deleteDelegation": "Delete delegation",
+    "confirmDelete": "Are you sure you want to delete this delegation?",
+    "active": "Active",
+    "inactive": "Inactive"
   },
   "distributors": {
     "title": "Distributor management",

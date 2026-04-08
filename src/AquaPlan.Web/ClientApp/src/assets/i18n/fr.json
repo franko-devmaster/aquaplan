@@ -18,6 +18,7 @@
     "analysisCatalog": "Catalogue d'analyses",
     "analysisProfiles": "Profils d'analyse",
     "analysisPrograms": "Programmes d'analyse",
+    "delegations": "Délégations",
     "settings": "Paramètres"
   },
   "auth": {
@@ -127,7 +128,21 @@
     "deleteConfirmTitle": "Supprimer le mandat",
     "deleteConfirmMessage": "Êtes-vous sûr de vouloir supprimer ce mandat ? Cette action est irréversible.",
     "deleteSuccess": "Mandat supprimé avec succès",
-    "deleteError": "Erreur lors de la suppression du mandat"
+    "deleteError": "Erreur lors de la suppression du mandat",
+    "delegation": "Délégation",
+    "delegated": "Délégué"
+  },
+  "delegations": {
+    "title": "Délégations",
+    "delegatingDistributor": "Distributeur délégant",
+    "delegatedToDistributor": "Distributeur délégué",
+    "validFrom": "Valable dès",
+    "validTo": "Valable jusqu'au",
+    "createDelegation": "Créer une délégation",
+    "deleteDelegation": "Supprimer la délégation",
+    "confirmDelete": "Êtes-vous sûr de vouloir supprimer cette délégation ?",
+    "active": "Active",
+    "inactive": "Inactive"
   },
   "distributors": {
     "title": "Gestion des distributeurs",

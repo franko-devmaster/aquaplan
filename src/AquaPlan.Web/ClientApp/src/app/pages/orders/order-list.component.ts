@@ -129,7 +129,12 @@ import { OrderCreateDialogComponent } from './order-create-dialog.component';
 
           <ng-container matColumnDef="distributor">
             <th mat-header-cell *matHeaderCellDef mat-sort-header="distributor">{{ 'orders.distributor' | translate }}</th>
-            <td mat-cell *matCellDef="let order" [attr.data-label]="'orders.distributor' | translate">{{ order.distributorName }}</td>
+            <td mat-cell *matCellDef="let order" [attr.data-label]="'orders.distributor' | translate">
+              {{ order.distributorName }}
+              @if (order.isDelegated) {
+                <mat-icon class="delegation-badge" matTooltip="{{ 'orders.delegated' | translate }}">swap_horiz</mat-icon>
+              }
+            </td>
           </ng-container>
 
           <ng-container matColumnDef="samplingLocation">
@@ -179,6 +184,7 @@ import { OrderCreateDialogComponent } from './order-create-dialog.component';
     .full-width { width: 100%; }
     .loading-container { display: flex; justify-content: center; padding: 48px; }
     .no-data { text-align: center; padding: 24px; color: #666; }
+    .delegation-badge { font-size: 16px; width: 16px; height: 16px; vertical-align: middle; margin-left: 4px; color: #1976d2; }
   `],
 })
 export class OrderListComponent implements OnInit {

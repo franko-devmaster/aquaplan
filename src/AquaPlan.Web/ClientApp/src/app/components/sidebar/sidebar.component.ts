@@ -68,6 +68,11 @@ import { AuthService } from '../../services/auth.service';
           <mat-icon matListItemIcon>fact_check</mat-icon>
           <span matListItemTitle>{{ 'nav.validationQueue' | translate }}</span>
         </a>
+        <a mat-list-item routerLink="/admin/delegations" routerLinkActive="active"
+           (click)="navigated.emit()">
+          <mat-icon matListItemIcon>swap_horiz</mat-icon>
+          <span matListItemTitle>{{ 'nav.delegations' | translate }}</span>
+        </a>
       }
     </mat-nav-list>
     </nav>

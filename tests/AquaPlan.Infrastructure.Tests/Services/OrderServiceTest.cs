@@ -243,6 +243,61 @@ public class OrderServiceTest : IDisposable
         content.Should().Contain("ORD-CSV-01");
     }
 
+    // ─── AQ-39: Delegation ─────────────────────────────────────
+
+    [Fact]
+    public async Task GetOrdersFilteredAsync_ShouldIncludeDelegatedDistributors()
+    {
+        var delegatedDistId = Guid.NewGuid();
+        _dbContext.Distributors.Add(new Distributor { Id = delegatedDistId, Name = "Delegated Dist", TenantId = TenantId, IsActive = true });
+        _dbContext.DistributorDelegations.Add(new DistributorDelegation
+        {
+            Id = Guid.NewGuid(),
+            DelegatingDistributorId = delegatedDistId,
+            DelegatedToDistributorId = DistributorId,
+            ValidFrom = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            TenantId = TenantId,
+        });
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-DEL-01", Status = OrderStatus.Draft, IsUnplanned = false, CreatedById = UserId, DistributorId = delegatedDistId, TenantId = TenantId });
+        await _dbContext.SaveChangesAsync();
+
+        var filter = new OrderFilterDto(null, null, null);
+        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: false);
+
+        result.Items.Should().Contain(o => o.OrderNumber == "ORD-DEL-01");
+    }
+
+    [Fact]
+    public async Task CreateOrderAsync_ShouldSetIsDelegated_WhenDistributorNotOwn()
+    {
+        var delegatedDistId = Guid.NewGuid();
+        _dbContext.Distributors.Add(new Distributor { Id = delegatedDistId, Name = "Delegated Dist", TenantId = TenantId, IsActive = true });
+        _dbContext.DistributorDelegations.Add(new DistributorDelegation
+        {
+            Id = Guid.NewGuid(),
+            DelegatingDistributorId = delegatedDistId,
+            DelegatedToDistributorId = DistributorId,
+            ValidFrom = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            TenantId = TenantId,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var dto = new OrderCreateDto(
+            DistributorId: delegatedDistId,
+            SamplingLocationId: null,
+            PreleveurId: null,
+            PlannedDate: DateTime.UtcNow.AddDays(7),
+            AnalysisProfileIds: null,
+            Notes: null,
+            IsUnplanned: false);
+
+        var result = await _sut.CreateOrderAsync(dto, UserId, TenantId);
+
+        result.IsDelegated.Should().BeTrue();
+    }
+
     private async Task<Order> CreateSeedOrder(OrderStatus status)
     {
         var order = new Order

@@ -41,6 +41,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAnalysisProfileService, AnalysisProfileService>();
         services.AddScoped<IAnalysisProgramService, AnalysisProgramService>();
         services.AddScoped<ISamplingLocationChangeRequestService, SamplingLocationChangeRequestService>();
+        services.AddScoped<IDelegationService, DelegationService>();
 
         return services;
     }

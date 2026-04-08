@@ -17,4 +17,5 @@ public record OrderListDto(
     Guid? SamplingLocationId,
     string? SamplingLocationName,
     DateTime? PlannedDate,
+    bool IsDelegated,
     DateTime CreatedAt);

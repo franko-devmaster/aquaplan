@@ -108,6 +108,12 @@ import { ConfirmDialogComponent } from '../../components/confirm-dialog.componen
                 <span>{{ order()!.unplannedReasonDetails }}</span>
               </div>
             }
+            @if (order()!.isDelegated) {
+              <div class="detail-item">
+                <label>{{ 'orders.delegation' | translate }}</label>
+                <mat-chip color="accent" highlighted>{{ 'orders.delegated' | translate }}</mat-chip>
+              </div>
+            }
             @if (order()!.updatedAt) {
               <div class="detail-item">
                 <label>{{ 'orders.updatedAt' | translate }}</label>

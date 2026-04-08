@@ -13,6 +13,7 @@ import { ValidationQueueComponent } from './pages/admin/validation-queue/validat
 import { AuthCallbackComponent } from './pages/auth-callback/auth-callback.component';
 import { AnalysisProfilesComponent } from './pages/analysis-catalog/analysis-profiles.component';
 import { AnalysisProgramsComponent } from './pages/analysis-catalog/analysis-programs.component';
+import { DelegationListComponent } from './pages/admin/delegations/delegation-list.component';
 import { authorizeGuard } from './guards/authorize.guard';
 import { featureGuard } from './guards/feature.guard';
 
@@ -35,6 +36,7 @@ export const routes: Routes = [
       { path: 'admin/roles', component: RoleListComponent, canActivate: [featureGuard(['Administrator'])] },
       { path: 'admin/order-status', component: OrderStatusComponent, canActivate: [featureGuard(['Administrator'])] },
       { path: 'admin/validation-queue', component: ValidationQueueComponent, canActivate: [featureGuard(['Administrator'])] },
+      { path: 'admin/delegations', component: DelegationListComponent, canActivate: [featureGuard(['Administrator'])] },
     ],
   },
 ];

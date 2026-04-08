@@ -20,7 +20,7 @@ internal class OrderService(
             .Where(o => o.TenantId == tenantId)
             .AsQueryable();
 
-        // Non-admin: filter by user's accessible distributors + own orders
+        // Non-admin: filter by user's accessible distributors (own + delegated) + own orders
         if (!isAdmin)
         {
             var userDistributorIds = await dbContext.UserDistributors
@@ -28,8 +28,20 @@ internal class OrderService(
                 .Select(ud => ud.DistributorId)
                 .ToListAsync(cancellationToken);
 
+            // Include distributors that have delegated to user's distributors
+            var delegatedIds = await dbContext.DistributorDelegations
+                .Where(d => d.IsActive
+                    && userDistributorIds.Contains(d.DelegatedToDistributorId)
+                    && d.ValidFrom <= DateTime.UtcNow
+                    && (d.ValidTo == null || d.ValidTo >= DateTime.UtcNow))
+                .Select(d => d.DelegatingDistributorId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            var allAccessibleIds = userDistributorIds.Union(delegatedIds).ToList();
+
             query = query.Where(o =>
-                userDistributorIds.Contains(o.DistributorId)
+                allAccessibleIds.Contains(o.DistributorId)
                 && (o.CreatedById == userId || o.PreleveurId == userId));
         }
 
@@ -109,6 +121,7 @@ internal class OrderService(
                 o.SamplingLocationId,
                 o.SamplingLocation != null ? o.SamplingLocation.Name : null,
                 o.PlannedDate,
+                o.IsDelegated,
                 o.CreatedAt))
             .ToListAsync(cancellationToken);
 
@@ -154,6 +167,13 @@ internal class OrderService(
             initialStatus = OrderStatus.Assigned;
         }
 
+        // Check if the order's distributor is a delegated one (not user's own)
+        var userOwnDistributorIds = await dbContext.UserDistributors
+            .Where(ud => ud.UserId == createdById)
+            .Select(ud => ud.DistributorId)
+            .ToListAsync(cancellationToken);
+        var isDelegated = !userOwnDistributorIds.Contains(dto.DistributorId);
+
         var order = new Order
         {
             Id = Guid.NewGuid(),
@@ -162,6 +182,7 @@ internal class OrderService(
             IsUnplanned = dto.IsUnplanned,
             UnplannedReason = dto.IsUnplanned ? dto.UnplannedReason : null,
             UnplannedReasonDetails = dto.IsUnplanned ? dto.UnplannedReasonDetails : null,
+            IsDelegated = isDelegated,
             CreatedById = createdById,
             PreleveurId = dto.PreleveurId,
             DistributorId = dto.DistributorId,
@@ -418,7 +439,23 @@ internal class OrderService(
             return true;
         }
 
-        return await UserHasDistributorAccessAsync(userId, order.DistributorId, cancellationToken);
+        if (await UserHasDistributorAccessAsync(userId, order.DistributorId, cancellationToken))
+        {
+            return true;
+        }
+
+        // Check delegation: does user belong to a distributor that has been delegated access?
+        var userDistributorIds = await dbContext.UserDistributors
+            .Where(ud => ud.UserId == userId)
+            .Select(ud => ud.DistributorId)
+            .ToListAsync(cancellationToken);
+
+        return await dbContext.DistributorDelegations
+            .AnyAsync(d => d.IsActive
+                && d.DelegatingDistributorId == order.DistributorId
+                && userDistributorIds.Contains(d.DelegatedToDistributorId)
+                && d.ValidFrom <= DateTime.UtcNow
+                && (d.ValidTo == null || d.ValidTo >= DateTime.UtcNow), cancellationToken);
     }
 
     private static OrderDetailDto MapToDetailDto(Order order)
@@ -456,6 +493,7 @@ internal class OrderService(
             order.SamplingLocation is not null ? order.SamplingLocation.Name : null,
             order.PlannedDate,
             order.Notes,
+            order.IsDelegated,
             analysisProfiles,
             order.TenantId, order.CreatedAt, order.UpdatedAt, samplingDto);
     }

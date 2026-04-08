@@ -19,6 +19,7 @@ public record OrderDetailDto(
     string? SamplingLocationName,
     DateTime? PlannedDate,
     string? Notes,
+    bool IsDelegated,
     List<OrderAnalysisProfileDto> AnalysisProfiles,
     Guid TenantId,
     DateTime CreatedAt,

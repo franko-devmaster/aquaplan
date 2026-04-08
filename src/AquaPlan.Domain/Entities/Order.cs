@@ -10,6 +10,7 @@ public class Order
     public bool IsUnplanned { get; set; }
     public UnplannedReason? UnplannedReason { get; set; }
     public string? UnplannedReasonDetails { get; set; }
+    public bool IsDelegated { get; set; }
     public string CreatedById { get; set; } = string.Empty;
     public AppUser? CreatedBy { get; set; }
     public string? PreleveurId { get; set; }

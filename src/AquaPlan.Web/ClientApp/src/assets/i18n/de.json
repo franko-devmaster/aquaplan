@@ -15,6 +15,7 @@
     "roles": "Rollen",
     "orderStatus": "Auftragsstatus",
     "validationQueue": "Validierung PNO",
+    "delegations": "Delegationen",
     "settings": "Einstellungen"
   },
   "auth": {
@@ -120,7 +121,21 @@
     "deleteConfirmTitle": "Auftrag löschen",
     "deleteConfirmMessage": "Sind Sie sicher, dass Sie diesen Auftrag löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
     "deleteSuccess": "Auftrag erfolgreich gelöscht",
-    "deleteError": "Fehler beim Löschen des Auftrags"
+    "deleteError": "Fehler beim Löschen des Auftrags",
+    "delegation": "Delegation",
+    "delegated": "Delegiert"
+  },
+  "delegations": {
+    "title": "Delegationen",
+    "delegatingDistributor": "Delegierender Verteiler",
+    "delegatedToDistributor": "Delegierter Verteiler",
+    "validFrom": "Gültig ab",
+    "validTo": "Gültig bis",
+    "createDelegation": "Delegation erstellen",
+    "deleteDelegation": "Delegation löschen",
+    "confirmDelete": "Sind Sie sicher, dass Sie diese Delegation löschen möchten?",
+    "active": "Aktiv",
+    "inactive": "Inaktiv"
   },
   "distributors": {
     "title": "Verteilerverwaltung",

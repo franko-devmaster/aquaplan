@@ -71,6 +71,7 @@ export interface OrderListDto {
   samplingLocationId: string | null;
   samplingLocationName: string | null;
   plannedDate: string | null;
+  isDelegated: boolean;
   createdAt: string;
 }
 
@@ -91,6 +92,7 @@ export interface OrderDetailDto {
   samplingLocationName: string | null;
   plannedDate: string | null;
   notes: string | null;
+  isDelegated: boolean;
   analysisProfiles: OrderAnalysisProfileDto[];
   tenantId: string;
   createdAt: string;
