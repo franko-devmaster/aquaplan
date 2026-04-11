@@ -19,6 +19,7 @@
     "analysisProfiles": "Profils d'analyse",
     "analysisPrograms": "Programmes d'analyse",
     "delegations": "Délégations",
+    "samplingPlans": "Plans de prélèvement",
     "settings": "Paramètres"
   },
   "auth": {
@@ -51,7 +52,9 @@
     "status": "Statut",
     "all": "Tous",
     "activate": "Activer",
-    "deactivate": "Désactiver"
+    "deactivate": "Désactiver",
+    "createdBy": "Créé par",
+    "createdAt": "Créé le"
   },
   "users": {
     "title": "Gestion des utilisateurs",
@@ -241,5 +244,35 @@
       "assignedProfiles": "Profils assignés",
       "addProfile": "Ajouter des profils"
     }
+  },
+  "samplingPlans": {
+    "title": "Plans de prélèvement",
+    "year": "Année",
+    "distributor": "Distributeur",
+    "status": {
+      "label": "Statut",
+      "draft": "Brouillon",
+      "submitted": "Soumis",
+      "validated": "Validé",
+      "rejected": "Rejeté"
+    },
+    "items": "Lignes du plan",
+    "itemCount": "Nb lignes",
+    "samplingLocation": "Lieu de prélèvement",
+    "analysisProfile": "Profil d'analyse",
+    "frequency": "Fréquence/an",
+    "plannedMonths": "Mois prévus",
+    "notes": "Notes",
+    "rejectionReason": "Motif de rejet",
+    "createPlan": "Créer un plan",
+    "details": "Détails du plan",
+    "submit": "Soumettre",
+    "validate": "Valider",
+    "reject": "Rejeter",
+    "addItem": "Ajouter une ligne",
+    "removeItem": "Supprimer la ligne",
+    "confirmReject": "Motif du rejet :",
+    "deleteConfirmMessage": "Êtes-vous sûr de vouloir supprimer ce plan ? Cette action est irréversible.",
+    "searchPlaceholder": "Rechercher par distributeur..."
   }
 }

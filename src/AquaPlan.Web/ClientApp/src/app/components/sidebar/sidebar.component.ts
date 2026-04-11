@@ -24,6 +24,11 @@ import { AuthService } from '../../services/auth.service';
         <mat-icon matListItemIcon>assignment</mat-icon>
         <span matListItemTitle>{{ 'nav.orders' | translate }}</span>
       </a>
+      <a mat-list-item routerLink="/sampling-plans" routerLinkActive="active"
+         (click)="navigated.emit()">
+        <mat-icon matListItemIcon>calendar_month</mat-icon>
+        <span matListItemTitle>{{ 'nav.samplingPlans' | translate }}</span>
+      </a>
       <a mat-list-item routerLink="/sampling-locations" routerLinkActive="active"
          (click)="navigated.emit()">
         <mat-icon matListItemIcon>place</mat-icon>

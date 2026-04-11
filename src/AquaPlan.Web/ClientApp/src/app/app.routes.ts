@@ -14,6 +14,8 @@ import { AuthCallbackComponent } from './pages/auth-callback/auth-callback.compo
 import { AnalysisProfilesComponent } from './pages/analysis-catalog/analysis-profiles.component';
 import { AnalysisProgramsComponent } from './pages/analysis-catalog/analysis-programs.component';
 import { DelegationListComponent } from './pages/admin/delegations/delegation-list.component';
+import { SamplingPlanListComponent } from './pages/sampling-plans/sampling-plan-list.component';
+import { SamplingPlanDetailComponent } from './pages/sampling-plans/sampling-plan-detail.component';
 import { authorizeGuard } from './guards/authorize.guard';
 import { featureGuard } from './guards/feature.guard';
 
@@ -28,6 +30,8 @@ export const routes: Routes = [
       { path: '', component: HomeComponent },
       { path: 'orders', component: OrderListComponent },
       { path: 'orders/:id', component: OrderDetailComponent },
+      { path: 'sampling-plans', component: SamplingPlanListComponent },
+      { path: 'sampling-plans/:id', component: SamplingPlanDetailComponent },
       { path: 'sampling-locations', component: SamplingLocationListComponent },
       { path: 'distributors', component: DistributorListComponent, canActivate: [featureGuard(['Administrator'])] },
       { path: 'analysis-profiles', component: AnalysisProfilesComponent },
