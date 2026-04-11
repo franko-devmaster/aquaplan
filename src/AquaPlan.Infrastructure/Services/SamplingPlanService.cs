@@ -329,8 +329,25 @@ internal class SamplingPlanService(
         string userId, Guid distributorId,
         CancellationToken cancellationToken = default)
     {
-        return await dbContext.UserDistributors
+        var hasDirectAccess = await dbContext.UserDistributors
             .AnyAsync(ud => ud.UserId == userId && ud.DistributorId == distributorId, cancellationToken);
+
+        if (hasDirectAccess)
+        {
+            return true;
+        }
+
+        var userDistributorIds = await dbContext.UserDistributors
+            .Where(ud => ud.UserId == userId)
+            .Select(ud => ud.DistributorId)
+            .ToListAsync(cancellationToken);
+
+        return await dbContext.DistributorDelegations
+            .AnyAsync(d => d.IsActive
+                && userDistributorIds.Contains(d.DelegatedToDistributorId)
+                && d.DelegatingDistributorId == distributorId
+                && d.ValidFrom <= DateTime.UtcNow
+                && (d.ValidTo == null || d.ValidTo >= DateTime.UtcNow), cancellationToken);
     }
 
     public async Task<GenerateOrdersResultDto> GenerateOrdersFromPlanAsync(
@@ -361,29 +378,57 @@ internal class SamplingPlanService(
 
         var generatedOrders = new List<GeneratedOrderSummaryDto>();
 
-        foreach (var item in plan.Items)
+        var supportsTransactions = dbContext.Database.ProviderName != "Microsoft.EntityFrameworkCore.InMemory";
+        var transaction = supportsTransactions
+            ? await dbContext.Database.BeginTransactionAsync(cancellationToken)
+            : null;
+
+        try
         {
-            foreach (var month in item.PlannedMonths)
+            foreach (var item in plan.Items)
             {
-                var plannedDate = new DateTime(plan.Year, month, 1, 0, 0, 0, DateTimeKind.Utc);
+                foreach (var month in item.PlannedMonths)
+                {
+                    var plannedDate = new DateTime(plan.Year, month, 1, 0, 0, 0, DateTimeKind.Utc);
 
-                var createDto = new OrderCreateDto(
-                    DistributorId: plan.DistributorId,
-                    SamplingLocationId: item.SamplingLocationId,
-                    PreleveurId: null,
-                    PlannedDate: plannedDate,
-                    AnalysisProfileIds: [item.AnalysisProfileId],
-                    Notes: $"Généré depuis le plan {plan.Year} — {item.SamplingLocation?.Name}",
-                    IsUnplanned: false);
+                    var createDto = new OrderCreateDto(
+                        DistributorId: plan.DistributorId,
+                        SamplingLocationId: item.SamplingLocationId,
+                        PreleveurId: null,
+                        PlannedDate: plannedDate,
+                        AnalysisProfileIds: [item.AnalysisProfileId],
+                        Notes: $"Généré depuis le plan {plan.Year} — {item.SamplingLocation?.Name}",
+                        IsUnplanned: false);
 
-                var order = await orderService.CreateOrderAsync(createDto, userId, tenantId, cancellationToken);
+                    var order = await orderService.CreateOrderAsync(createDto, userId, tenantId, cancellationToken);
 
-                generatedOrders.Add(new GeneratedOrderSummaryDto(
-                    order.Id,
-                    order.OrderNumber,
-                    item.SamplingLocation?.Name ?? string.Empty,
-                    item.AnalysisProfile?.Name ?? string.Empty,
-                    plannedDate));
+                    generatedOrders.Add(new GeneratedOrderSummaryDto(
+                        order.Id,
+                        order.OrderNumber,
+                        item.SamplingLocation?.Name ?? string.Empty,
+                        item.AnalysisProfile?.Name ?? string.Empty,
+                        plannedDate));
+                }
+            }
+
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+            }
+        }
+        catch
+        {
+            if (transaction is not null)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+            }
+            throw;
+        }
+        finally
+        {
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
             }
         }
 

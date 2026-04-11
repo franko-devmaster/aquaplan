@@ -9,6 +9,7 @@ public class SamplingPlanConfiguration : IEntityTypeConfiguration<SamplingPlan>
     public void Configure(EntityTypeBuilder<SamplingPlan> builder)
     {
         builder.HasKey(sp => sp.Id);
+        builder.HasIndex(sp => sp.TenantId);
         builder.HasIndex(sp => new { sp.DistributorId, sp.Year }).IsUnique();
         builder.Property(sp => sp.Notes).HasMaxLength(2000);
         builder.Property(sp => sp.RejectionReason).HasMaxLength(2000);

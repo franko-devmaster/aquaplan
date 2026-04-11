@@ -1,5 +1,7 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace AquaPlan.Application.DTOs.SamplingPlans;
 
 public record SamplingPlanUpdateDto(
-    string? Notes,
-    List<SamplingPlanItemCreateDto> Items);
+    [StringLength(2000)] string? Notes,
+    [Required] List<SamplingPlanItemCreateDto> Items);
