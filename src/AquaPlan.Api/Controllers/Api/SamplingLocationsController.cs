@@ -112,6 +112,22 @@ public class SamplingLocationsController(
         return Ok(isUnique);
     }
 
+    [HttpGet("export-pdf")]
+    public async Task<ActionResult> ExportPdf([FromQuery] Guid? distributorId, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+
+        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        if (!hasViewAll && distributorId is null)
+        {
+            return Forbid();
+        }
+
+        var pdfBytes = await samplingLocationService.ExportPdfAsync(tenantId, distributorId, cancellationToken);
+        return File(pdfBytes, "application/pdf", $"lieux-prelevement-{DateTime.UtcNow:yyyyMMdd}.pdf");
+    }
+
     private string GetUserId()
     {
         return User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new UnauthorizedAccessException();

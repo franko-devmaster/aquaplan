@@ -68,4 +68,12 @@ export class SamplingLocationApiService {
     }
     return this.http.get<boolean>(`${this.baseUrl}/check-code-unique`, { params });
   }
+
+  exportPdf(distributorId?: string): Observable<Blob> {
+    let params = new HttpParams();
+    if (distributorId) {
+      params = params.set('distributorId', distributorId);
+    }
+    return this.http.get(`${this.baseUrl}/export-pdf`, { params, responseType: 'blob' });
+  }
 }

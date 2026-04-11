@@ -4,6 +4,9 @@ using AquaPlan.Domain.Entities;
 using AquaPlan.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 
 namespace AquaPlan.Infrastructure.Services;
 
@@ -189,6 +192,118 @@ internal class SamplingLocationService(
         }
 
         return !await query.AnyAsync(cancellationToken);
+    }
+
+    public async Task<byte[]> ExportPdfAsync(Guid tenantId, Guid? distributorId = null, CancellationToken cancellationToken = default)
+    {
+        var query = dbContext.SamplingLocations
+            .Where(sl => sl.Distributor!.TenantId == tenantId && sl.IsActive)
+            .Include(sl => sl.Distributor)
+            .AsQueryable();
+
+        if (distributorId.HasValue)
+        {
+            query = query.Where(sl => sl.DistributorId == distributorId.Value);
+        }
+
+        var locations = await query
+            .OrderBy(sl => sl.Distributor!.Name)
+            .ThenBy(sl => sl.LocationCode)
+            .ToListAsync(cancellationToken);
+
+        QuestPDF.Settings.License = LicenseType.Community;
+
+        var document = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4.Landscape());
+                page.Margin(1.5f, Unit.Centimetre);
+                page.DefaultTextStyle(x => x.FontSize(9));
+
+                page.Header().Element(header =>
+                {
+                    header.Column(col =>
+                    {
+                        col.Item().Text("Liste des lieux de prélèvement")
+                            .Bold().FontSize(16).FontColor(Colors.Blue.Darken2);
+                        col.Item().Text($"Générée le {DateTime.Now:dd.MM.yyyy}")
+                            .FontSize(8).FontColor(Colors.Grey.Darken1);
+                        col.Item().PaddingBottom(10);
+                    });
+                });
+
+                page.Content().Table(table =>
+                {
+                    table.ColumnsDefinition(columns =>
+                    {
+                        columns.RelativeColumn(1.2f);  // Code
+                        columns.RelativeColumn(2f);     // Nom
+                        columns.RelativeColumn(2f);     // Distributeur
+                        columns.RelativeColumn(3f);     // Description
+                        columns.RelativeColumn(1.2f);   // Latitude
+                        columns.RelativeColumn(1.2f);   // Longitude
+                    });
+
+                    // Header row
+                    table.Header(h =>
+                    {
+                        void HeaderCell(IContainer container, string text)
+                        {
+                            container
+                                .Background(Colors.Blue.Darken2)
+                                .Padding(4)
+                                .Text(text).Bold().FontColor(Colors.White).FontSize(9);
+                        }
+
+                        HeaderCell(h.Cell(), "Code");
+                        HeaderCell(h.Cell(), "Nom");
+                        HeaderCell(h.Cell(), "Distributeur");
+                        HeaderCell(h.Cell(), "Description");
+                        HeaderCell(h.Cell(), "Latitude");
+                        HeaderCell(h.Cell(), "Longitude");
+                    });
+
+                    // Data rows
+                    var rowIndex = 0;
+                    foreach (var loc in locations)
+                    {
+                        var bgColor = rowIndex % 2 == 0 ? Colors.White : Colors.Grey.Lighten4;
+
+                        void DataCell(IContainer container, string text)
+                        {
+                            container
+                                .Background(bgColor)
+                                .BorderBottom(0.5f)
+                                .BorderColor(Colors.Grey.Lighten2)
+                                .Padding(4)
+                                .Text(text).FontSize(8);
+                        }
+
+                        DataCell(table.Cell(), loc.LocationCode);
+                        DataCell(table.Cell(), loc.Name);
+                        DataCell(table.Cell(), loc.Distributor?.Name ?? "-");
+                        DataCell(table.Cell(), loc.Description ?? "-");
+                        DataCell(table.Cell(), loc.Latitude?.ToString("F6") ?? "-");
+                        DataCell(table.Cell(), loc.Longitude?.ToString("F6") ?? "-");
+
+                        rowIndex++;
+                    }
+                });
+
+                page.Footer().AlignCenter().Text(text =>
+                {
+                    text.Span("AquaPlan — Page ");
+                    text.CurrentPageNumber();
+                    text.Span(" / ");
+                    text.TotalPages();
+                });
+            });
+        });
+
+        using var stream = new MemoryStream();
+        document.GeneratePdf(stream);
+        return stream.ToArray();
     }
 
     private static SamplingLocationDto MapToDto(SamplingLocation sl)

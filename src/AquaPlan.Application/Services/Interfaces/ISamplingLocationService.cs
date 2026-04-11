@@ -13,4 +13,5 @@ public interface ISamplingLocationService
     Task<SamplingLocationDto?> UpdateAsync(Guid id, SamplingLocationUpdateDto dto, Guid tenantId, CancellationToken cancellationToken = default);
     Task<ToggleStatusResultDto?> ToggleStatusAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default);
     Task<bool> IsLocationCodeUniqueAsync(string locationCode, Guid distributorId, Guid? excludeId, Guid tenantId, CancellationToken cancellationToken = default);
+    Task<byte[]> ExportPdfAsync(Guid tenantId, Guid? distributorId = null, CancellationToken cancellationToken = default);
 }

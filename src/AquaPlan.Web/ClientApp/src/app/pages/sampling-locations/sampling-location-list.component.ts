@@ -14,6 +14,7 @@ import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
 import { SamplingLocationDatastore, DistributorOption } from '../../datastore/sampling-location.datastore';
+import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
 import { SamplingLocationDto, SamplingLocationFilteringInputDto } from '../../models/sampling-location.model';
 import { SamplingLocationFormDialogComponent } from './sampling-location-form-dialog.component';
 
@@ -30,10 +31,16 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
   template: `
     <div class="page-header">
       <h2>{{ 'samplingLocations.title' | translate }}</h2>
-      <button mat-raised-button color="primary" (click)="openCreateDialog()">
-        <mat-icon>add</mat-icon>
-        {{ 'samplingLocations.createLocation' | translate }}
-      </button>
+      <div class="header-actions">
+        <button mat-stroked-button (click)="exportPdf()">
+          <mat-icon>picture_as_pdf</mat-icon>
+          {{ 'samplingLocations.exportPdf' | translate }}
+        </button>
+        <button mat-raised-button color="primary" (click)="openCreateDialog()">
+          <mat-icon>add</mat-icon>
+          {{ 'samplingLocations.createLocation' | translate }}
+        </button>
+      </div>
     </div>
 
     <div class="filters-row">
@@ -130,6 +137,7 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
   `,
   styles: [`
     .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .header-actions { display: flex; gap: 8px; }
     .filters-row { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
     .filter-field { min-width: 200px; }
     .full-width { width: 100%; }
@@ -142,6 +150,7 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
 export class SamplingLocationListComponent implements OnInit {
   readonly store = inject(SamplingLocationDatastore);
   private readonly dialog = inject(MatDialog);
+  private readonly apiService = inject(SamplingLocationApiService);
 
   readonly displayedColumns = ['locationCode', 'name', 'distributor', 'coordinates', 'status'];
 
@@ -217,6 +226,18 @@ export class SamplingLocationListComponent implements OnInit {
       if (result) {
         this.store.loadAll().then(() => this.applyFilters());
       }
+    });
+  }
+
+  exportPdf(): void {
+    const distributorId = this.selectedDistributorId || undefined;
+    this.apiService.exportPdf(distributorId).subscribe(blob => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `lieux-prelevement-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
     });
   }
 

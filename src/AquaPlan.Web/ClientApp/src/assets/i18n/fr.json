@@ -192,7 +192,8 @@
     "allDistributors": "Tous les distributeurs",
     "allStatuses": "Tous les statuts",
     "searchPlaceholder": "Rechercher par nom ou code",
-    "coordinates": "Coordonnées"
+    "coordinates": "Coordonnées",
+    "exportPdf": "Exporter PDF"
   },
   "changeRequests": {
     "title": "Validation des demandes de modification",
