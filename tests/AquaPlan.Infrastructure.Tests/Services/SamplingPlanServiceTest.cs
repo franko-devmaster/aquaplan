@@ -1,4 +1,6 @@
+using AquaPlan.Application.DTOs.Orders;
 using AquaPlan.Application.DTOs.SamplingPlans;
+using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Domain.Enums;
 using AquaPlan.Infrastructure.Data;
@@ -11,6 +13,7 @@ namespace AquaPlan.Infrastructure.Tests.Services;
 public class SamplingPlanServiceTest : IDisposable
 {
     private readonly AquaPlanDbContext _dbContext;
+    private readonly Mock<IOrderService> _orderServiceMock = new();
     private readonly Mock<ILogger<SamplingPlanService>> _loggerMock = new();
     private readonly SamplingPlanService _sut;
 
@@ -27,7 +30,7 @@ public class SamplingPlanServiceTest : IDisposable
             .Options;
 
         _dbContext = new AquaPlanDbContext(options);
-        _sut = new SamplingPlanService(_dbContext, _loggerMock.Object);
+        _sut = new SamplingPlanService(_dbContext, _orderServiceMock.Object, _loggerMock.Object);
 
         SeedData().GetAwaiter().GetResult();
     }
@@ -301,5 +304,122 @@ public class SamplingPlanServiceTest : IDisposable
         });
 
         await _dbContext.SaveChangesAsync();
+    }
+
+    private async Task<Guid> CreateValidatedPlanWithItems(List<int> plannedMonths)
+    {
+        var plan = new SamplingPlan
+        {
+            Id = Guid.NewGuid(),
+            Year = 2026,
+            Status = SamplingPlanStatus.Validated,
+            DistributorId = DistributorId,
+            CreatedById = UserId,
+            TenantId = TenantId,
+            StatusChangedAt = DateTime.UtcNow,
+            StatusChangedBy = UserId,
+        };
+
+        plan.Items.Add(new SamplingPlanItem
+        {
+            Id = Guid.NewGuid(),
+            SamplingPlanId = plan.Id,
+            SamplingLocationId = SamplingLocationId,
+            AnalysisProfileId = AnalysisProfileId,
+            FrequencyPerYear = plannedMonths.Count,
+            PlannedMonths = plannedMonths,
+        });
+
+        _dbContext.SamplingPlans.Add(plan);
+        await _dbContext.SaveChangesAsync();
+        return plan.Id;
+    }
+
+    [Fact]
+    public async Task GenerateOrdersFromPlanAsync_ShouldCreateOrdersForEachPlannedMonth()
+    {
+        var planId = await CreateValidatedPlanWithItems([1, 4, 7, 10]);
+        var orderCounter = 0;
+
+        _orderServiceMock
+            .Setup(s => s.CreateOrderAsync(It.IsAny<OrderCreateDto>(), UserId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrderCreateDto dto, string _, Guid _, CancellationToken _) =>
+            {
+                orderCounter++;
+                return CreateFakeOrderDetailDto(Guid.NewGuid(), $"ORD-{orderCounter:D4}", dto);
+            });
+
+        var result = await _sut.GenerateOrdersFromPlanAsync(planId, UserId, TenantId);
+
+        result.OrdersCreated.Should().Be(4);
+        result.Orders.Should().HaveCount(4);
+        _orderServiceMock.Verify(s => s.CreateOrderAsync(It.IsAny<OrderCreateDto>(), UserId, TenantId, It.IsAny<CancellationToken>()), Times.Exactly(4));
+    }
+
+    [Fact]
+    public async Task GenerateOrdersFromPlanAsync_ShouldSetCorrectPlannedDates()
+    {
+        var planId = await CreateValidatedPlanWithItems([3, 6]);
+        var createdDtos = new List<OrderCreateDto>();
+
+        _orderServiceMock
+            .Setup(s => s.CreateOrderAsync(It.IsAny<OrderCreateDto>(), UserId, TenantId, It.IsAny<CancellationToken>()))
+            .Callback<OrderCreateDto, string, Guid, CancellationToken>((dto, _, _, _) => createdDtos.Add(dto))
+            .ReturnsAsync((OrderCreateDto dto, string _, Guid _, CancellationToken _) =>
+                CreateFakeOrderDetailDto(Guid.NewGuid(), "ORD-0001", dto));
+
+        await _sut.GenerateOrdersFromPlanAsync(planId, UserId, TenantId);
+
+        createdDtos.Should().HaveCount(2);
+        createdDtos[0].PlannedDate.Should().Be(new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc));
+        createdDtos[1].PlannedDate.Should().Be(new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc));
+        createdDtos.Should().AllSatisfy(d => d.IsUnplanned.Should().BeFalse());
+    }
+
+    [Fact]
+    public async Task GenerateOrdersFromPlanAsync_WhenPlanNotValidated_ShouldThrow()
+    {
+        var dto = new SamplingPlanCreateDto(DistributorId, 2027, null,
+            [new SamplingPlanItemCreateDto(SamplingLocationId, AnalysisProfileId, 1, [1])]);
+        var plan = await _sut.CreatePlanAsync(dto, UserId, TenantId);
+
+        await _sut.Invoking(s => s.GenerateOrdersFromPlanAsync(plan.Id, UserId, TenantId))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Validated*");
+    }
+
+    [Fact]
+    public async Task GenerateOrdersFromPlanAsync_WhenPlanNotFound_ShouldThrow()
+    {
+        await _sut.Invoking(s => s.GenerateOrdersFromPlanAsync(Guid.NewGuid(), UserId, TenantId))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*not found*");
+    }
+
+    private static OrderDetailDto CreateFakeOrderDetailDto(Guid id, string orderNumber, OrderCreateDto dto)
+    {
+        return new OrderDetailDto(
+            Id: id,
+            OrderNumber: orderNumber,
+            Status: OrderStatus.Draft,
+            IsUnplanned: false,
+            UnplannedReason: null,
+            UnplannedReasonDetails: null,
+            CreatedById: UserId,
+            CreatedByName: "User",
+            PreleveurId: null,
+            PreleveurName: null,
+            DistributorId: dto.DistributorId,
+            DistributorName: "Test Distributor",
+            SamplingLocationId: dto.SamplingLocationId,
+            SamplingLocationName: "Source A",
+            PlannedDate: dto.PlannedDate,
+            Notes: dto.Notes,
+            IsDelegated: false,
+            AnalysisProfiles: [],
+            TenantId: TenantId,
+            CreatedAt: DateTime.UtcNow,
+            UpdatedAt: null,
+            Sampling: null);
     }
 }

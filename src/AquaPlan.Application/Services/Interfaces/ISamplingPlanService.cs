@@ -38,4 +38,8 @@ public interface ISamplingPlanService
     Task<bool> UserHasDistributorAccessAsync(
         string userId, Guid distributorId,
         CancellationToken cancellationToken = default);
+
+    Task<GenerateOrdersResultDto> GenerateOrdersFromPlanAsync(
+        Guid planId, string userId, Guid tenantId,
+        CancellationToken cancellationToken = default);
 }

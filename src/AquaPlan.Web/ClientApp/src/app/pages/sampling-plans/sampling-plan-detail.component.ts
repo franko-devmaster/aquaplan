@@ -13,6 +13,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatCardModule } from '@angular/material/card';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { DatePipe } from '@angular/common';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
@@ -46,7 +47,7 @@ interface SelectOption {
     FormsModule, MatButtonModule, MatIconModule, MatChipsModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatTableModule,
     MatProgressSpinnerModule, MatTooltipModule, MatDialogModule,
-    MatCheckboxModule, MatCardModule,
+    MatCheckboxModule, MatCardModule, MatSnackBarModule,
     DatePipe, TranslateModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -87,6 +88,12 @@ interface SelectOption {
             <button mat-stroked-button color="warn" (click)="rejectPlan()">
               <mat-icon>cancel</mat-icon>
               {{ 'samplingPlans.reject' | translate }}
+            </button>
+          }
+          @if (isValidated()) {
+            <button mat-raised-button color="primary" (click)="generateOrders()" [disabled]="saving()">
+              <mat-icon>playlist_add</mat-icon>
+              {{ 'samplingPlans.generateOrders' | translate }}
             </button>
           }
         </div>
@@ -239,6 +246,7 @@ export class SamplingPlanDetailComponent implements OnInit {
   private readonly analysisProfileApi = inject(AnalysisProfileApiService);
   private readonly authService = inject(AuthService);
   private readonly translate = inject(TranslateService);
+  private readonly snackBar = inject(MatSnackBar);
 
   readonly plan = signal<SamplingPlanDetailDto | null>(null);
   readonly loading = signal(true);
@@ -253,6 +261,7 @@ export class SamplingPlanDetailComponent implements OnInit {
   );
   readonly isDraft = computed(() => this.plan()?.status === SamplingPlanStatus.Draft);
   readonly isSubmitted = computed(() => this.plan()?.status === SamplingPlanStatus.Submitted);
+  readonly isValidated = computed(() => this.plan()?.status === SamplingPlanStatus.Validated);
 
   readonly readonlyColumns = ['samplingLocation', 'analysisProfile', 'frequency', 'months'];
 
@@ -391,6 +400,33 @@ export class SamplingPlanDetailComponent implements OnInit {
     try {
       const updated = await firstValueFrom(this.planApi.reject(p.id, { reason }));
       this.plan.set(updated);
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  async generateOrders(): Promise<void> {
+    const p = this.plan();
+    if (!p) return;
+
+    if (!confirm(this.translate.instant('samplingPlans.confirmGenerateOrders'))) return;
+
+    this.saving.set(true);
+    try {
+      const result = await firstValueFrom(this.planApi.generateOrders(p.id));
+      this.snackBar.open(
+        this.translate.instant('samplingPlans.ordersGenerated', { count: result.ordersCreated }),
+        this.translate.instant('common.close'),
+        { duration: 5000 }
+      );
+      this.router.navigate(['/orders']);
+    } catch (err: unknown) {
+      const apiError = err as { error?: { error?: string } };
+      this.snackBar.open(
+        apiError?.error?.error ?? 'Error generating orders',
+        this.translate.instant('common.close'),
+        { duration: 5000 }
+      );
     } finally {
       this.saving.set(false);
     }

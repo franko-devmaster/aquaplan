@@ -238,6 +238,38 @@ public class SamplingPlansController(
         }
     }
 
+    [HttpPost("{id:guid}/generate-orders")]
+    public async Task<ActionResult<GenerateOrdersResultDto>> GenerateOrders(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+
+        var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        if (!isAdmin)
+        {
+            var plan = await samplingPlanService.GetPlanByIdAsync(id, tenantId, cancellationToken);
+            if (plan is null)
+            {
+                return NotFound();
+            }
+            var hasAccess = await samplingPlanService.UserHasDistributorAccessAsync(userId, plan.DistributorId, cancellationToken);
+            if (!hasAccess)
+            {
+                return Forbid();
+            }
+        }
+
+        try
+        {
+            var result = await samplingPlanService.GenerateOrdersFromPlanAsync(id, userId, tenantId, cancellationToken);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
     private string GetUserId()
     {
         return User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new UnauthorizedAccessException();

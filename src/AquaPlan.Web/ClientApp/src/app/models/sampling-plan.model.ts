@@ -93,3 +93,16 @@ export interface SamplingPlanPagedResultDto {
 export interface SamplingPlanRejectDto {
   reason: string;
 }
+
+export interface GenerateOrdersResultDto {
+  ordersCreated: number;
+  orders: GeneratedOrderSummaryDto[];
+}
+
+export interface GeneratedOrderSummaryDto {
+  orderId: string;
+  orderNumber: string;
+  samplingLocationName: string;
+  analysisProfileName: string;
+  plannedDate: string | null;
+}

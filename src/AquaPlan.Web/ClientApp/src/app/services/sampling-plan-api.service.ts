@@ -8,6 +8,7 @@ import {
   SamplingPlanFilterDto,
   SamplingPlanPagedResultDto,
   SamplingPlanRejectDto,
+  GenerateOrdersResultDto,
 } from '../models/sampling-plan.model';
 
 @Injectable({ providedIn: 'root' })
@@ -72,5 +73,9 @@ export class SamplingPlanApiService {
 
   reject(id: string, dto: SamplingPlanRejectDto): Observable<SamplingPlanDetailDto> {
     return this.http.post<SamplingPlanDetailDto>(`${this.baseUrl}/${id}/reject`, dto);
+  }
+
+  generateOrders(id: string): Observable<GenerateOrdersResultDto> {
+    return this.http.post<GenerateOrdersResultDto>(`${this.baseUrl}/${id}/generate-orders`, {});
   }
 }

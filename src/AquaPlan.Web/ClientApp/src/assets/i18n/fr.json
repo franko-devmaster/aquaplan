@@ -273,6 +273,9 @@
     "removeItem": "Supprimer la ligne",
     "confirmReject": "Motif du rejet :",
     "deleteConfirmMessage": "Êtes-vous sûr de vouloir supprimer ce plan ? Cette action est irréversible.",
-    "searchPlaceholder": "Rechercher par distributeur..."
+    "searchPlaceholder": "Rechercher par distributeur...",
+    "generateOrders": "Générer les mandats",
+    "confirmGenerateOrders": "Voulez-vous générer les mandats d'analyse à partir de ce plan ? Un mandat sera créé pour chaque lieu et mois planifié.",
+    "ordersGenerated": "{{count}} mandats ont été générés avec succès."
   }
 }

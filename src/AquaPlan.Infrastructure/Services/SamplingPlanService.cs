@@ -1,3 +1,4 @@
+using AquaPlan.Application.DTOs.Orders;
 using AquaPlan.Application.DTOs.SamplingPlans;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
@@ -10,6 +11,7 @@ namespace AquaPlan.Infrastructure.Services;
 
 internal class SamplingPlanService(
     AquaPlanDbContext dbContext,
+    IOrderService orderService,
     ILogger<SamplingPlanService> logger) : ISamplingPlanService
 {
     public async Task<SamplingPlanPagedResultDto> GetPlansFilteredAsync(
@@ -329,6 +331,67 @@ internal class SamplingPlanService(
     {
         return await dbContext.UserDistributors
             .AnyAsync(ud => ud.UserId == userId && ud.DistributorId == distributorId, cancellationToken);
+    }
+
+    public async Task<GenerateOrdersResultDto> GenerateOrdersFromPlanAsync(
+        Guid planId, string userId, Guid tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        var plan = await dbContext.SamplingPlans
+            .Include(sp => sp.Items)
+                .ThenInclude(i => i.SamplingLocation)
+            .Include(sp => sp.Items)
+                .ThenInclude(i => i.AnalysisProfile)
+            .FirstOrDefaultAsync(sp => sp.Id == planId && sp.TenantId == tenantId, cancellationToken);
+
+        if (plan is null)
+        {
+            throw new InvalidOperationException("Sampling plan not found.");
+        }
+
+        if (plan.Status != SamplingPlanStatus.Validated)
+        {
+            throw new InvalidOperationException($"Cannot generate orders from a plan in status {plan.Status}. Only Validated plans can generate orders.");
+        }
+
+        if (plan.Items.Count == 0)
+        {
+            throw new InvalidOperationException("Cannot generate orders from an empty plan.");
+        }
+
+        var generatedOrders = new List<GeneratedOrderSummaryDto>();
+
+        foreach (var item in plan.Items)
+        {
+            foreach (var month in item.PlannedMonths)
+            {
+                var plannedDate = new DateTime(plan.Year, month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+                var createDto = new OrderCreateDto(
+                    DistributorId: plan.DistributorId,
+                    SamplingLocationId: item.SamplingLocationId,
+                    PreleveurId: null,
+                    PlannedDate: plannedDate,
+                    AnalysisProfileIds: [item.AnalysisProfileId],
+                    Notes: $"Généré depuis le plan {plan.Year} — {item.SamplingLocation?.Name}",
+                    IsUnplanned: false);
+
+                var order = await orderService.CreateOrderAsync(createDto, userId, tenantId, cancellationToken);
+
+                generatedOrders.Add(new GeneratedOrderSummaryDto(
+                    order.Id,
+                    order.OrderNumber,
+                    item.SamplingLocation?.Name ?? string.Empty,
+                    item.AnalysisProfile?.Name ?? string.Empty,
+                    plannedDate));
+            }
+        }
+
+        logger.LogInformation(
+            "Generated {Count} orders from SamplingPlan {PlanId} by {UserId}",
+            generatedOrders.Count, planId, userId);
+
+        return new GenerateOrdersResultDto(generatedOrders.Count, generatedOrders);
     }
 
     private static SamplingPlanDetailDto MapToDetailDto(SamplingPlan plan)
