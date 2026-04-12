@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using AquaPlan.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AquaPlan.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(AquaPlanDbContext))]
-    partial class AquaPlanDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260411191358_AddSamplingPlanTenantIdIndex")]
+    partial class AddSamplingPlanTenantIdIndex
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -441,11 +444,6 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_unplanned");
 
-                    b.Property<string>("LocationReplacementReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("location_replacement_reason");
-
                     b.Property<string>("Notes")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)")
@@ -457,10 +455,6 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("order_number");
 
-                    b.Property<Guid?>("OriginalSamplingLocationId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("original_sampling_location_id");
-
                     b.Property<DateTime?>("PlannedDate")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("planned_date");
@@ -469,22 +463,9 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("preleveur_id");
 
-                    b.Property<string>("SamplerComment")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("sampler_comment");
-
                     b.Property<Guid?>("SamplingLocationId")
                         .HasColumnType("uuid")
                         .HasColumnName("sampling_location_id");
-
-                    b.Property<Guid?>("SamplingRoundId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("sampling_round_id");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
-                        .HasColumnName("sort_order");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer")
@@ -532,17 +513,11 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_orders_order_number");
 
-                    b.HasIndex("OriginalSamplingLocationId")
-                        .HasDatabaseName("ix_orders_original_sampling_location_id");
-
                     b.HasIndex("PreleveurId")
                         .HasDatabaseName("ix_orders_preleveur_id");
 
                     b.HasIndex("SamplingLocationId")
                         .HasDatabaseName("ix_orders_sampling_location_id");
-
-                    b.HasIndex("SamplingRoundId", "SortOrder")
-                        .HasDatabaseName("ix_orders_sampling_round_id_sort_order");
 
                     b.ToTable("orders", (string)null);
                 });
@@ -943,91 +918,6 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                     b.ToTable("sampling_plan_items", (string)null);
                 });
 
-            modelBuilder.Entity("AquaPlan.Domain.Entities.SamplingRound", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("completed_at");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CreatedById")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("created_by_id");
-
-                    b.Property<DateTime?>("Deadline")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deadline");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("description");
-
-                    b.Property<Guid>("DistributorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("distributor_id");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
-                        .HasColumnName("name");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("notes");
-
-                    b.Property<string>("PreleveurId")
-                        .HasColumnType("text")
-                        .HasColumnName("preleveur_id");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer")
-                        .HasColumnName("status");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasColumnType("text")
-                        .HasColumnName("updated_by");
-
-                    b.HasKey("Id")
-                        .HasName("pk_sampling_rounds");
-
-                    b.HasIndex("CreatedById")
-                        .HasDatabaseName("ix_sampling_rounds_created_by_id");
-
-                    b.HasIndex("PreleveurId")
-                        .HasDatabaseName("ix_sampling_rounds_preleveur_id");
-
-                    b.HasIndex("TenantId")
-                        .HasDatabaseName("ix_sampling_rounds_tenant_id");
-
-                    b.HasIndex("DistributorId", "PreleveurId")
-                        .HasDatabaseName("ix_sampling_rounds_distributor_id_preleveur_id");
-
-                    b.HasIndex("TenantId", "Deadline")
-                        .HasDatabaseName("ix_sampling_rounds_tenant_id_deadline");
-
-                    b.ToTable("sampling_rounds", (string)null);
-                });
-
             modelBuilder.Entity("AquaPlan.Domain.Entities.Tenant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1332,12 +1222,6 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_orders_distributors_distributor_id");
 
-                    b.HasOne("AquaPlan.Domain.Entities.SamplingLocation", "OriginalSamplingLocation")
-                        .WithMany()
-                        .HasForeignKey("OriginalSamplingLocationId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_orders_sampling_locations_original_sampling_location_id");
-
                     b.HasOne("AquaPlan.Domain.Entities.AppUser", "Preleveur")
                         .WithMany()
                         .HasForeignKey("PreleveurId")
@@ -1350,23 +1234,13 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_orders_sampling_locations_sampling_location_id");
 
-                    b.HasOne("AquaPlan.Domain.Entities.SamplingRound", "SamplingRound")
-                        .WithMany("Orders")
-                        .HasForeignKey("SamplingRoundId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_orders_sampling_rounds_sampling_round_id");
-
                     b.Navigation("CreatedBy");
 
                     b.Navigation("Distributor");
 
-                    b.Navigation("OriginalSamplingLocation");
-
                     b.Navigation("Preleveur");
 
                     b.Navigation("SamplingLocation");
-
-                    b.Navigation("SamplingRound");
                 });
 
             modelBuilder.Entity("AquaPlan.Domain.Entities.OrderAnalysisProfile", b =>
@@ -1541,35 +1415,6 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                     b.Navigation("SamplingPlan");
                 });
 
-            modelBuilder.Entity("AquaPlan.Domain.Entities.SamplingRound", b =>
-                {
-                    b.HasOne("AquaPlan.Domain.Entities.AppUser", "CreatedBy")
-                        .WithMany()
-                        .HasForeignKey("CreatedById")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_sampling_rounds_users_created_by_id");
-
-                    b.HasOne("AquaPlan.Domain.Entities.Distributor", "Distributor")
-                        .WithMany()
-                        .HasForeignKey("DistributorId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_sampling_rounds_distributors_distributor_id");
-
-                    b.HasOne("AquaPlan.Domain.Entities.AppUser", "Preleveur")
-                        .WithMany()
-                        .HasForeignKey("PreleveurId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_sampling_rounds_users_preleveur_id");
-
-                    b.Navigation("CreatedBy");
-
-                    b.Navigation("Distributor");
-
-                    b.Navigation("Preleveur");
-                });
-
             modelBuilder.Entity("AquaPlan.Domain.Entities.UserDistributor", b =>
                 {
                     b.HasOne("AquaPlan.Domain.Entities.Distributor", "Distributor")
@@ -1685,11 +1530,6 @@ namespace AquaPlan.Infrastructure.Data.Migrations
             modelBuilder.Entity("AquaPlan.Domain.Entities.SamplingPlan", b =>
                 {
                     b.Navigation("Items");
-                });
-
-            modelBuilder.Entity("AquaPlan.Domain.Entities.SamplingRound", b =>
-                {
-                    b.Navigation("Orders");
                 });
 
             modelBuilder.Entity("AquaPlan.Domain.Entities.Tenant", b =>

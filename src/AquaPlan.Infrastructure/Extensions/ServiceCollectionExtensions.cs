@@ -43,6 +43,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISamplingLocationChangeRequestService, SamplingLocationChangeRequestService>();
         services.AddScoped<IDelegationService, DelegationService>();
         services.AddScoped<ISamplingPlanService, SamplingPlanService>();
+        services.AddScoped<ISamplingRoundService, SamplingRoundService>();
 
         return services;
     }

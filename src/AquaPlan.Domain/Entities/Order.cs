@@ -17,8 +17,15 @@ public class Order
     public AppUser? Preleveur { get; set; }
     public Guid DistributorId { get; set; }
     public Distributor? Distributor { get; set; }
+    public Guid? SamplingRoundId { get; set; }
+    public SamplingRound? SamplingRound { get; set; }
+    public int SortOrder { get; set; }
     public Guid? SamplingLocationId { get; set; }
     public SamplingLocation? SamplingLocation { get; set; }
+    public Guid? OriginalSamplingLocationId { get; set; }
+    public SamplingLocation? OriginalSamplingLocation { get; set; }
+    public string? LocationReplacementReason { get; set; }
+    public string? SamplerComment { get; set; }
     public DateTime? PlannedDate { get; set; }
     public string? Notes { get; set; }
     public Guid TenantId { get; set; }

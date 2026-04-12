@@ -13,6 +13,9 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasIndex(o => o.OrderNumber).IsUnique();
         builder.Property(o => o.Notes).HasMaxLength(2000);
         builder.Property(o => o.UnplannedReasonDetails).HasMaxLength(1000);
+        builder.Property(o => o.LocationReplacementReason).HasMaxLength(500);
+        builder.Property(o => o.SamplerComment).HasMaxLength(2000);
+        builder.HasIndex(o => new { o.SamplingRoundId, o.SortOrder });
 
         builder.HasOne(o => o.CreatedBy)
             .WithMany()
@@ -33,6 +36,16 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .WithMany()
             .HasForeignKey(o => o.SamplingLocationId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(o => o.SamplingRound)
+            .WithMany(sr => sr.Orders)
+            .HasForeignKey(o => o.SamplingRoundId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(o => o.OriginalSamplingLocation)
+            .WithMany()
+            .HasForeignKey(o => o.OriginalSamplingLocationId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
 

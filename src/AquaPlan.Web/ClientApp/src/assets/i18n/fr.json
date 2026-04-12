@@ -20,6 +20,7 @@
     "analysisPrograms": "Programmes d'analyse",
     "delegations": "Délégations",
     "samplingPlans": "Plans de prélèvement",
+    "samplingRounds": "Tournées",
     "settings": "Paramètres"
   },
   "auth": {
@@ -278,5 +279,42 @@
     "generateOrders": "Générer les mandats",
     "confirmGenerateOrders": "Voulez-vous générer les mandats d'analyse à partir de ce plan ? Un mandat sera créé pour chaque lieu et mois planifié.",
     "ordersGenerated": "{{count}} mandats ont été générés avec succès."
+  },
+  "samplingRounds": {
+    "title": "Tournées de prélèvement",
+    "name": "Nom",
+    "description": "Description",
+    "deadline": "Échéance",
+    "distributor": "Distributeur",
+    "sampler": "Préleveur",
+    "orderCount": "Nb mandats",
+    "progress": "Progression",
+    "orders": "Mandats",
+    "location": "Lieu de prélèvement",
+    "profiles": "Profils",
+    "indicators": "Indicateurs",
+    "status": {
+      "label": "Statut",
+      "draft": "Brouillon",
+      "assigned": "Assignée",
+      "inProgress": "En cours",
+      "completed": "Terminée",
+      "cancelled": "Annulée"
+    },
+    "createRound": "Créer une tournée",
+    "assignSampler": "Assigner un préleveur",
+    "cancelRound": "Annuler la tournée",
+    "addOrder": "Ajouter un mandat",
+    "removeOrder": "Retirer le mandat",
+    "noOrders": "Aucun mandat dans cette tournée",
+    "searchPlaceholder": "Rechercher par nom, distributeur...",
+    "confirmCancel": "Êtes-vous sûr de vouloir annuler cette tournée ?",
+    "confirmDelete": "Êtes-vous sûr de vouloir supprimer cette tournée ? Cette action est irréversible.",
+    "confirmRemoveOrder": "Êtes-vous sûr de vouloir retirer ce mandat de la tournée ?",
+    "enterSamplerId": "ID du préleveur :",
+    "enterOrderId": "ID du mandat à ajouter :",
+    "assigned": "Préleveur assigné avec succès",
+    "locationReplaced": "Lieu de prélèvement remplacé",
+    "editComment": "Commentaire du préleveur :"
   }
 }

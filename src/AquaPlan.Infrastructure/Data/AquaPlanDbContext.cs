@@ -23,6 +23,7 @@ public class AquaPlanDbContext(DbContextOptions<AquaPlanDbContext> options)
     public DbSet<DistributorDelegation> DistributorDelegations => Set<DistributorDelegation>();
     public DbSet<SamplingPlan> SamplingPlans => Set<SamplingPlan>();
     public DbSet<SamplingPlanItem> SamplingPlanItems => Set<SamplingPlanItem>();
+    public DbSet<SamplingRound> SamplingRounds => Set<SamplingRound>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

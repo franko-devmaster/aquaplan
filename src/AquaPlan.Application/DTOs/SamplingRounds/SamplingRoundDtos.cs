@@ -1,0 +1,101 @@
+using System.ComponentModel.DataAnnotations;
+using AquaPlan.Domain.Enums;
+
+namespace AquaPlan.Application.DTOs.SamplingRounds;
+
+public record SamplingRoundCreateDto(
+    [Required][StringLength(200)] string Name,
+    [StringLength(2000)] string? Description,
+    DateTime? Deadline,
+    [StringLength(2000)] string? Notes,
+    [Required] Guid DistributorId);
+
+public record SamplingRoundUpdateDto(
+    [Required][StringLength(200)] string Name,
+    [StringLength(2000)] string? Description,
+    DateTime? Deadline,
+    [StringLength(2000)] string? Notes);
+
+public record SamplingRoundAssignDto(
+    [Required] string PreleveurId);
+
+public record SamplingRoundAddOrderDto(
+    [Required] Guid OrderId);
+
+public record SamplingRoundReorderDto(
+    [Required] List<OrderPositionDto> Positions);
+
+public record OrderPositionDto(
+    [Required] Guid OrderId,
+    [Required][Range(0, 999)] int SortOrder);
+
+public record LocationReplacementDto(
+    [Required] Guid NewSamplingLocationId,
+    [Required][StringLength(500, MinimumLength = 5)] string Reason);
+
+public record SamplerCommentDto(
+    [Required][StringLength(2000)] string Comment);
+
+public record SamplingRoundListDto(
+    Guid Id,
+    string Name,
+    string? Description,
+    DateTime? Deadline,
+    SamplingRoundStatus Status,
+    string? PreleveurId,
+    string? PreleveurName,
+    Guid DistributorId,
+    string DistributorName,
+    string? Notes,
+    int OrderCount,
+    int CompletedOrderCount,
+    DateTime CreatedAt);
+
+public record SamplingRoundDetailDto(
+    Guid Id,
+    string Name,
+    string? Description,
+    DateTime? Deadline,
+    SamplingRoundStatus Status,
+    string? PreleveurId,
+    string? PreleveurName,
+    Guid DistributorId,
+    string DistributorName,
+    string? Notes,
+    string CreatedById,
+    string CreatedByName,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt,
+    DateTime? CompletedAt,
+    List<SamplingRoundOrderDto> Orders);
+
+public record SamplingRoundOrderDto(
+    Guid Id,
+    string OrderNumber,
+    OrderStatus Status,
+    int SortOrder,
+    Guid? SamplingLocationId,
+    string? SamplingLocationName,
+    string? SamplingLocationCode,
+    Guid? OriginalSamplingLocationId,
+    string? OriginalSamplingLocationName,
+    string? LocationReplacementReason,
+    string? SamplerComment,
+    string? Notes,
+    List<string> AnalysisProfileNames);
+
+public record SamplingRoundFilterDto(
+    SamplingRoundStatus? Status = null,
+    Guid? DistributorId = null,
+    string? PreleveurId = null,
+    DateTime? DeadlineFrom = null,
+    DateTime? DeadlineTo = null,
+    string? Search = null,
+    int Page = 1,
+    int PageSize = 20);
+
+public record SamplingRoundPagedResultDto(
+    List<SamplingRoundListDto> Items,
+    int TotalCount,
+    int Page,
+    int PageSize);

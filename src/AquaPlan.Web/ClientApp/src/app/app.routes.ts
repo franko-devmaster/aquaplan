@@ -16,6 +16,8 @@ import { AnalysisProgramsComponent } from './pages/analysis-catalog/analysis-pro
 import { DelegationListComponent } from './pages/admin/delegations/delegation-list.component';
 import { SamplingPlanListComponent } from './pages/sampling-plans/sampling-plan-list.component';
 import { SamplingPlanDetailComponent } from './pages/sampling-plans/sampling-plan-detail.component';
+import { SamplingRoundListComponent } from './pages/sampling-rounds/sampling-round-list.component';
+import { SamplingRoundDetailComponent } from './pages/sampling-rounds/sampling-round-detail.component';
 import { authorizeGuard } from './guards/authorize.guard';
 import { featureGuard } from './guards/feature.guard';
 
@@ -32,6 +34,8 @@ export const routes: Routes = [
       { path: 'orders/:id', component: OrderDetailComponent },
       { path: 'sampling-plans', component: SamplingPlanListComponent },
       { path: 'sampling-plans/:id', component: SamplingPlanDetailComponent },
+      { path: 'sampling-rounds', component: SamplingRoundListComponent },
+      { path: 'sampling-rounds/:id', component: SamplingRoundDetailComponent },
       { path: 'sampling-locations', component: SamplingLocationListComponent },
       { path: 'distributors', component: DistributorListComponent, canActivate: [featureGuard(['Administrator'])] },
       { path: 'analysis-profiles', component: AnalysisProfilesComponent },
