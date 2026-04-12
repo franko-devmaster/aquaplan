@@ -516,8 +516,18 @@ internal class OrderService(
     {
         var today = DateTime.UtcNow;
         var prefix = $"ORD-{today:yyyyMMdd}";
-        var count = await dbContext.Orders
-            .CountAsync(o => o.OrderNumber.StartsWith(prefix), cancellationToken);
-        return $"{prefix}-{(count + 1):D4}";
+        var maxNumber = await dbContext.Orders
+            .Where(o => o.OrderNumber.StartsWith(prefix))
+            .Select(o => o.OrderNumber)
+            .MaxAsync(cancellationToken) as string;
+
+        var nextSeq = 1;
+        if (maxNumber is not null)
+        {
+            var lastPart = maxNumber[(prefix.Length + 1)..];
+            nextSeq = int.Parse(lastPart) + 1;
+        }
+
+        return $"{prefix}-{nextSeq:D4}";
     }
 }
