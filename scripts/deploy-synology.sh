@@ -3,57 +3,55 @@
 # Usage: ./scripts/deploy-synology.sh [tag]
 #
 # Prerequisites:
-#   - SSH access to Synology (admin user)
-#   - Docker installed on Synology
-#   - docker-compose available via Docker package
+#   - SSH access to Synology (fcharriere user)
+#   - Docker installed on Synology (/usr/local/bin/docker)
+#   - macOS: "Réseau local" enabled for Terminal in System Settings
 #
 # Environment variables (set in .env or export before running):
-#   SYNOLOGY_HOST  — Synology hostname or IP (default: fchsynology)
-#   SYNOLOGY_USER  — SSH user (default: francois)
-#   SYNOLOGY_PORT  — SSH port (default: 22)
+#   SYNOLOGY_HOST  — Synology hostname or IP (default: 192.168.1.159)
+#   SYNOLOGY_USER  — SSH user (default: fcharriere)
 
 set -euo pipefail
 
 TAG="${1:-latest}"
 SYNOLOGY_HOST="${SYNOLOGY_HOST:-192.168.1.159}"
-SYNOLOGY_USER="${SYNOLOGY_USER:-francois}"
-SYNOLOGY_PORT="${SYNOLOGY_PORT:-22}"
-DEPLOY_DIR="/volume1/docker/aquaplan"
+SYNOLOGY_USER="${SYNOLOGY_USER:-fcharriere}"
+DOCKER="/usr/local/bin/docker"
 
-echo "=== AquaPlan Deploy to Synology ==="
+echo "=== AquaPlan — Deploiement Synology ==="
 echo "Tag:  $TAG"
 echo "Host: $SYNOLOGY_HOST"
-echo "Dir:  $DEPLOY_DIR"
 echo ""
 
 # SSH command helper
 ssh_cmd() {
-    ssh -p "$SYNOLOGY_PORT" -o StrictHostKeyChecking=accept-new "$SYNOLOGY_USER@$SYNOLOGY_HOST" "$@"
+    ssh -t -o StrictHostKeyChecking=accept-new "$SYNOLOGY_USER@$SYNOLOGY_HOST" "$@"
 }
 
-# 1. Ensure deploy directory exists on Synology
-echo "[1/5] Creating deploy directory..."
-ssh_cmd "sudo mkdir -p $DEPLOY_DIR"
+# 1. Pull latest images
+echo "[1/3] Pull des images (tag: $TAG)..."
+ssh_cmd "sudo $DOCKER pull francoischarriere/aquaplan-api:$TAG && sudo $DOCKER pull francoischarriere/aquaplan-web:$TAG"
 
-# 2. Copy docker-compose file to Synology
-echo "[2/5] Uploading docker-compose.synology.yml..."
-scp -P "$SYNOLOGY_PORT" \
-    "$(dirname "$0")/../docker-compose.synology.yml" \
-    "$SYNOLOGY_USER@$SYNOLOGY_HOST:$DEPLOY_DIR/docker-compose.yml"
+# 2. Restart containers (DB is NOT restarted — data preserved)
+echo ""
+echo "[2/3] Redemarrage des conteneurs (api + web)..."
+ssh_cmd "sudo $DOCKER restart aquaplan-api && sudo $DOCKER restart aquaplan-web"
 
-# 3. Pull latest images
-echo "[3/5] Pulling images (tag: $TAG)..."
-ssh_cmd "cd $DEPLOY_DIR && sudo docker pull francoischarriere/aquaplan-api:$TAG && sudo docker pull francoischarriere/aquaplan-web:$TAG && sudo docker pull postgres:17-alpine"
-
-# 4. Deploy with docker-compose
-echo "[4/5] Deploying containers..."
-ssh_cmd "cd $DEPLOY_DIR && export TAG=$TAG && sudo docker-compose -f docker-compose.yml up -d --remove-orphans"
-
-# 5. Verify
-echo "[5/5] Verifying deployment..."
-sleep 10
-ssh_cmd "sudo docker ps --filter 'name=aquaplan' --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
+# 3. Verify
+echo ""
+echo "[3/3] Verification..."
+sleep 5
+if curl -sf "http://$SYNOLOGY_HOST:8880/api/health" > /dev/null 2>&1; then
+    echo "  API:  OK"
+else
+    echo "  API:  ERREUR (attendre quelques secondes et reessayer)"
+fi
+if curl -sf "http://$SYNOLOGY_HOST:8880/" > /dev/null 2>&1; then
+    echo "  Web:  OK"
+else
+    echo "  Web:  ERREUR"
+fi
 
 echo ""
-echo "=== Deployment complete ==="
-echo "AquaPlan is available at: http://$SYNOLOGY_HOST:8880"
+echo "=== Deploiement termine ==="
+echo "AquaPlan: http://$SYNOLOGY_HOST:8880"

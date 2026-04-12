@@ -33,11 +33,8 @@ builder.Host.UseSerilog((context, configuration) =>
 builder.Services.WithInfrastructure(builder.Configuration);
 builder.Services.WithApplication();
 
-// Controllers + Exception filter
-builder.Services.AddControllers(options =>
-{
-    options.Filters.Add<ApiExceptionFilterAttribute>();
-});
+// Controllers
+builder.Services.AddControllers();
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
@@ -119,6 +116,7 @@ var app = builder.Build();
 
 // Middleware pipeline
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<BusinessExceptionMiddleware>();
 app.UseSerilogRequestLogging();
 
 if (app.Environment.IsDevelopment())

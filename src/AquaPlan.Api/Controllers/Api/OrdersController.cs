@@ -108,8 +108,15 @@ public class OrdersController(
             }
         }
 
-        var order = await orderService.CreateOrderAsync(dto, userId, tenantId, cancellationToken);
-        return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
+        try
+        {
+            var order = await orderService.CreateOrderAsync(dto, userId, tenantId, cancellationToken);
+            return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpPut("{id:guid}")]

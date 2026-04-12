@@ -194,7 +194,9 @@ internal class OrderService(
             PreleveurId = dto.PreleveurId,
             DistributorId = dto.DistributorId,
             SamplingLocationId = dto.SamplingLocationId,
-            PlannedDate = dto.PlannedDate,
+            PlannedDate = dto.PlannedDate.HasValue
+                ? DateTime.SpecifyKind(dto.PlannedDate.Value, DateTimeKind.Utc)
+                : null,
             Notes = dto.Notes,
             TenantId = tenantId,
             StatusChangedAt = DateTime.UtcNow,
@@ -249,7 +251,9 @@ internal class OrderService(
         }
 
         order.SamplingLocationId = dto.SamplingLocationId;
-        order.PlannedDate = dto.PlannedDate;
+        order.PlannedDate = dto.PlannedDate.HasValue
+            ? DateTime.SpecifyKind(dto.PlannedDate.Value, DateTimeKind.Utc)
+            : null;
         order.Notes = dto.Notes;
         order.UpdatedAt = DateTime.UtcNow;
         order.UpdatedBy = updatedBy;

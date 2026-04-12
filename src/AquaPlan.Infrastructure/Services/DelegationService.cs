@@ -38,8 +38,8 @@ internal class DelegationService(
             Id = Guid.NewGuid(),
             DelegatingDistributorId = dto.DelegatingDistributorId,
             DelegatedToDistributorId = dto.DelegatedToDistributorId,
-            ValidFrom = dto.ValidFrom,
-            ValidTo = dto.ValidTo,
+            ValidFrom = DateTime.SpecifyKind(dto.ValidFrom, DateTimeKind.Utc),
+            ValidTo = dto.ValidTo.HasValue ? DateTime.SpecifyKind(dto.ValidTo.Value, DateTimeKind.Utc) : null,
             IsActive = true,
             TenantId = tenantId,
         };

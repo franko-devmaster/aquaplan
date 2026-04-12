@@ -16,6 +16,26 @@ public class ApiExceptionFilterAttribute : ExceptionFilterAttribute
 
     public override void OnException(ExceptionContext context)
     {
+        // Map known business exceptions to appropriate HTTP status codes
+        if (context.Exception is InvalidOperationException)
+        {
+            _logger.LogWarning(context.Exception, "Business rule violation: {Message}", context.Exception.Message);
+
+            context.Result = new ObjectResult(new { error = context.Exception.Message })
+            {
+                StatusCode = StatusCodes.Status400BadRequest,
+            };
+            context.ExceptionHandled = true;
+            return;
+        }
+
+        if (context.Exception is KeyNotFoundException)
+        {
+            context.Result = new NotFoundResult();
+            context.ExceptionHandled = true;
+            return;
+        }
+
         _logger.LogError(context.Exception, "Unhandled exception: {Message}", context.Exception.Message);
 
         var problemDetails = new ProblemDetails
