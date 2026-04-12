@@ -5,6 +5,7 @@ namespace AquaPlan.Application.DTOs.Orders;
 public record OrderFilterDto(
     List<OrderStatus>? Statuses,
     bool? IsUnassigned,
+    bool? HasNoRound,
     string? Search,
     int Page = 1,
     int PageSize = 20,

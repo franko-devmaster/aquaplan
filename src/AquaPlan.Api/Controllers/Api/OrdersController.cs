@@ -21,6 +21,7 @@ public class OrdersController(
     public async Task<ActionResult<OrderPagedResultDto>> GetOrders(
         [FromQuery] List<OrderStatus>? statuses,
         [FromQuery] bool? isUnassigned,
+        [FromQuery] bool? hasNoRound,
         [FromQuery] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -36,7 +37,7 @@ public class OrdersController(
         var tenantId = GetTenantId();
         var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
 
-        var filter = new OrderFilterDto(statuses, isUnassigned, search, page, pageSize, sortBy, sortDescending, distributorId, preleveurId, dateFrom, dateTo);
+        var filter = new OrderFilterDto(statuses, isUnassigned, hasNoRound, search, page, pageSize, sortBy, sortDescending, distributorId, preleveurId, dateFrom, dateTo);
         var result = await orderService.GetOrdersFilteredAsync(userId, tenantId, filter, isAdmin, cancellationToken);
 
         return Ok(result);
@@ -61,7 +62,7 @@ public class OrdersController(
             return Forbid();
         }
 
-        var filter = new OrderFilterDto(statuses, null, search, DistributorId: distributorId, PreleveurId: preleveurId, DateFrom: dateFrom, DateTo: dateTo);
+        var filter = new OrderFilterDto(statuses, null, null, search, DistributorId: distributorId, PreleveurId: preleveurId, DateFrom: dateFrom, DateTo: dateTo);
         var csvBytes = await orderService.ExportOrdersCsvAsync(tenantId, filter, cancellationToken);
         return File(csvBytes, "text/csv", $"orders-export-{DateTime.UtcNow:yyyyMMdd}.csv");
     }

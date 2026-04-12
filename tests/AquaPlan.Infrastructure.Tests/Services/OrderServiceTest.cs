@@ -208,7 +208,7 @@ public class OrderServiceTest : IDisposable
         _dbContext.UserDistributors.Add(new UserDistributor { UserId = UserId, DistributorId = otherDistId });
         await _dbContext.SaveChangesAsync();
 
-        var filter = new OrderFilterDto(null, null, null, DistributorId: DistributorId);
+        var filter = new OrderFilterDto(null, null, null, null, DistributorId: DistributorId);
         var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: true);
 
         result.Items.Should().AllSatisfy(o => o.DistributorId.Should().Be(DistributorId));
@@ -221,7 +221,7 @@ public class OrderServiceTest : IDisposable
         _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-DATE-02", Status = OrderStatus.Draft, IsUnplanned = false, CreatedById = UserId, DistributorId = DistributorId, TenantId = TenantId, PlannedDate = new DateTime(2026, 5, 20) });
         await _dbContext.SaveChangesAsync();
 
-        var filter = new OrderFilterDto(null, null, null, DateFrom: new DateTime(2026, 4, 1), DateTo: new DateTime(2026, 6, 1));
+        var filter = new OrderFilterDto(null, null, null, null, DateFrom: new DateTime(2026, 4, 1), DateTo: new DateTime(2026, 6, 1));
         var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: true);
 
         result.Items.Should().HaveCount(1);
@@ -234,7 +234,7 @@ public class OrderServiceTest : IDisposable
         _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-CSV-01", Status = OrderStatus.Draft, IsUnplanned = false, CreatedById = UserId, DistributorId = DistributorId, TenantId = TenantId });
         await _dbContext.SaveChangesAsync();
 
-        var filter = new OrderFilterDto(null, null, null);
+        var filter = new OrderFilterDto(null, null, null, null);
         var csv = await _sut.ExportOrdersCsvAsync(TenantId, filter);
 
         csv.Should().NotBeEmpty();
@@ -262,7 +262,7 @@ public class OrderServiceTest : IDisposable
         _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-DEL-01", Status = OrderStatus.Draft, IsUnplanned = false, CreatedById = UserId, DistributorId = delegatedDistId, TenantId = TenantId });
         await _dbContext.SaveChangesAsync();
 
-        var filter = new OrderFilterDto(null, null, null);
+        var filter = new OrderFilterDto(null, null, null, null);
         var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: false);
 
         result.Items.Should().Contain(o => o.OrderNumber == "ORD-DEL-01");

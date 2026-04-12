@@ -16,6 +16,8 @@ import { OrderDetailDto, OrderStatus, OrderStatusLabels, UnplannedReasonLabels }
 import { AuthService } from '../../services/auth.service';
 import { OrderEditDialogComponent } from './order-edit-dialog.component';
 import { ConfirmDialogComponent } from '../../components/confirm-dialog.component';
+import { OrderLinkRoundDialogComponent } from './order-link-round-dialog.component';
+import { SamplingRoundDetailDto } from '../../models/sampling-round.model';
 
 @Component({
   selector: 'app-order-detail',
@@ -39,8 +41,14 @@ import { ConfirmDialogComponent } from '../../components/confirm-dialog.componen
           </button>
           <h2>{{ 'orders.details' | translate }} — {{ order()!.orderNumber }}</h2>
         </div>
-        @if (canEdit() || canDelete()) {
+        @if (canEdit() || canDelete() || canLinkToRound()) {
           <div class="header-actions">
+            @if (canLinkToRound()) {
+              <button mat-raised-button (click)="openLinkRoundDialog()">
+                <mat-icon>route</mat-icon>
+                {{ 'orders.linkToRound' | translate }}
+              </button>
+            }
             @if (canEdit()) {
               <button mat-raised-button color="primary" (click)="openEditDialog()">
                 <mat-icon>edit</mat-icon>
@@ -222,6 +230,32 @@ export class OrderDetailComponent implements OnInit {
     const o = this.order();
     if (!o || o.unplannedReason === null) return '';
     return UnplannedReasonLabels[o.unplannedReason] ?? '';
+  }
+
+  canLinkToRound(): boolean {
+    const o = this.order();
+    if (!o) return false;
+    return o.status === OrderStatus.Draft;
+  }
+
+  openLinkRoundDialog(): void {
+    const o = this.order();
+    if (!o) return;
+
+    const dialogRef = this.dialog.open(OrderLinkRoundDialogComponent, {
+      width: '500px',
+      panelClass: 'responsive-dialog',
+      data: { orderId: o.id, distributorId: o.distributorId },
+    });
+    dialogRef.afterClosed().subscribe((result: SamplingRoundDetailDto | undefined) => {
+      if (result) {
+        this.snackBar.open(
+          this.translate.instant('samplingRounds.linkedSuccess'),
+          this.translate.instant('common.close'),
+          { duration: 3000 }
+        );
+      }
+    });
   }
 
   openEditDialog(): void {

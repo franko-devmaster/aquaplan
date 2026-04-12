@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -17,10 +18,12 @@ import { TranslateModule } from '@ngx-translate/core';
 import { SamplingRoundDatastore } from '../../datastore/sampling-round.datastore';
 import {
   SamplingRoundListDto,
+  SamplingRoundDetailDto,
   SamplingRoundStatus,
   SamplingRoundStatusLabels,
   SamplingRoundStatusColors,
 } from '../../models/sampling-round.model';
+import { SamplingRoundCreateDialogComponent } from './sampling-round-create-dialog.component';
 
 @Component({
   selector: 'app-sampling-round-list',
@@ -29,7 +32,7 @@ import {
     FormsModule, MatTableModule, MatButtonModule, MatIconModule, MatChipsModule,
     MatProgressSpinnerModule, MatTooltipModule,
     MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatPaginatorModule, MatSortModule,
+    MatPaginatorModule, MatSortModule, MatDialogModule,
     DatePipe, TranslateModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -143,6 +146,7 @@ import {
 export class SamplingRoundListComponent implements OnInit {
   readonly store = inject(SamplingRoundDatastore);
   private readonly router = inject(Router);
+  private readonly dialog = inject(MatDialog);
 
   readonly searchValue = signal('');
   private searchTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -201,7 +205,15 @@ export class SamplingRoundListComponent implements OnInit {
   }
 
   createRound(): void {
-    this.router.navigate(['/sampling-rounds', 'new']);
+    const dialogRef = this.dialog.open(SamplingRoundCreateDialogComponent, {
+      width: '500px',
+      panelClass: 'responsive-dialog',
+    });
+    dialogRef.afterClosed().subscribe((result: SamplingRoundDetailDto | undefined) => {
+      if (result) {
+        this.router.navigate(['/sampling-rounds', result.id]);
+      }
+    });
   }
 
   viewDetail(round: SamplingRoundListDto): void {

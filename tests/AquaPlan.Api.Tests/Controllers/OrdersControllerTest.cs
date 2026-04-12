@@ -76,7 +76,7 @@ public class OrdersControllerTest
             .Setup(x => x.GetOrdersFilteredAsync(UserId, TenantId, It.IsAny<OrderFilterDto>(), true, It.IsAny<CancellationToken>()))
             .ReturnsAsync(pagedResult);
 
-        var result = await _sut.GetOrders(null, null, null, 1, 20, null, true, null, null, null, null, CancellationToken.None);
+        var result = await _sut.GetOrders(null, null, null, null, 1, 20, null, true, null, null, null, null, CancellationToken.None);
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var value = okResult.Value.Should().BeOfType<OrderPagedResultDto>().Subject;
@@ -97,7 +97,7 @@ public class OrdersControllerTest
                 false, It.IsAny<CancellationToken>()))
             .ReturnsAsync(pagedResult);
 
-        var result = await _sut.GetOrders(statuses, true, "test", 1, 20, null, true, null, null, null, null, CancellationToken.None);
+        var result = await _sut.GetOrders(statuses, true, null, "test", 1, 20, null, true, null, null, null, null, CancellationToken.None);
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().BeOfType<OrderPagedResultDto>();

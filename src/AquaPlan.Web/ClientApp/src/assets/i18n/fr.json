@@ -134,7 +134,9 @@
     "deleteSuccess": "Mandat supprimé avec succès",
     "deleteError": "Erreur lors de la suppression du mandat",
     "delegation": "Délégation",
-    "delegated": "Délégué"
+    "delegated": "Délégué",
+    "linkToRound": "Lier à une tournée",
+    "noRound": "Aucune tournée"
   },
   "delegations": {
     "title": "Délégations",
@@ -301,7 +303,14 @@
       "completed": "Terminée",
       "cancelled": "Annulée"
     },
-    "createRound": "Créer une tournée",
+    "createRound": "Nouvelle tournée",
+    "createRoundTitle": "Créer une tournée",
+    "linkToRound": "Lier à une tournée",
+    "linkToExisting": "Tournée existante",
+    "createNew": "Nouvelle tournée",
+    "selectRound": "Sélectionner une tournée",
+    "noRoundsAvailable": "Aucune tournée disponible pour ce distributeur",
+    "linkedSuccess": "Mandat lié à la tournée avec succès",
     "assignSampler": "Assigner un préleveur",
     "cancelRound": "Annuler la tournée",
     "addOrder": "Ajouter un mandat",

@@ -57,6 +57,11 @@ internal class OrderService(
             query = query.Where(o => o.PreleveurId == null);
         }
 
+        if (filter.HasNoRound == true)
+        {
+            query = query.Where(o => o.SamplingRoundId == null);
+        }
+
         // Filter by distributor (admin filter)
         if (filter.DistributorId.HasValue)
         {
