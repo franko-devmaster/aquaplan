@@ -9,6 +9,7 @@ namespace AquaPlan.Infrastructure.Services;
 
 internal class OrderStatusService(
     AquaPlanDbContext dbContext,
+    IOrderAuditService auditService,
     ILogger<OrderStatusService> logger) : IOrderStatusService
 {
     private static readonly Dictionary<OrderStatus, OrderStatusDto> StatusDefinitions = new()
@@ -91,6 +92,16 @@ internal class OrderStatusService(
         order.UpdatedBy = userId;
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        await auditService.LogAsync(
+            orderId,
+            "StatusTransitioned",
+            $"Status changed from {currentStatus} to {newStatus}",
+            currentStatus.ToString(),
+            newStatus.ToString(),
+            userId,
+            tenantId,
+            cancellationToken);
 
         logger.LogInformation(
             "Order {OrderId} transitioned from {FromStatus} to {ToStatus} by {UserId}",

@@ -1,3 +1,4 @@
+using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Domain.Enums;
 using AquaPlan.Infrastructure.Data;
@@ -10,6 +11,7 @@ namespace AquaPlan.Infrastructure.Tests.Services;
 public class OrderStatusServiceTest : IDisposable
 {
     private readonly AquaPlanDbContext _dbContext;
+    private readonly Mock<IOrderAuditService> _auditServiceMock = new();
     private readonly Mock<ILogger<OrderStatusService>> _loggerMock = new();
     private readonly OrderStatusService _sut;
 
@@ -24,7 +26,7 @@ public class OrderStatusServiceTest : IDisposable
             .Options;
 
         _dbContext = new AquaPlanDbContext(options);
-        _sut = new OrderStatusService(_dbContext, _loggerMock.Object);
+        _sut = new OrderStatusService(_dbContext, _auditServiceMock.Object, _loggerMock.Object);
     }
 
     public void Dispose()
@@ -230,6 +232,26 @@ public class OrderStatusServiceTest : IDisposable
 
         result.FromStatus.Should().Be(OrderStatus.Assigned);
         result.ToStatus.Should().Be(OrderStatus.Cancelled);
+    }
+
+    [Fact]
+    public async Task TransitionOrderAsync_ShouldCreateAuditLogEntry_WhenTransitionIsValid()
+    {
+        await SeedOrder(OrderStatus.Draft);
+
+        await _sut.TransitionOrderAsync(OrderId, OrderStatus.Assigned, UserId, TenantId);
+
+        _auditServiceMock.Verify(
+            a => a.LogAsync(
+                OrderId,
+                "StatusTransitioned",
+                It.Is<string>(s => s.Contains("Draft") && s.Contains("Assigned")),
+                "Draft",
+                "Assigned",
+                UserId,
+                TenantId,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     private async Task SeedOrder(OrderStatus status)
