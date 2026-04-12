@@ -11,6 +11,8 @@ public record SamplingDto(
     double? LocationLat,
     double? LocationLng,
     string? Notes,
+    string? SampleBarcode,
+    DateTime? BarcodeScannedAt,
     bool IsValidated,
     DateTime? ValidatedAt,
     DateTime CreatedAt);

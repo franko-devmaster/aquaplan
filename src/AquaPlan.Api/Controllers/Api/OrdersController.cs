@@ -14,6 +14,7 @@ public class OrdersController(
     IOrderService orderService,
     IOrderStatusService orderStatusService,
     IPermissionService permissionService,
+    IOrderAuditService orderAuditService,
     ILogger<OrdersController> logger) : ControllerBase
 {
     [HttpGet]
@@ -206,6 +207,14 @@ public class OrdersController(
         {
             return BadRequest(new { error = ex.Message });
         }
+    }
+
+    [HttpGet("{id:guid}/audit-log")]
+    public async Task<ActionResult<List<OrderAuditLogDto>>> GetAuditLog(Guid id, CancellationToken cancellationToken)
+    {
+        var tenantId = GetTenantId();
+        var logs = await orderAuditService.GetByOrderIdAsync(id, tenantId, cancellationToken);
+        return Ok(logs);
     }
 
     private string GetUserId()

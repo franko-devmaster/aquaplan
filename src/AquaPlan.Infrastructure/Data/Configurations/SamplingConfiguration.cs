@@ -19,5 +19,8 @@ public class SamplingConfiguration : IEntityTypeConfiguration<Sampling>
             .WithMany()
             .HasForeignKey(s => s.PreleveurId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Property(s => s.SampleBarcode).HasMaxLength(100);
+        builder.HasIndex(s => s.SampleBarcode).IsUnique().HasFilter("sample_barcode IS NOT NULL");
     }
 }

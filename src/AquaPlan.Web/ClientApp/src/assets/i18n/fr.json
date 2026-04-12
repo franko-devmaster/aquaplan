@@ -316,5 +316,30 @@
     "assigned": "Préleveur assigné avec succès",
     "locationReplaced": "Lieu de prélèvement remplacé",
     "editComment": "Commentaire du préleveur :"
+  },
+  "sampling": {
+    "title": "Saisie terrain",
+    "enter": "Saisir les données terrain",
+    "samplingDateTime": "Date et heure du prélèvement",
+    "temperature": "Température",
+    "weather": "Météo",
+    "gps": "Coordonnées GPS",
+    "gpsLat": "Latitude",
+    "gpsLng": "Longitude",
+    "notes": "Remarques",
+    "complete": "Terminer le prélèvement",
+    "validate": "Valider",
+    "completed": "Prélèvement terminé",
+    "completedSuccess": "Prélèvement terminé avec succès",
+    "confirmComplete": "Êtes-vous sûr de vouloir terminer ce prélèvement ? Cette action est irréversible.",
+    "weatherOptions": {
+      "sunny": "Ensoleillé",
+      "cloudy": "Nuageux",
+      "rainy": "Pluvieux",
+      "stormy": "Orageux",
+      "snowy": "Neigeux",
+      "foggy": "Brumeux",
+      "windy": "Venteux"
+    }
   }
 }

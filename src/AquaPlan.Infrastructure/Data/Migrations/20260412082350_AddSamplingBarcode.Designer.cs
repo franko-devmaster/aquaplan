@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using AquaPlan.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AquaPlan.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(AquaPlanDbContext))]
-    partial class AquaPlanDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260412082350_AddSamplingBarcode")]
+    partial class AddSamplingBarcode
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -564,66 +567,6 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                         .HasDatabaseName("ix_order_analysis_profiles_analysis_profile_id");
 
                     b.ToTable("order_analysis_profiles", (string)null);
-                });
-
-            modelBuilder.Entity("AquaPlan.Domain.Entities.OrderAuditLog", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("action");
-
-                    b.Property<string>("Details")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("details");
-
-                    b.Property<string>("NewValue")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("new_value");
-
-                    b.Property<string>("OldValue")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("old_value");
-
-                    b.Property<Guid>("OrderId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("order_id");
-
-                    b.Property<DateTime>("PerformedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("performed_at");
-
-                    b.Property<string>("PerformedById")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("performed_by_id");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("tenant_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_order_audit_logs");
-
-                    b.HasIndex("OrderId")
-                        .HasDatabaseName("ix_order_audit_logs_order_id");
-
-                    b.HasIndex("PerformedById")
-                        .HasDatabaseName("ix_order_audit_logs_performed_by_id");
-
-                    b.HasIndex("TenantId", "PerformedAt")
-                        .HasDatabaseName("ix_order_audit_logs_tenant_id_performed_at");
-
-                    b.ToTable("order_audit_logs", (string)null);
                 });
 
             modelBuilder.Entity("AquaPlan.Domain.Entities.Permission", b =>
@@ -1462,27 +1405,6 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                     b.Navigation("AnalysisProfile");
 
                     b.Navigation("Order");
-                });
-
-            modelBuilder.Entity("AquaPlan.Domain.Entities.OrderAuditLog", b =>
-                {
-                    b.HasOne("AquaPlan.Domain.Entities.Order", "Order")
-                        .WithMany()
-                        .HasForeignKey("OrderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_order_audit_logs_orders_order_id");
-
-                    b.HasOne("AquaPlan.Domain.Entities.AppUser", "PerformedBy")
-                        .WithMany()
-                        .HasForeignKey("PerformedById")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_order_audit_logs_users_performed_by_id");
-
-                    b.Navigation("Order");
-
-                    b.Navigation("PerformedBy");
                 });
 
             modelBuilder.Entity("AquaPlan.Domain.Entities.RolePermission", b =>

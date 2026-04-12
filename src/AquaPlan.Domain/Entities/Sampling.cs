@@ -13,6 +13,8 @@ public class Sampling
     public double? LocationLat { get; set; }
     public double? LocationLng { get; set; }
     public string? Notes { get; set; }
+    public string? SampleBarcode { get; set; }
+    public DateTime? BarcodeScannedAt { get; set; }
     public bool IsValidated { get; set; }
     public DateTime? ValidatedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

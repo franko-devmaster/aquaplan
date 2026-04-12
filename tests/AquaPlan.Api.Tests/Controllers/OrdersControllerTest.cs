@@ -15,6 +15,7 @@ public class OrdersControllerTest
     private readonly Mock<IOrderService> _orderServiceMock = new();
     private readonly Mock<IOrderStatusService> _orderStatusServiceMock = new();
     private readonly Mock<IPermissionService> _permissionServiceMock = new();
+    private readonly Mock<IOrderAuditService> _orderAuditServiceMock = new();
     private readonly Mock<ILogger<OrdersController>> _loggerMock = new();
     private readonly OrdersController _sut;
 
@@ -25,7 +26,7 @@ public class OrdersControllerTest
 
     public OrdersControllerTest()
     {
-        _sut = new OrdersController(_orderServiceMock.Object, _orderStatusServiceMock.Object, _permissionServiceMock.Object, _loggerMock.Object);
+        _sut = new OrdersController(_orderServiceMock.Object, _orderStatusServiceMock.Object, _permissionServiceMock.Object, _orderAuditServiceMock.Object, _loggerMock.Object);
         _sut.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext { User = CreateUser() }
