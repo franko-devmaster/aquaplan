@@ -6,4 +6,6 @@ public record SectorListDto(
     string Code,
     string? Description,
     bool IsActive,
+    Guid DistributorId,
+    string? DistributorName,
     DateTime CreatedAt);

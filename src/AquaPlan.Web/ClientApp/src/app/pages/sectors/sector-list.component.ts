@@ -69,6 +69,11 @@ import { SectorFormDialogComponent } from './sector-form-dialog.component';
             <td mat-cell *matCellDef="let s" [attr.data-label]="'sectors.code' | translate">{{ s.code }}</td>
           </ng-container>
 
+          <ng-container matColumnDef="distributor">
+            <th mat-header-cell *matHeaderCellDef>{{ 'sectors.distributor' | translate }}</th>
+            <td mat-cell *matCellDef="let s" [attr.data-label]="'sectors.distributor' | translate">{{ s.distributorName ?? '—' }}</td>
+          </ng-container>
+
           <ng-container matColumnDef="description">
             <th mat-header-cell *matHeaderCellDef>{{ 'sectors.description' | translate }}</th>
             <td mat-cell *matCellDef="let s" [attr.data-label]="'sectors.description' | translate">{{ s.description ?? '-' }}</td>
@@ -107,7 +112,7 @@ export class SectorListComponent implements OnInit {
   readonly store = inject(SectorDatastore);
   private readonly dialog = inject(MatDialog);
 
-  readonly displayedColumns = ['name', 'code', 'description', 'status'];
+  readonly displayedColumns = ['name', 'code', 'distributor', 'description', 'status'];
 
   filterName = '';
   filterStatus: boolean | undefined;

@@ -17,10 +17,11 @@ public class SectorsController(
     public async Task<ActionResult<IList<SectorListDto>>> GetAll(
         [FromQuery] string? name,
         [FromQuery] bool? isActive,
+        [FromQuery] Guid? distributorId,
         CancellationToken cancellationToken)
     {
         var tenantId = GetTenantId();
-        var filter = new SectorFilteringInputDto(name, isActive);
+        var filter = new SectorFilteringInputDto(name, isActive, distributorId);
         var sectors = await sectorService.GetAllAsync(filter, tenantId, cancellationToken);
         return Ok(sectors);
     }

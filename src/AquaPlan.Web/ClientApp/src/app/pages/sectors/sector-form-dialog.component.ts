@@ -4,10 +4,13 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
+import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TranslateModule } from '@ngx-translate/core';
 import { SectorDatastore } from '../../datastore/sector.datastore';
 import { SectorApiService } from '../../services/sector-api.service';
+import { DistributorApiService } from '../../services/distributor-api.service';
+import { DistributorListDto } from '../../models/distributor.model';
 import { firstValueFrom } from 'rxjs';
 
 export interface SectorFormDialogData {
@@ -20,7 +23,7 @@ export interface SectorFormDialogData {
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule,
-    MatButtonModule, MatProgressSpinnerModule, TranslateModule,
+    MatButtonModule, MatSelectModule, MatProgressSpinnerModule, TranslateModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -37,6 +40,15 @@ export interface SectorFormDialogData {
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>{{ 'sectors.code' | translate }}</mat-label>
           <input matInput formControlName="code">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>{{ 'sectors.distributor' | translate }}</mat-label>
+          <mat-select formControlName="distributorId">
+            @for (dist of distributors(); track dist.id) {
+              <mat-option [value]="dist.id">{{ dist.name }}</mat-option>
+            }
+          </mat-select>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
@@ -68,7 +80,9 @@ export class SectorFormDialogComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly store = inject(SectorDatastore);
   private readonly api = inject(SectorApiService);
+  private readonly distributorApi = inject(DistributorApiService);
 
+  readonly distributors = signal<DistributorListDto[]>([]);
   readonly saving = signal(false);
   readonly form: FormGroup;
 
@@ -76,16 +90,25 @@ export class SectorFormDialogComponent implements OnInit {
     this.form = this.fb.group({
       name: ['', Validators.required],
       code: ['', Validators.required],
+      distributorId: ['', Validators.required],
       description: [''],
     });
+
+    if (this.data.mode === 'edit') {
+      this.form.get('distributorId')!.disable();
+    }
   }
 
   async ngOnInit(): Promise<void> {
+    const dists = await firstValueFrom(this.distributorApi.getAll({ isActive: true }));
+    this.distributors.set(dists);
+
     if (this.data.mode === 'edit' && this.data.sectorId) {
       const sector = await firstValueFrom(this.api.getById(this.data.sectorId));
       this.form.patchValue({
         name: sector.name,
         code: sector.code,
+        distributorId: sector.distributorId,
         description: sector.description,
       });
     }
@@ -96,17 +119,20 @@ export class SectorFormDialogComponent implements OnInit {
     this.saving.set(true);
 
     try {
-      const val = this.form.value;
-      const dto = {
-        name: val.name,
-        code: val.code,
-        description: val.description || null,
-      };
-
+      const val = this.form.getRawValue();
       if (this.data.mode === 'create') {
-        await this.store.create(dto);
+        await this.store.create({
+          name: val.name,
+          code: val.code,
+          description: val.description || null,
+          distributorId: val.distributorId,
+        });
       } else {
-        await this.store.update(this.data.sectorId!, dto);
+        await this.store.update(this.data.sectorId!, {
+          name: val.name,
+          code: val.code,
+          description: val.description || null,
+        });
       }
       this.dialogRef.close(true);
     } finally {

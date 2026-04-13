@@ -14,6 +14,7 @@ internal class SectorService(
     public async Task<IList<SectorListDto>> GetAllAsync(SectorFilteringInputDto filter, Guid tenantId, CancellationToken cancellationToken = default)
     {
         var query = dbContext.Sectors
+            .Include(s => s.Distributor)
             .Where(s => s.TenantId == tenantId);
 
         if (!string.IsNullOrWhiteSpace(filter.Name))
@@ -26,21 +27,29 @@ internal class SectorService(
             query = query.Where(s => s.IsActive == filter.IsActive.Value);
         }
 
+        if (filter.DistributorId.HasValue)
+        {
+            query = query.Where(s => s.DistributorId == filter.DistributorId.Value);
+        }
+
         return await query
             .OrderBy(s => s.Name)
             .Select(s => new SectorListDto(
                 s.Id, s.Name, s.Code, s.Description,
-                s.IsActive, s.CreatedAt))
+                s.IsActive, s.DistributorId, s.Distributor != null ? s.Distributor.Name : null,
+                s.CreatedAt))
             .ToListAsync(cancellationToken);
     }
 
     public async Task<SectorDto?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default)
     {
         return await dbContext.Sectors
+            .Include(s => s.Distributor)
             .Where(s => s.Id == id && s.TenantId == tenantId)
             .Select(s => new SectorDto(
                 s.Id, s.Name, s.Code, s.Description,
-                s.IsActive, s.CreatedAt))
+                s.IsActive, s.DistributorId, s.Distributor != null ? s.Distributor.Name : null,
+                s.CreatedAt))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -60,6 +69,7 @@ internal class SectorService(
             Name = dto.Name,
             Code = dto.Code,
             Description = dto.Description,
+            DistributorId = dto.DistributorId,
             TenantId = tenantId,
         };
 

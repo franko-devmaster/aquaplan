@@ -16,6 +16,7 @@ public class SectorServiceTest : IDisposable
     private static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly Guid OtherTenantId = Guid.Parse("00000000-0000-0000-0000-000000000099");
     private static readonly Guid SectorId = Guid.Parse("00000000-0000-0000-0000-000000000030");
+    private static readonly Guid DistributorId = Guid.Parse("00000000-0000-0000-0000-000000000050");
 
     public SectorServiceTest()
     {
@@ -25,6 +26,15 @@ public class SectorServiceTest : IDisposable
 
         _dbContext = new AquaPlanDbContext(options);
         _sut = new SectorService(_dbContext, _loggerMock.Object);
+
+        // Seed a distributor for FK references
+        _dbContext.Distributors.Add(new Distributor
+        {
+            Id = DistributorId,
+            Name = "Test Distributor",
+            TenantId = TenantId,
+        });
+        _dbContext.SaveChanges();
     }
 
     public void Dispose()
@@ -114,7 +124,7 @@ public class SectorServiceTest : IDisposable
     [Fact]
     public async Task CreateAsync_ShouldCreateSector()
     {
-        var addDto = new SectorAddDto("Nouveau Secteur", "NS", "Description test");
+        var addDto = new SectorAddDto("Nouveau Secteur", "NS", "Description test", DistributorId);
 
         var result = await _sut.CreateAsync(addDto, TenantId);
 
@@ -134,7 +144,7 @@ public class SectorServiceTest : IDisposable
     {
         await SeedSector(SectorId, "Secteur Nord", "SN");
 
-        var addDto = new SectorAddDto("Secteur Nord", "SN2", null);
+        var addDto = new SectorAddDto("Secteur Nord", "SN2", null, DistributorId);
 
         await _sut.Awaiting(x => x.CreateAsync(addDto, TenantId))
             .Should().ThrowAsync<InvalidOperationException>()
@@ -210,6 +220,7 @@ public class SectorServiceTest : IDisposable
             Name = name,
             Code = code,
             IsActive = isActive,
+            DistributorId = DistributorId,
             TenantId = tenantId ?? TenantId,
         });
         await _dbContext.SaveChangesAsync();

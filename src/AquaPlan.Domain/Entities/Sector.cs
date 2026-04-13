@@ -7,6 +7,8 @@ public class Sector
     public string Code { get; set; } = string.Empty;
     public string? Description { get; set; }
     public bool IsActive { get; set; } = true;
+    public Guid DistributorId { get; set; }
+    public Distributor? Distributor { get; set; }
     public Guid TenantId { get; set; }
     public Tenant? Tenant { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

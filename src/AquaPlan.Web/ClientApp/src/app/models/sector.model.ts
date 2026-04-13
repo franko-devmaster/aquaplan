@@ -4,6 +4,8 @@ export interface SectorDto {
   code: string;
   description: string | null;
   isActive: boolean;
+  distributorId: string;
+  distributorName: string | null;
   createdAt: string;
 }
 
@@ -13,6 +15,8 @@ export interface SectorListDto {
   code: string;
   description: string | null;
   isActive: boolean;
+  distributorId: string;
+  distributorName: string | null;
   createdAt: string;
 }
 
@@ -20,6 +24,7 @@ export interface SectorAddDto {
   name: string;
   code: string;
   description: string | null;
+  distributorId: string;
 }
 
 export interface SectorUpdateDto {
@@ -31,4 +36,5 @@ export interface SectorUpdateDto {
 export interface SectorFilteringInputDto {
   name?: string;
   isActive?: boolean;
+  distributorId?: string;
 }

@@ -17,6 +17,7 @@ public class SectorsControllerTest
 
     private static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly Guid SectorId = Guid.Parse("00000000-0000-0000-0000-000000000030");
+    private static readonly Guid DistributorId = Guid.Parse("00000000-0000-0000-0000-000000000050");
 
     public SectorsControllerTest()
     {
@@ -43,13 +44,13 @@ public class SectorsControllerTest
     {
         var sectors = new List<SectorListDto>
         {
-            new(SectorId, "Secteur Nord", "SN", "Description", true, DateTime.UtcNow),
+            new(SectorId, "Secteur Nord", "SN", "Description", true, DistributorId, "Test Distributor", DateTime.UtcNow),
         };
         _sectorServiceMock
             .Setup(x => x.GetAllAsync(It.IsAny<SectorFilteringInputDto>(), TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(sectors);
 
-        var result = await _sut.GetAll(null, null, CancellationToken.None);
+        var result = await _sut.GetAll(null, null, null, CancellationToken.None);
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().Be(sectors);
@@ -58,7 +59,7 @@ public class SectorsControllerTest
     [Fact]
     public async Task GetById_ShouldReturnOk_WhenFound()
     {
-        var sector = new SectorDto(SectorId, "Secteur Nord", "SN", "Description", true, DateTime.UtcNow);
+        var sector = new SectorDto(SectorId, "Secteur Nord", "SN", "Description", true, DistributorId, "Test Distributor", DateTime.UtcNow);
         _sectorServiceMock
             .Setup(x => x.GetByIdAsync(SectorId, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(sector);
@@ -84,8 +85,8 @@ public class SectorsControllerTest
     [Fact]
     public async Task Create_ShouldReturnCreated()
     {
-        var addDto = new SectorAddDto("Nouveau Secteur", "NS", "Description");
-        var created = new SectorDto(SectorId, "Nouveau Secteur", "NS", "Description", true, DateTime.UtcNow);
+        var addDto = new SectorAddDto("Nouveau Secteur", "NS", "Description", DistributorId);
+        var created = new SectorDto(SectorId, "Nouveau Secteur", "NS", "Description", true, DistributorId, "Test Distributor", DateTime.UtcNow);
         _sectorServiceMock
             .Setup(x => x.CreateAsync(addDto, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(created);
@@ -101,7 +102,7 @@ public class SectorsControllerTest
     public async Task Update_ShouldReturnOk_WhenFound()
     {
         var updateDto = new SectorUpdateDto("Secteur Modifie", "SM", "Description");
-        var updated = new SectorDto(SectorId, "Secteur Modifie", "SM", "Description", true, DateTime.UtcNow);
+        var updated = new SectorDto(SectorId, "Secteur Modifie", "SM", "Description", true, DistributorId, "Test Distributor", DateTime.UtcNow);
         _sectorServiceMock
             .Setup(x => x.UpdateAsync(SectorId, updateDto, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(updated);
@@ -128,7 +129,7 @@ public class SectorsControllerTest
     [Fact]
     public async Task ToggleStatus_ShouldReturnOk_WhenFound()
     {
-        var toggled = new SectorDto(SectorId, "Secteur Nord", "SN", "Description", false, DateTime.UtcNow);
+        var toggled = new SectorDto(SectorId, "Secteur Nord", "SN", "Description", false, DistributorId, "Test Distributor", DateTime.UtcNow);
         _sectorServiceMock
             .Setup(x => x.ToggleStatusAsync(SectorId, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(toggled);

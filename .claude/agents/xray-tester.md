@@ -177,6 +177,32 @@ mutation {
 | TO DO | Non exécuté |
 | EXECUTING | En cours |
 
+## Transitions Jira des artefacts Xray
+
+**Règle** : Après exécution complète des tests, les artefacts Xray doivent être mis au bon statut final.
+
+### Test Execution (workflow standard Jira)
+| Transition ID | Nom | Destination |
+|---------------|-----|-------------|
+| 11 | Backlog | Backlog |
+| 21 | Selected for Development | Selected for Development |
+| 31 | En cours | En cours |
+| 41 | Terminé | Terminé(e) |
+
+→ **Après exécution** : transition 41 → Terminé
+
+### Test Set / Test Plan (workflow Xray)
+| Transition ID | Nom | Destination |
+|---------------|-----|-------------|
+| 2 | Draft | Brouillon |
+| 3 | Depreciated | Depreciated |
+| 4 | Active | Active |
+
+→ **Après création et liaison** : transition 4 → Active
+→ **Si obsolète** : transition 3 → Depreciated
+
+**IMPORTANT** : Toujours mettre les Test Executions terminées au statut "Terminé" (transition 41) immédiatement après import des résultats. Ne jamais laisser une exécution complétée en statut Backlog ou En cours.
+
 ## Conventions de nommage
 
 | Artefact | Pattern | Exemple |
@@ -246,6 +272,9 @@ AQ-148→AQ-82, AQ-149→AQ-83
 
 FE tests : AQ-157→AQ-24, AQ-158→AQ-25, AQ-159→AQ-81, AQ-160→AQ-82,
 AQ-161→AQ-83, AQ-162→AQ-49, AQ-163→AQ-50, AQ-164→AQ-51, AQ-165→AQ-53
+
+### v0.7 Design & Fonctionnalités (Test Plan AQ-270, Test Exec AQ-271, Test Set AQ-269)
+AQ-264→AQ-254, AQ-265→AQ-255, AQ-266→AQ-258, AQ-267→AQ-262, AQ-268→AQ-254
 
 ## Gherkin — Bonnes pratiques
 

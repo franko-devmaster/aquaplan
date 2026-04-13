@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using AquaPlan.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AquaPlan.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(AquaPlanDbContext))]
-    partial class AquaPlanDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260413081633_AddSectorEntity")]
+    partial class AddSectorEntity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1130,10 +1133,6 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("description");
 
-                    b.Property<Guid>("DistributorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("distributor_id");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
@@ -1150,9 +1149,6 @@ namespace AquaPlan.Infrastructure.Data.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_sectors");
-
-                    b.HasIndex("DistributorId")
-                        .HasDatabaseName("ix_sectors_distributor_id");
 
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_sectors_tenant_id");
@@ -1737,21 +1733,12 @@ namespace AquaPlan.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("AquaPlan.Domain.Entities.Sector", b =>
                 {
-                    b.HasOne("AquaPlan.Domain.Entities.Distributor", "Distributor")
-                        .WithMany()
-                        .HasForeignKey("DistributorId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_sectors_distributors_distributor_id");
-
                     b.HasOne("AquaPlan.Domain.Entities.Tenant", "Tenant")
                         .WithMany()
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_sectors_tenants_tenant_id");
-
-                    b.Navigation("Distributor");
 
                     b.Navigation("Tenant");
                 });

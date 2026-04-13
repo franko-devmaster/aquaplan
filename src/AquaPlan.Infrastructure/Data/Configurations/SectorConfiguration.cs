@@ -12,6 +12,11 @@ public class SectorConfiguration : IEntityTypeConfiguration<Sector>
         builder.Property(s => s.Name).IsRequired().HasMaxLength(200);
         builder.Property(s => s.Code).IsRequired().HasMaxLength(50);
 
+        builder.HasOne(s => s.Distributor)
+            .WithMany()
+            .HasForeignKey(s => s.DistributorId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.HasOne(s => s.Tenant)
             .WithMany()
             .HasForeignKey(s => s.TenantId)

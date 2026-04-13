@@ -347,7 +347,8 @@
     "filterByName": "Filtrer par nom",
     "allStatuses": "Tous les statuts",
     "confirmToggle": "Êtes-vous sûr de vouloir changer le statut de ce secteur ?",
-    "noSectors": "Aucun secteur"
+    "noSectors": "Aucun secteur",
+    "distributor": "Distributeur"
   },
   "dashboard": {
     "title": "Tableau de bord",
