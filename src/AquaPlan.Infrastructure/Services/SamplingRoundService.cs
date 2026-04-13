@@ -45,6 +45,7 @@ internal class SamplingRoundService(
             .Include(sr => sr.CreatedBy)
             .Include(sr => sr.Orders.OrderBy(o => o.SortOrder))
                 .ThenInclude(o => o.SamplingLocation)
+                    .ThenInclude(l => l!.Sector)
             .Include(sr => sr.Orders)
                 .ThenInclude(o => o.OriginalSamplingLocation)
             .Include(sr => sr.Orders)
@@ -127,9 +128,10 @@ internal class SamplingRoundService(
                 sr.Preleveur != null ? sr.Preleveur.FirstName + " " + sr.Preleveur.LastName : null,
                 sr.DistributorId,
                 sr.Distributor!.Name,
+                sr.Distributor.ShortName,
                 sr.Notes,
                 sr.Orders.Count,
-                sr.Orders.Count(o => o.Status >= OrderStatus.SamplingCompleted && o.Status != OrderStatus.Cancelled),
+                sr.Orders.Count(o => o.Status >= OrderStatus.Completed && o.Status != OrderStatus.Cancelled),
                 sr.CreatedAt))
             .ToListAsync(cancellationToken);
 
@@ -215,18 +217,45 @@ internal class SamplingRoundService(
         foreach (var order in round.Orders)
         {
             order.PreleveurId = dto.PreleveurId;
-            if (order.Status == OrderStatus.Draft)
-            {
-                order.Status = OrderStatus.Assigned;
-                order.StatusChangedAt = DateTime.UtcNow;
-                order.StatusChangedBy = updatedBy;
-            }
             order.UpdatedAt = DateTime.UtcNow;
             order.UpdatedBy = updatedBy;
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return await GetByIdAsync(id, tenantId, cancellationToken);
+    }
+
+    public async Task<SamplingRoundDetailDto?> ValidateAsync(
+        Guid id, string userId, Guid tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        var round = await dbContext.SamplingRounds
+            .Include(r => r.Preleveur)
+            .Include(r => r.Distributor)
+            .Include(r => r.CreatedBy)
+            .Include(r => r.Orders)
+                .ThenInclude(o => o.SamplingLocation)
+                    .ThenInclude(l => l!.Sector)
+            .Include(r => r.Orders)
+                .ThenInclude(o => o.OriginalSamplingLocation)
+            .Include(r => r.Orders)
+                .ThenInclude(o => o.OrderAnalysisProfiles)
+                    .ThenInclude(oap => oap.AnalysisProfile)
+            .FirstOrDefaultAsync(r => r.Id == id && r.TenantId == tenantId, cancellationToken);
+
+        if (round is null) return null;
+
+        if (round.Status != SamplingRoundStatus.Assigned)
+        {
+            throw new InvalidOperationException("Only assigned rounds can be validated");
+        }
+
+        round.Status = SamplingRoundStatus.Validated;
+        round.UpdatedAt = DateTime.UtcNow;
+        round.UpdatedBy = userId;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return MapToDetailDto(round);
     }
 
     public async Task<SamplingRoundDetailDto?> CancelAsync(
@@ -378,7 +407,7 @@ internal class SamplingRoundService(
             throw new InvalidOperationException("Only the assigned préleveur can replace a sampling location");
         }
 
-        if (order.Status is not (OrderStatus.Assigned or OrderStatus.InProgress))
+        if (order.Status is not (OrderStatus.New or OrderStatus.InProgress))
         {
             throw new InvalidOperationException($"Cannot replace location on an order in status {order.Status}");
         }
@@ -426,7 +455,7 @@ internal class SamplingRoundService(
             throw new InvalidOperationException("Only the assigned préleveur can start an order");
         }
 
-        if (order.Status != OrderStatus.Assigned)
+        if (order.Status != OrderStatus.New)
         {
             throw new InvalidOperationException($"Cannot start an order in status {order.Status}");
         }
@@ -437,7 +466,7 @@ internal class SamplingRoundService(
         order.UpdatedAt = DateTime.UtcNow;
         order.UpdatedBy = userId;
 
-        if (order.SamplingRound!.Status == SamplingRoundStatus.Assigned)
+        if (order.SamplingRound!.Status == SamplingRoundStatus.Validated)
         {
             order.SamplingRound.Status = SamplingRoundStatus.InProgress;
             order.SamplingRound.UpdatedAt = DateTime.UtcNow;
@@ -472,6 +501,53 @@ internal class SamplingRoundService(
         return true;
     }
 
+    public async Task<SamplingRoundDetailDto?> TransmitAllAsync(
+        Guid id, string userId, Guid tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        var round = await dbContext.SamplingRounds
+            .Include(r => r.Preleveur)
+            .Include(r => r.Distributor)
+            .Include(r => r.CreatedBy)
+            .Include(r => r.Orders)
+                .ThenInclude(o => o.SamplingLocation)
+                    .ThenInclude(l => l!.Sector)
+            .Include(r => r.Orders)
+                .ThenInclude(o => o.OriginalSamplingLocation)
+            .Include(r => r.Orders)
+                .ThenInclude(o => o.OrderAnalysisProfiles)
+                    .ThenInclude(oap => oap.AnalysisProfile)
+            .FirstOrDefaultAsync(r => r.Id == id && r.TenantId == tenantId, cancellationToken);
+
+        if (round is null) return null;
+
+        var completedOrders = round.Orders.Where(o => o.Status == OrderStatus.Completed).ToList();
+        if (completedOrders.Count == 0)
+        {
+            throw new InvalidOperationException("No completed orders to transmit");
+        }
+
+        foreach (var order in completedOrders)
+        {
+            order.Status = OrderStatus.Transmitted;
+            order.UpdatedAt = DateTime.UtcNow;
+            order.UpdatedBy = userId;
+        }
+
+        // If all orders are now transmitted or done, mark round as completed
+        if (round.Orders.All(o => o.Status == OrderStatus.Transmitted || o.Status == OrderStatus.Done || o.Status == OrderStatus.Cancelled))
+        {
+            round.Status = SamplingRoundStatus.Completed;
+            round.CompletedAt = DateTime.UtcNow;
+        }
+
+        round.UpdatedAt = DateTime.UtcNow;
+        round.UpdatedBy = userId;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return MapToDetailDto(round);
+    }
+
     private static SamplingRoundDetailDto MapToDetailDto(SamplingRound round)
     {
         return new SamplingRoundDetailDto(
@@ -484,6 +560,7 @@ internal class SamplingRoundService(
             round.Preleveur is not null ? $"{round.Preleveur.FirstName} {round.Preleveur.LastName}" : null,
             round.DistributorId,
             round.Distributor?.Name ?? string.Empty,
+            round.Distributor?.ShortName,
             round.Notes,
             round.CreatedById,
             round.CreatedBy is not null ? $"{round.CreatedBy.FirstName} {round.CreatedBy.LastName}" : string.Empty,
@@ -497,7 +574,8 @@ internal class SamplingRoundService(
                 o.SortOrder,
                 o.SamplingLocationId,
                 o.SamplingLocation?.Name,
-                null,
+                o.SamplingLocation?.LocationCode,
+                o.SamplingLocation?.Sector?.Name,
                 o.OriginalSamplingLocationId,
                 o.OriginalSamplingLocation?.Name,
                 o.LocationReplacementReason,

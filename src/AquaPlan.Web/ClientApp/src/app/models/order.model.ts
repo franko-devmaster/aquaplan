@@ -1,13 +1,10 @@
 export enum OrderStatus {
-  Draft = 0,
-  Assigned = 1,
-  InProgress = 2,
-  SamplingCompleted = 3,
-  Validated = 4,
-  SentToLims = 5,
-  ResultsReceived = 6,
-  Completed = 7,
-  Cancelled = 8,
+  New = 0,
+  InProgress = 1,
+  Completed = 2,
+  Transmitted = 3,
+  Done = 4,
+  Cancelled = 5,
 }
 
 export enum UnplannedReason {
@@ -23,14 +20,11 @@ export const UnplannedReasonLabels: Record<UnplannedReason, string> = {
 };
 
 export const OrderStatusLabels: Record<OrderStatus, string> = {
-  [OrderStatus.Draft]: 'orders.status.draft',
-  [OrderStatus.Assigned]: 'orders.status.assigned',
+  [OrderStatus.New]: 'orders.status.new',
   [OrderStatus.InProgress]: 'orders.status.inProgress',
-  [OrderStatus.SamplingCompleted]: 'orders.status.samplingCompleted',
-  [OrderStatus.Validated]: 'orders.status.validated',
-  [OrderStatus.SentToLims]: 'orders.status.sentToLims',
-  [OrderStatus.ResultsReceived]: 'orders.status.resultsReceived',
   [OrderStatus.Completed]: 'orders.status.completed',
+  [OrderStatus.Transmitted]: 'orders.status.transmitted',
+  [OrderStatus.Done]: 'orders.status.done',
   [OrderStatus.Cancelled]: 'orders.status.cancelled',
 };
 
@@ -127,6 +121,7 @@ export interface OrderAssignDto {
 export interface OrderFilterDto {
   statuses?: OrderStatus[];
   isUnassigned?: boolean;
+  hasNoRound?: boolean;
   search?: string;
   page?: number;
   pageSize?: number;

@@ -17,4 +17,6 @@ public interface ISamplingRoundService
     Task<bool> ReplaceLocationAsync(Guid orderId, LocationReplacementDto dto, string userId, Guid tenantId, CancellationToken cancellationToken = default);
     Task<bool> StartOrderAsync(Guid orderId, string userId, Guid tenantId, CancellationToken cancellationToken = default);
     Task<bool> UpdateSamplerCommentAsync(Guid orderId, SamplerCommentDto dto, string userId, Guid tenantId, CancellationToken cancellationToken = default);
+    Task<SamplingRoundDetailDto?> ValidateAsync(Guid id, string userId, Guid tenantId, CancellationToken cancellationToken = default);
+    Task<SamplingRoundDetailDto?> TransmitAllAsync(Guid id, string userId, Guid tenantId, CancellationToken cancellationToken = default);
 }

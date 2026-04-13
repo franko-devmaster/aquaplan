@@ -103,6 +103,7 @@ internal class SectorService(
         sector.Name = dto.Name;
         sector.Code = dto.Code;
         sector.Description = dto.Description;
+        sector.DistributorId = dto.DistributorId;
 
         await dbContext.SaveChangesAsync(cancellationToken);
 

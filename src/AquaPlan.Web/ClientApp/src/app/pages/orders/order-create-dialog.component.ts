@@ -6,16 +6,17 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatDatepickerModule } from '@angular/material/datepicker';
-import { provideNativeDateAdapter } from '@angular/material/core';
+import { MatRadioModule } from '@angular/material/radio';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TranslateModule } from '@ngx-translate/core';
 import { UnplannedReason, UnplannedReasonLabels } from '../../models/order.model';
 import { OrderDatastore } from '../../datastore/order.datastore';
 import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
 import { AnalysisProfileApiService } from '../../services/analysis-profile-api.service';
+import { SamplingRoundApiService } from '../../services/sampling-round-api.service';
 import { SamplingLocationDto } from '../../models/sampling-location.model';
 import { AnalysisProfileListDto } from '../../models/analysis-profile.model';
+import { SamplingRoundListDto, SamplingRoundStatus } from '../../models/sampling-round.model';
 import { firstValueFrom } from 'rxjs';
 
 interface DistributorOption {
@@ -28,10 +29,9 @@ interface DistributorOption {
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule,
-    MatSelectModule, MatButtonModule, MatCheckboxModule, MatDatepickerModule,
+    MatSelectModule, MatButtonModule, MatCheckboxModule, MatRadioModule,
     MatProgressSpinnerModule, TranslateModule,
   ],
-  providers: [provideNativeDateAdapter()],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h2 mat-dialog-title>{{ 'orders.createOrder' | translate }}</h2>
@@ -56,12 +56,40 @@ interface DistributorOption {
           </mat-select>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>{{ 'orders.plannedDate' | translate }}</mat-label>
-          <input matInput [matDatepicker]="picker" formControlName="plannedDate">
-          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
-          <mat-datepicker #picker></mat-datepicker>
-        </mat-form-field>
+        <!-- Round section -->
+        <div class="round-section">
+          <label class="section-label">{{ 'orders.round' | translate }}</label>
+          <mat-radio-group formControlName="roundMode" class="round-mode-group">
+            <mat-radio-button value="none">{{ 'orders.noRound' | translate }}</mat-radio-button>
+            <mat-radio-button value="existing">{{ 'orders.existingRound' | translate }}</mat-radio-button>
+            <mat-radio-button value="new">{{ 'orders.newRound' | translate }}</mat-radio-button>
+          </mat-radio-group>
+
+          @if (form.value.roundMode === 'existing') {
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>{{ 'orders.selectRound' | translate }}</mat-label>
+              <mat-select formControlName="roundId">
+                @for (round of availableRounds(); track round.id) {
+                  <mat-option [value]="round.id">{{ round.name }} — {{ round.distributorName }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            @if (availableRounds().length === 0) {
+              <p class="info-text">{{ 'orders.noRoundsAvailable' | translate }}</p>
+            }
+          }
+
+          @if (form.value.roundMode === 'new') {
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>{{ 'samplingRounds.name' | translate }}</mat-label>
+              <input matInput formControlName="newRoundName">
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>{{ 'samplingRounds.deadline' | translate }}</mat-label>
+              <input matInput type="date" formControlName="newRoundDeadline">
+            </mat-form-field>
+          }
+        </div>
 
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>{{ 'orders.analysisProfiles' | translate }}</mat-label>
@@ -111,8 +139,12 @@ interface DistributorOption {
     </mat-dialog-actions>
   `,
   styles: [`
-    .form-container { display: flex; flex-direction: column; min-width: 400px; gap: 8px; }
+    .form-container { display: flex; flex-direction: column; min-width: 450px; gap: 8px; }
     .full-width { width: 100%; }
+    .round-section { border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+    .section-label { font-size: 12px; font-weight: 500; color: #666; text-transform: uppercase; margin-bottom: 8px; display: block; }
+    .round-mode-group { display: flex; gap: 12px; margin-bottom: 12px; }
+    .info-text { color: #666; font-size: 13px; font-style: italic; }
   `],
 })
 export class OrderCreateDialogComponent implements OnInit {
@@ -121,10 +153,12 @@ export class OrderCreateDialogComponent implements OnInit {
   private readonly orderStore = inject(OrderDatastore);
   private readonly locationApi = inject(SamplingLocationApiService);
   private readonly profileApi = inject(AnalysisProfileApiService);
+  private readonly roundApi = inject(SamplingRoundApiService);
 
   readonly distributors = signal<DistributorOption[]>([]);
   readonly locations = signal<SamplingLocationDto[]>([]);
   readonly analysisProfiles = signal<AnalysisProfileListDto[]>([]);
+  readonly availableRounds = signal<SamplingRoundListDto[]>([]);
   readonly saving = signal(false);
   readonly form: FormGroup;
   readonly unplannedReasons = [
@@ -137,8 +171,11 @@ export class OrderCreateDialogComponent implements OnInit {
     this.form = this.fb.group({
       distributorId: ['', Validators.required],
       samplingLocationId: [null],
-      plannedDate: [null],
-      analysisProfileIds: [[]],
+      roundMode: ['none'],
+      roundId: [null],
+      newRoundName: [''],
+      newRoundDeadline: [''],
+      analysisProfileIds: [[], Validators.required],
       notes: [''],
       isUnplanned: [false],
       unplannedReason: [null],
@@ -147,7 +184,6 @@ export class OrderCreateDialogComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    // Load distributors from sampling locations
     const allLocations = await firstValueFrom(this.locationApi.getForCurrentUser());
     const uniqueDistributors = new Map<string, string>();
     for (const loc of allLocations) {
@@ -159,19 +195,26 @@ export class OrderCreateDialogComponent implements OnInit {
       Array.from(uniqueDistributors, ([id, name]) => ({ id, name }))
     );
 
-    // Load analysis profiles (active only)
     const profiles = await firstValueFrom(this.profileApi.getAll({ isActive: true }));
     this.analysisProfiles.set(profiles);
   }
 
   async onDistributorChange(): Promise<void> {
     const distributorId = this.form.value.distributorId;
-    this.form.patchValue({ samplingLocationId: null });
+    this.form.patchValue({ samplingLocationId: null, roundId: null });
     if (distributorId) {
       const locs = await firstValueFrom(this.locationApi.getByDistributor(distributorId));
       this.locations.set(locs.filter(l => l.isActive));
+
+      // Load available rounds for this distributor
+      const result = await firstValueFrom(this.roundApi.getFiltered({
+        statuses: [SamplingRoundStatus.Draft, SamplingRoundStatus.Assigned],
+        pageSize: 100,
+      }));
+      this.availableRounds.set(result.items.filter(r => r.distributorId === distributorId));
     } else {
       this.locations.set([]);
+      this.availableRounds.set([]);
     }
   }
 
@@ -180,18 +223,34 @@ export class OrderCreateDialogComponent implements OnInit {
     this.saving.set(true);
 
     try {
-      const formValue = this.form.value;
-      await this.orderStore.create({
-        distributorId: formValue.distributorId,
-        samplingLocationId: formValue.samplingLocationId || null,
+      const val = this.form.value;
+
+      // Create the order (no plannedDate — comes from round)
+      const order = await this.orderStore.create({
+        distributorId: val.distributorId,
+        samplingLocationId: val.samplingLocationId || null,
         preleveurId: null,
-        plannedDate: formValue.plannedDate ? new Date(formValue.plannedDate).toISOString() : null,
-        analysisProfileIds: formValue.analysisProfileIds?.length > 0 ? formValue.analysisProfileIds : null,
-        notes: formValue.notes || null,
-        isUnplanned: formValue.isUnplanned,
-        unplannedReason: formValue.isUnplanned ? formValue.unplannedReason : null,
-        unplannedReasonDetails: formValue.isUnplanned ? (formValue.unplannedReasonDetails || null) : null,
+        plannedDate: null,
+        analysisProfileIds: val.analysisProfileIds,
+        notes: val.notes || null,
+        isUnplanned: val.isUnplanned,
+        unplannedReason: val.isUnplanned ? val.unplannedReason : null,
+        unplannedReasonDetails: val.isUnplanned ? (val.unplannedReasonDetails || null) : null,
       });
+
+      // Link to round if requested
+      if (val.roundMode === 'existing' && val.roundId) {
+        await firstValueFrom(this.roundApi.addOrder(val.roundId, order.id));
+      } else if (val.roundMode === 'new' && val.newRoundName) {
+        const newRound = await firstValueFrom(this.roundApi.create({
+          distributorId: val.distributorId,
+          name: val.newRoundName,
+          description: null,
+          deadline: val.newRoundDeadline || new Date().toISOString().split('T')[0],
+        }));
+        await firstValueFrom(this.roundApi.addOrder(newRound.id, order.id));
+      }
+
       this.dialogRef.close(true);
     } finally {
       this.saving.set(false);

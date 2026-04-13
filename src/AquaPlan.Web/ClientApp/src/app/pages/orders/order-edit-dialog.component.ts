@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -8,6 +8,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { provideNativeDateAdapter } from '@angular/material/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatIconModule } from '@angular/material/icon';
 import { TranslateModule } from '@ngx-translate/core';
 import { OrderDatastore } from '../../datastore/order.datastore';
 import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
@@ -15,6 +16,7 @@ import { AnalysisProfileApiService } from '../../services/analysis-profile-api.s
 import { SamplingLocationDto } from '../../models/sampling-location.model';
 import { AnalysisProfileListDto } from '../../models/analysis-profile.model';
 import { OrderDetailDto } from '../../models/order.model';
+import { OrderLinkRoundDialogComponent } from './order-link-round-dialog.component';
 import { firstValueFrom } from 'rxjs';
 
 @Component({
@@ -23,7 +25,7 @@ import { firstValueFrom } from 'rxjs';
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule,
     MatSelectModule, MatButtonModule, MatDatepickerModule,
-    MatProgressSpinnerModule, TranslateModule,
+    MatProgressSpinnerModule, MatIconModule, TranslateModule,
   ],
   providers: [provideNativeDateAdapter()],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -42,13 +44,6 @@ import { firstValueFrom } from 'rxjs';
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>{{ 'orders.plannedDate' | translate }}</mat-label>
-          <input matInput [matDatepicker]="picker" formControlName="plannedDate">
-          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
-          <mat-datepicker #picker></mat-datepicker>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="full-width">
           <mat-label>{{ 'orders.analysisProfiles' | translate }}</mat-label>
           <mat-select formControlName="analysisProfileIds" multiple>
             @for (profile of analysisProfiles(); track profile.id) {
@@ -61,6 +56,22 @@ import { firstValueFrom } from 'rxjs';
           <mat-label>{{ 'orders.notes' | translate }}</mat-label>
           <textarea matInput formControlName="notes" rows="3"></textarea>
         </mat-form-field>
+
+        <!-- Round section -->
+        <div class="round-section">
+          <label class="section-label">{{ 'orders.round' | translate }}</label>
+          @if (roundName()) {
+            <div class="round-info">
+              <mat-icon>route</mat-icon>
+              <span>{{ roundName() }}</span>
+            </div>
+          } @else {
+            <button mat-stroked-button type="button" (click)="openLinkRoundDialog()">
+              <mat-icon>add</mat-icon>
+              {{ 'orders.linkToRound' | translate }}
+            </button>
+          }
+        </div>
       </form>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
@@ -78,6 +89,9 @@ import { firstValueFrom } from 'rxjs';
   styles: [`
     .form-container { display: flex; flex-direction: column; min-width: 400px; gap: 8px; }
     .full-width { width: 100%; }
+    .round-section { border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; }
+    .section-label { font-size: 12px; font-weight: 500; color: #666; text-transform: uppercase; margin-bottom: 8px; display: block; }
+    .round-info { display: flex; align-items: center; gap: 8px; color: #1976D2; }
   `],
 })
 export class OrderEditDialogComponent implements OnInit {
@@ -88,9 +102,12 @@ export class OrderEditDialogComponent implements OnInit {
   private readonly locationApi = inject(SamplingLocationApiService);
   private readonly profileApi = inject(AnalysisProfileApiService);
 
+  private readonly dialog = inject(MatDialog);
+
   readonly locations = signal<SamplingLocationDto[]>([]);
   readonly analysisProfiles = signal<AnalysisProfileListDto[]>([]);
   readonly saving = signal(false);
+  readonly roundName = signal<string | null>(null);
   readonly form: FormGroup;
 
   constructor() {
@@ -120,6 +137,19 @@ export class OrderEditDialogComponent implements OnInit {
     // Load analysis profiles (active only)
     const profiles = await firstValueFrom(this.profileApi.getAll({ isActive: true }));
     this.analysisProfiles.set(profiles);
+  }
+
+  openLinkRoundDialog(): void {
+    const dialogRef = this.dialog.open(OrderLinkRoundDialogComponent, {
+      width: '500px',
+      data: { orderId: this.data.id, distributorId: this.data.distributorId },
+    });
+    dialogRef.afterClosed().subscribe((result: unknown) => {
+      if (result) {
+        const round = result as { name: string };
+        this.roundName.set(round.name);
+      }
+    });
   }
 
   async onSubmit(): Promise<void> {

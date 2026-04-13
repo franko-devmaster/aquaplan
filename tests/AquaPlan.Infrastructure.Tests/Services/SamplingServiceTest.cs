@@ -107,7 +107,7 @@ public class SamplingServiceTest : IDisposable
     [Fact]
     public async Task CreateAsync_WhenOrderNotInProgress_ShouldThrow()
     {
-        var orderId = await CreateOrder(OrderStatus.Draft, PreleveurId);
+        var orderId = await CreateOrder(OrderStatus.New, PreleveurId);
         var dto = CreateSamplingDto(orderId);
 
         await _sut.Awaiting(s => s.CreateAsync(dto, PreleveurId, TenantId))
@@ -162,7 +162,9 @@ public class SamplingServiceTest : IDisposable
             Weather: "Rainy",
             LocationLat: 47.0,
             LocationLng: 7.2,
-            Notes: "Updated notes");
+            Notes: "Updated notes",
+            HasWaterSoftener: null,
+            IsChlorinated: false);
 
         var result = await _sut.UpdateAsync(orderId, dto, PreleveurId, TenantId);
 
@@ -185,7 +187,7 @@ public class SamplingServiceTest : IDisposable
     [Fact]
     public async Task UpdateAsync_WhenOrderNotInProgress_ShouldThrow()
     {
-        var orderId = await CreateOrderWithSampling(OrderStatus.SamplingCompleted);
+        var orderId = await CreateOrderWithSampling(OrderStatus.Completed);
         var dto = CreateSamplingDto(orderId);
 
         await _sut.Awaiting(s => s.UpdateAsync(orderId, dto, PreleveurId, TenantId))
@@ -207,7 +209,7 @@ public class SamplingServiceTest : IDisposable
     // --- CompleteAsync ---
 
     [Fact]
-    public async Task CompleteAsync_ShouldTransitionToSamplingCompleted()
+    public async Task CompleteAsync_ShouldTransitionToCompleted()
     {
         var orderId = await CreateOrderWithSampling(OrderStatus.InProgress);
 
@@ -216,7 +218,7 @@ public class SamplingServiceTest : IDisposable
         result.Should().BeTrue();
 
         var order = await _dbContext.Orders.FindAsync(orderId);
-        order!.Status.Should().Be(OrderStatus.SamplingCompleted);
+        order!.Status.Should().Be(OrderStatus.Completed);
         order.StatusChangedBy.Should().Be(PreleveurId);
     }
 
@@ -241,7 +243,7 @@ public class SamplingServiceTest : IDisposable
     [Fact]
     public async Task CompleteAsync_WhenNotInProgress_ShouldThrow()
     {
-        var orderId = await CreateOrderWithSampling(OrderStatus.SamplingCompleted);
+        var orderId = await CreateOrderWithSampling(OrderStatus.Completed);
 
         await _sut.Awaiting(s => s.CompleteAsync(orderId, PreleveurId, TenantId))
             .Should().ThrowAsync<InvalidOperationException>()
@@ -251,17 +253,16 @@ public class SamplingServiceTest : IDisposable
     // --- ValidateAsync ---
 
     [Fact]
-    public async Task ValidateAsync_ShouldMarkAsValidatedAndTransitionOrder()
+    public async Task ValidateAsync_ShouldMarkAsValidated()
     {
-        var orderId = await CreateOrderWithSampling(OrderStatus.SamplingCompleted);
+        var orderId = await CreateOrderWithSampling(OrderStatus.Completed);
 
         var result = await _sut.ValidateAsync(orderId, ValidatorId, TenantId);
 
         result.Should().BeTrue();
 
         var order = await _dbContext.Orders.Include(o => o.Sampling).FirstAsync(o => o.Id == orderId);
-        order.Status.Should().Be(OrderStatus.Validated);
-        order.StatusChangedBy.Should().Be(ValidatorId);
+        order.Status.Should().Be(OrderStatus.Completed);
         order.Sampling!.IsValidated.Should().BeTrue();
         order.Sampling.ValidatedAt.Should().NotBeNull();
     }
@@ -275,19 +276,19 @@ public class SamplingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task ValidateAsync_WhenNotSamplingCompleted_ShouldThrow()
+    public async Task ValidateAsync_WhenNotCompleted_ShouldThrow()
     {
         var orderId = await CreateOrderWithSampling(OrderStatus.InProgress);
 
         await _sut.Awaiting(s => s.ValidateAsync(orderId, ValidatorId, TenantId))
             .Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Order must be SamplingCompleted*");
+            .WithMessage("*Order must be Completed*");
     }
 
     [Fact]
     public async Task ValidateAsync_WhenNoSamplingData_ShouldThrow()
     {
-        var orderId = await CreateOrder(OrderStatus.SamplingCompleted, PreleveurId);
+        var orderId = await CreateOrder(OrderStatus.Completed, PreleveurId);
 
         await _sut.Awaiting(s => s.ValidateAsync(orderId, ValidatorId, TenantId))
             .Should().ThrowAsync<InvalidOperationException>()
@@ -434,6 +435,8 @@ public class SamplingServiceTest : IDisposable
             Weather: "Sunny",
             LocationLat: 46.8,
             LocationLng: 7.15,
-            Notes: "Test notes");
+            Notes: "Test notes",
+            HasWaterSoftener: null,
+            IsChlorinated: false);
     }
 }

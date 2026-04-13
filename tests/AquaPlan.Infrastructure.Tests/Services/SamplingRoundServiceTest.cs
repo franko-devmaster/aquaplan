@@ -211,7 +211,7 @@ public class SamplingRoundServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task AssignPreleveurAsync_ShouldCascadeToOrders()
+    public async Task AssignPreleveurAsync_ShouldCascadePreleveurToOrders()
     {
         var round = await CreateDraftRoundWithOrders(orderCount: 2);
 
@@ -225,8 +225,31 @@ public class SamplingRoundServiceTest : IDisposable
         orders.Should().AllSatisfy(o =>
         {
             o.PreleveurId.Should().Be(PreleveurId);
-            o.Status.Should().Be(OrderStatus.Assigned);
         });
+    }
+
+    // --- ValidateAsync ---
+
+    [Fact]
+    public async Task ValidateAsync_ShouldTransitionToValidated()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+        await TransitionToAssigned(round.Id);
+
+        var result = await _sut.ValidateAsync(round.Id, UserId, TenantId);
+
+        result.Should().NotBeNull();
+        result!.Status.Should().Be(SamplingRoundStatus.Validated);
+    }
+
+    [Fact]
+    public async Task ValidateAsync_WhenNotAssigned_ShouldThrow()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+
+        await _sut.Awaiting(s => s.ValidateAsync(round.Id, UserId, TenantId))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*assigned*");
     }
 
     // --- CancelAsync ---
@@ -405,6 +428,7 @@ public class SamplingRoundServiceTest : IDisposable
     {
         var round = await CreateDraftRoundWithOrders(orderCount: 1);
         await TransitionToAssigned(round.Id);
+        await _sut.ValidateAsync(round.Id, UserId, TenantId);
 
         var order = await _dbContext.Orders
             .Where(o => o.SamplingRoundId == round.Id)
@@ -423,6 +447,7 @@ public class SamplingRoundServiceTest : IDisposable
     {
         var round = await CreateDraftRoundWithOrders(orderCount: 1);
         await TransitionToAssigned(round.Id);
+        await _sut.ValidateAsync(round.Id, UserId, TenantId);
 
         var order = await _dbContext.Orders
             .Where(o => o.SamplingRoundId == round.Id)
@@ -432,6 +457,40 @@ public class SamplingRoundServiceTest : IDisposable
 
         var updatedRound = await _dbContext.SamplingRounds.FindAsync(round.Id);
         updatedRound!.Status.Should().Be(SamplingRoundStatus.InProgress);
+    }
+
+    // --- TransmitAllAsync ---
+
+    [Fact]
+    public async Task TransmitAllAsync_ShouldTransmitCompletedOrders()
+    {
+        var round = await CreateRoundInStatus(SamplingRoundStatus.InProgress);
+        var orders = await _dbContext.Orders
+            .Where(o => o.SamplingRoundId == round.Id)
+            .ToListAsync();
+        foreach (var order in orders)
+        {
+            order.Status = OrderStatus.Completed;
+        }
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.TransmitAllAsync(round.Id, UserId, TenantId);
+
+        result.Should().NotBeNull();
+        var transmittedOrders = await _dbContext.Orders
+            .Where(o => o.SamplingRoundId == round.Id)
+            .ToListAsync();
+        transmittedOrders.Should().AllSatisfy(o => o.Status.Should().Be(OrderStatus.Transmitted));
+    }
+
+    [Fact]
+    public async Task TransmitAllAsync_WhenNoCompletedOrders_ShouldThrow()
+    {
+        var round = await CreateRoundInStatus(SamplingRoundStatus.InProgress);
+
+        await _sut.Awaiting(s => s.TransmitAllAsync(round.Id, UserId, TenantId))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*No completed orders*");
     }
 
     // --- UpdateSamplerCommentAsync ---
@@ -563,7 +622,7 @@ public class SamplingRoundServiceTest : IDisposable
         {
             Id = Guid.NewGuid(),
             OrderNumber = $"ORD-{Guid.NewGuid().ToString()[..4]}",
-            Status = OrderStatus.Draft,
+            Status = OrderStatus.New,
             DistributorId = distributorId,
             SamplingRoundId = roundId,
             SortOrder = sortOrder,
@@ -584,7 +643,7 @@ public class SamplingRoundServiceTest : IDisposable
         {
             Id = Guid.NewGuid(),
             OrderNumber = $"ORD-{Guid.NewGuid().ToString()[..4]}",
-            Status = OrderStatus.Draft,
+            Status = OrderStatus.New,
             DistributorId = distributorId,
             SamplingRoundId = Guid.Empty,
             SamplingLocationId = distributorId == DistributorId ? SamplingLocationId : OtherDistributorLocationId,

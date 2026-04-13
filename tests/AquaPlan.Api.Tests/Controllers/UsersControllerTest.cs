@@ -41,14 +41,14 @@ public class UsersControllerTest
     {
         var users = new List<UserListDto>
         {
-            new("u1", "a@b.ch", "John", "Doe", null, true, TenantId, new List<string> { "Administrator" }, DateTime.UtcNow),
-            new("u2", "c@d.ch", "Jane", "Doe", "Org", true, TenantId, new List<string> { "User" }, DateTime.UtcNow),
+            new("u1", 100001, "a@b.ch", "John", "Doe", "Administrator", null, null, true, TenantId, DateTime.UtcNow),
+            new("u2", 100002, "c@d.ch", "Jane", "Doe", "User", null, null, true, TenantId, DateTime.UtcNow),
         };
         _userManagementServiceMock
-            .Setup(x => x.GetUsersAsync(TenantId, It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetUsersAsync(TenantId, null, null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(users);
 
-        var result = await _sut.GetUsers(CancellationToken.None);
+        var result = await _sut.GetUsers(cancellationToken: CancellationToken.None);
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().Be(users);
@@ -69,8 +69,8 @@ public class UsersControllerTest
     [Fact]
     public async Task GetUser_ShouldReturnOk_WhenUserExists()
     {
-        var user = new UserDetailDto("u1", "a@b.ch", "John", "Doe", null, true, TenantId,
-            new List<string> { "Administrator" }, new List<DistributorSummaryDto>(), DateTime.UtcNow, null);
+        var user = new UserDetailDto("u1", 100001, "a@b.ch", "John", "Doe", "Administrator", null, null, true, TenantId,
+            DateTime.UtcNow, null);
         _userManagementServiceMock
             .Setup(x => x.GetUserByIdAsync("u1", TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
@@ -84,9 +84,9 @@ public class UsersControllerTest
     [Fact]
     public async Task CreateUser_ShouldReturnCreatedAtAction()
     {
-        var createDto = new UserCreateDto("new@user.ch", "New", "User", null, "Password123", TenantId, new List<string> { "User" }, new List<Guid>());
-        var createdUser = new UserDetailDto("u3", "new@user.ch", "New", "User", null, true, TenantId,
-            new List<string> { "User" }, new List<DistributorSummaryDto>(), DateTime.UtcNow, null);
+        var createDto = new UserCreateDto("new@user.ch", "New", "User", "Password123", TenantId, "User", null);
+        var createdUser = new UserDetailDto("u3", 100003, "new@user.ch", "New", "User", "User", null, null, true, TenantId,
+            DateTime.UtcNow, null);
         _userManagementServiceMock
             .Setup(x => x.CreateUserAsync(createDto, UserId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(createdUser);
@@ -130,6 +130,74 @@ public class UsersControllerTest
         attributes.Should().NotBeEmpty();
         var authorizeAttr = attributes.OfType<AuthorizeAttribute>().First();
         authorizeAttr.Roles.Should().Be("Administrator");
+    }
+
+    [Fact]
+    public async Task GetUsers_WithRoleFilter_ShouldCallFilteredOverload()
+    {
+        var users = new List<UserListDto>
+        {
+            new("u1", 100001, "a@b.ch", "John", "Doe", "Preleveur", null, null, true, TenantId, DateTime.UtcNow),
+        };
+        _userManagementServiceMock
+            .Setup(x => x.GetUsersAsync(TenantId, "Preleveur", null, It.IsAny<bool?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(users);
+
+        var result = await _sut.GetUsers(role: "Preleveur", cancellationToken: CancellationToken.None);
+
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().Be(users);
+    }
+
+    [Fact]
+    public async Task GetUsers_WithDistributorFilter_ShouldCallFilteredOverload()
+    {
+        var distributorId = Guid.NewGuid();
+        var users = new List<UserListDto>
+        {
+            new("u1", 100001, "a@b.ch", "John", "Doe", "User", null, null, true, TenantId, DateTime.UtcNow),
+        };
+        _userManagementServiceMock
+            .Setup(x => x.GetUsersAsync(TenantId, null, distributorId, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(users);
+
+        var result = await _sut.GetUsers(distributorId: distributorId, cancellationToken: CancellationToken.None);
+
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().Be(users);
+    }
+
+    [Fact]
+    public async Task GetPreleveurs_ShouldReturnOnlyPreleveurRoles()
+    {
+        var users = new List<UserListDto>
+        {
+            new("u1", 100001, "a@b.ch", "John", "Doe", "Préleveur", null, null, true, TenantId, DateTime.UtcNow),
+            new("u2", 100002, "c@d.ch", "Jane", "Doe", "Requérant-Préleveur", null, null, true, TenantId, DateTime.UtcNow),
+            new("u3", 100003, "e@f.ch", "Bob", "Smith", "Requérant", null, null, true, TenantId, DateTime.UtcNow),
+        };
+        _userManagementServiceMock
+            .Setup(x => x.GetUsersAsync(TenantId, null, null, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(users);
+
+        var result = await _sut.GetPreleveurs(cancellationToken: CancellationToken.None);
+
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var preleveurs = okResult.Value.Should().BeAssignableTo<List<UserListDto>>().Subject;
+        preleveurs.Should().HaveCount(2);
+        preleveurs.Should().Contain(u => u.Role == "Préleveur");
+        preleveurs.Should().Contain(u => u.Role == "Requérant-Préleveur");
+        preleveurs.Should().NotContain(u => u.Role == "Requérant");
+    }
+
+    [Fact]
+    public void GetPreleveurs_ShouldHaveAuthorizeAttribute()
+    {
+        var method = typeof(UsersController).GetMethod(nameof(UsersController.GetPreleveurs));
+        var attributes = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true);
+        attributes.Should().NotBeEmpty();
+        var authorizeAttr = attributes.OfType<AuthorizeAttribute>().First();
+        authorizeAttr.Roles.Should().BeNullOrEmpty();
     }
 
     [Fact]

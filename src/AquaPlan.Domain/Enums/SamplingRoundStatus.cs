@@ -4,7 +4,8 @@ public enum SamplingRoundStatus
 {
     Draft = 0,
     Assigned = 1,
-    InProgress = 2,
-    Completed = 3,
-    Cancelled = 4,
+    Validated = 2,
+    InProgress = 3,
+    Completed = 4,
+    Cancelled = 5,
 }

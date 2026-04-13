@@ -101,7 +101,7 @@ public class SectorsControllerTest
     [Fact]
     public async Task Update_ShouldReturnOk_WhenFound()
     {
-        var updateDto = new SectorUpdateDto("Secteur Modifie", "SM", "Description");
+        var updateDto = new SectorUpdateDto("Secteur Modifie", "SM", "Description", DistributorId);
         var updated = new SectorDto(SectorId, "Secteur Modifie", "SM", "Description", true, DistributorId, "Test Distributor", DateTime.UtcNow);
         _sectorServiceMock
             .Setup(x => x.UpdateAsync(SectorId, updateDto, TenantId, It.IsAny<CancellationToken>()))
@@ -116,7 +116,7 @@ public class SectorsControllerTest
     [Fact]
     public async Task Update_ShouldReturnNotFound_WhenNull()
     {
-        var updateDto = new SectorUpdateDto("Secteur Modifie", "SM", null);
+        var updateDto = new SectorUpdateDto("Secteur Modifie", "SM", null, DistributorId);
         _sectorServiceMock
             .Setup(x => x.UpdateAsync(SectorId, updateDto, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((SectorDto?)null);

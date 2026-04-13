@@ -22,8 +22,8 @@ public class OrderStatusControllerTest
     {
         var statuses = new List<OrderStatusDto>
         {
-            new(OrderStatus.Draft, "Draft", "Order created", "#9E9E9E", false),
-            new(OrderStatus.Completed, "Completed", "Order completed", "#4CAF50", true),
+            new(OrderStatus.New, "Draft", "Order created", "#9E9E9E", false),
+            new(OrderStatus.Done, "Completed", "Order completed", "#4CAF50", true),
         };
         _orderStatusServiceMock.Setup(x => x.GetAllStatuses()).Returns(statuses);
 
@@ -38,12 +38,12 @@ public class OrderStatusControllerTest
     {
         var transitions = new List<OrderStatusDto>
         {
-            new(OrderStatus.Assigned, "Assigned", "Sampler assigned", "#2196F3", false),
+            new(OrderStatus.InProgress, "Assigned", "Sampler assigned", "#2196F3", false),
             new(OrderStatus.Cancelled, "Cancelled", "Order cancelled", "#F44336", true),
         };
-        _orderStatusServiceMock.Setup(x => x.GetAllowedTransitions(OrderStatus.Draft)).Returns(transitions);
+        _orderStatusServiceMock.Setup(x => x.GetAllowedTransitions(OrderStatus.New)).Returns(transitions);
 
-        var result = _sut.GetAllowedTransitions(OrderStatus.Draft);
+        var result = _sut.GetAllowedTransitions(OrderStatus.New);
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().Be(transitions);
@@ -52,9 +52,9 @@ public class OrderStatusControllerTest
     [Fact]
     public void GetAllowedTransitions_ShouldReturnEmptyList_ForTerminalStatus()
     {
-        _orderStatusServiceMock.Setup(x => x.GetAllowedTransitions(OrderStatus.Completed)).Returns(new List<OrderStatusDto>());
+        _orderStatusServiceMock.Setup(x => x.GetAllowedTransitions(OrderStatus.Done)).Returns(new List<OrderStatusDto>());
 
-        var result = _sut.GetAllowedTransitions(OrderStatus.Completed);
+        var result = _sut.GetAllowedTransitions(OrderStatus.Done);
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var list = okResult.Value as IList<OrderStatusDto>;

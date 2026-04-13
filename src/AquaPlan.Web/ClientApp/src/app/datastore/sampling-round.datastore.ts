@@ -22,6 +22,7 @@ export class SamplingRoundDatastore {
   readonly currentPage = signal(1);
   readonly pageSize = signal(20);
   readonly statusFilter = signal<SamplingRoundStatus[]>([]);
+  readonly distributorFilter = signal<string | undefined>(undefined);
   readonly searchFilter = signal('');
   readonly sortBy = signal<string | undefined>(undefined);
   readonly sortDescending = signal(true);
@@ -33,6 +34,7 @@ export class SamplingRoundDatastore {
     try {
       const filter: SamplingRoundFilterDto = {
         statuses: this.statusFilter().length > 0 ? this.statusFilter() : undefined,
+        distributorId: this.distributorFilter() || undefined,
         search: this.searchFilter() || undefined,
         page: this.currentPage(),
         pageSize: this.pageSize(),
@@ -74,6 +76,12 @@ export class SamplingRoundDatastore {
     const result = await firstValueFrom(this.api.cancel(id));
     await this.loadFiltered();
     return result;
+  }
+
+  setDistributorFilter(distributorId: string | undefined): void {
+    this.distributorFilter.set(distributorId);
+    this.currentPage.set(1);
+    this.loadFiltered();
   }
 
   setStatusFilter(statuses: SamplingRoundStatus[]): void {

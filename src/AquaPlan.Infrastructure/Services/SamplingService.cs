@@ -70,6 +70,8 @@ internal class SamplingService(
             LocationLat = dto.LocationLat,
             LocationLng = dto.LocationLng,
             Notes = dto.Notes,
+            HasWaterSoftener = dto.HasWaterSoftener,
+            IsChlorinated = dto.IsChlorinated,
             CreatedAt = DateTime.UtcNow,
         };
 
@@ -120,6 +122,8 @@ internal class SamplingService(
         sampling.LocationLat = dto.LocationLat;
         sampling.LocationLng = dto.LocationLng;
         sampling.Notes = dto.Notes;
+        sampling.HasWaterSoftener = dto.HasWaterSoftener;
+        sampling.IsChlorinated = dto.IsChlorinated;
         sampling.UpdatedAt = DateTime.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -163,7 +167,7 @@ internal class SamplingService(
             throw new InvalidOperationException("Cannot complete sampling: no sampling data recorded yet.");
         }
 
-        order.Status = OrderStatus.SamplingCompleted;
+        order.Status = OrderStatus.Completed;
         order.StatusChangedAt = DateTime.UtcNow;
         order.StatusChangedBy = preleveurId;
         order.UpdatedAt = DateTime.UtcNow;
@@ -175,7 +179,7 @@ internal class SamplingService(
             orderId, preleveurId);
 
         await auditService.LogAsync(orderId, "SamplingCompleted", "Prélèvement terminé",
-            "InProgress", "SamplingCompleted", preleveurId, tenantId, cancellationToken);
+            "InProgress", "Completed", preleveurId, tenantId, cancellationToken);
 
         return true;
     }
@@ -191,9 +195,9 @@ internal class SamplingService(
 
         if (order is null) return false;
 
-        if (order.Status != OrderStatus.SamplingCompleted)
+        if (order.Status != OrderStatus.Completed)
         {
-            throw new InvalidOperationException($"Cannot validate sampling for order in status {order.Status}. Order must be SamplingCompleted.");
+            throw new InvalidOperationException($"Cannot validate sampling for order in status {order.Status}. Order must be Completed.");
         }
 
         var sampling = order.Sampling;
@@ -206,9 +210,6 @@ internal class SamplingService(
         sampling.ValidatedAt = DateTime.UtcNow;
         sampling.UpdatedAt = DateTime.UtcNow;
 
-        order.Status = OrderStatus.Validated;
-        order.StatusChangedAt = DateTime.UtcNow;
-        order.StatusChangedBy = validatorId;
         order.UpdatedAt = DateTime.UtcNow;
         order.UpdatedBy = validatorId;
 
@@ -218,7 +219,7 @@ internal class SamplingService(
             orderId, validatorId);
 
         await auditService.LogAsync(orderId, "SamplingValidated", "Prélèvement validé",
-            "SamplingCompleted", "Validated", validatorId, tenantId, cancellationToken);
+            "Completed", "Completed", validatorId, tenantId, cancellationToken);
 
         return true;
     }
@@ -235,7 +236,7 @@ internal class SamplingService(
 
         if (order is null) return null;
 
-        if (order.Status != OrderStatus.InProgress && order.Status != OrderStatus.SamplingCompleted)
+        if (order.Status != OrderStatus.InProgress && order.Status != OrderStatus.Completed)
         {
             throw new InvalidOperationException($"Cannot scan barcode for order in status {order.Status}.");
         }
@@ -307,6 +308,8 @@ internal class SamplingService(
             sampling.LocationLat,
             sampling.LocationLng,
             sampling.Notes,
+            sampling.HasWaterSoftener,
+            sampling.IsChlorinated,
             sampling.SampleBarcode,
             sampling.BarcodeScannedAt,
             sampling.IsValidated,

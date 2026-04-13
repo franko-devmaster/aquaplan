@@ -35,11 +35,11 @@ public class OrderStatusServiceTest : IDisposable
     }
 
     [Fact]
-    public void GetAllStatuses_ShouldReturnAllNineStatuses()
+    public void GetAllStatuses_ShouldReturnAllSixStatuses()
     {
         var result = _sut.GetAllStatuses();
 
-        result.Should().HaveCount(9);
+        result.Should().HaveCount(6);
     }
 
     [Fact]
@@ -48,24 +48,21 @@ public class OrderStatusServiceTest : IDisposable
         var result = _sut.GetAllStatuses();
         var statusValues = result.Select(s => s.Status).ToList();
 
-        statusValues.Should().Contain(OrderStatus.Draft);
-        statusValues.Should().Contain(OrderStatus.Assigned);
+        statusValues.Should().Contain(OrderStatus.New);
         statusValues.Should().Contain(OrderStatus.InProgress);
-        statusValues.Should().Contain(OrderStatus.SamplingCompleted);
-        statusValues.Should().Contain(OrderStatus.Validated);
-        statusValues.Should().Contain(OrderStatus.SentToLims);
-        statusValues.Should().Contain(OrderStatus.ResultsReceived);
         statusValues.Should().Contain(OrderStatus.Completed);
+        statusValues.Should().Contain(OrderStatus.Transmitted);
+        statusValues.Should().Contain(OrderStatus.Done);
         statusValues.Should().Contain(OrderStatus.Cancelled);
     }
 
     [Fact]
-    public void GetAllStatuses_ShouldMarkCompletedAsTerminal()
+    public void GetAllStatuses_ShouldMarkDoneAsTerminal()
     {
         var result = _sut.GetAllStatuses();
-        var completed = result.Single(s => s.Status == OrderStatus.Completed);
+        var done = result.Single(s => s.Status == OrderStatus.Done);
 
-        completed.IsTerminal.Should().BeTrue();
+        done.IsTerminal.Should().BeTrue();
     }
 
     [Fact]
@@ -78,27 +75,22 @@ public class OrderStatusServiceTest : IDisposable
     }
 
     [Fact]
-    public void GetAllStatuses_ShouldMarkDraftAsNonTerminal()
+    public void GetAllStatuses_ShouldMarkNewAsNonTerminal()
     {
         var result = _sut.GetAllStatuses();
-        var draft = result.Single(s => s.Status == OrderStatus.Draft);
+        var newStatus = result.Single(s => s.Status == OrderStatus.New);
 
-        draft.IsTerminal.Should().BeFalse();
+        newStatus.IsTerminal.Should().BeFalse();
     }
 
     [Theory]
-    [InlineData(OrderStatus.Draft, OrderStatus.Assigned)]
-    [InlineData(OrderStatus.Draft, OrderStatus.Cancelled)]
-    [InlineData(OrderStatus.Assigned, OrderStatus.InProgress)]
-    [InlineData(OrderStatus.Assigned, OrderStatus.Cancelled)]
-    [InlineData(OrderStatus.InProgress, OrderStatus.SamplingCompleted)]
+    [InlineData(OrderStatus.New, OrderStatus.InProgress)]
+    [InlineData(OrderStatus.New, OrderStatus.Cancelled)]
+    [InlineData(OrderStatus.InProgress, OrderStatus.Completed)]
     [InlineData(OrderStatus.InProgress, OrderStatus.Cancelled)]
-    [InlineData(OrderStatus.SamplingCompleted, OrderStatus.Validated)]
-    [InlineData(OrderStatus.SamplingCompleted, OrderStatus.Cancelled)]
-    [InlineData(OrderStatus.Validated, OrderStatus.SentToLims)]
-    [InlineData(OrderStatus.Validated, OrderStatus.Cancelled)]
-    [InlineData(OrderStatus.SentToLims, OrderStatus.ResultsReceived)]
-    [InlineData(OrderStatus.ResultsReceived, OrderStatus.Completed)]
+    [InlineData(OrderStatus.Completed, OrderStatus.Transmitted)]
+    [InlineData(OrderStatus.Completed, OrderStatus.Cancelled)]
+    [InlineData(OrderStatus.Transmitted, OrderStatus.Done)]
     public void ValidateTransition_ShouldReturnTrue_WhenTransitionIsValid(OrderStatus from, OrderStatus to)
     {
         var result = _sut.ValidateTransition(from, to);
@@ -107,23 +99,19 @@ public class OrderStatusServiceTest : IDisposable
     }
 
     [Theory]
-    [InlineData(OrderStatus.Draft, OrderStatus.Completed)]
-    [InlineData(OrderStatus.Draft, OrderStatus.InProgress)]
-    [InlineData(OrderStatus.Draft, OrderStatus.SentToLims)]
-    [InlineData(OrderStatus.Assigned, OrderStatus.Completed)]
-    [InlineData(OrderStatus.Assigned, OrderStatus.Draft)]
-    [InlineData(OrderStatus.InProgress, OrderStatus.Draft)]
-    [InlineData(OrderStatus.InProgress, OrderStatus.Assigned)]
-    [InlineData(OrderStatus.SamplingCompleted, OrderStatus.Draft)]
-    [InlineData(OrderStatus.Validated, OrderStatus.Draft)]
-    [InlineData(OrderStatus.SentToLims, OrderStatus.Cancelled)]
-    [InlineData(OrderStatus.SentToLims, OrderStatus.Draft)]
-    [InlineData(OrderStatus.ResultsReceived, OrderStatus.Cancelled)]
-    [InlineData(OrderStatus.ResultsReceived, OrderStatus.Draft)]
-    [InlineData(OrderStatus.Completed, OrderStatus.Draft)]
-    [InlineData(OrderStatus.Completed, OrderStatus.Cancelled)]
-    [InlineData(OrderStatus.Cancelled, OrderStatus.Draft)]
-    [InlineData(OrderStatus.Cancelled, OrderStatus.Completed)]
+    [InlineData(OrderStatus.New, OrderStatus.Done)]
+    [InlineData(OrderStatus.New, OrderStatus.Transmitted)]
+    [InlineData(OrderStatus.New, OrderStatus.Completed)]
+    [InlineData(OrderStatus.InProgress, OrderStatus.New)]
+    [InlineData(OrderStatus.InProgress, OrderStatus.Done)]
+    [InlineData(OrderStatus.Completed, OrderStatus.New)]
+    [InlineData(OrderStatus.Completed, OrderStatus.InProgress)]
+    [InlineData(OrderStatus.Transmitted, OrderStatus.Cancelled)]
+    [InlineData(OrderStatus.Transmitted, OrderStatus.New)]
+    [InlineData(OrderStatus.Done, OrderStatus.New)]
+    [InlineData(OrderStatus.Done, OrderStatus.Cancelled)]
+    [InlineData(OrderStatus.Cancelled, OrderStatus.New)]
+    [InlineData(OrderStatus.Cancelled, OrderStatus.Done)]
     public void ValidateTransition_ShouldReturnFalse_WhenTransitionIsInvalid(OrderStatus from, OrderStatus to)
     {
         var result = _sut.ValidateTransition(from, to);
@@ -132,19 +120,19 @@ public class OrderStatusServiceTest : IDisposable
     }
 
     [Fact]
-    public void GetAllowedTransitions_FromDraft_ShouldReturnAssignedAndCancelled()
+    public void GetAllowedTransitions_FromNew_ShouldReturnInProgressAndCancelled()
     {
-        var result = _sut.GetAllowedTransitions(OrderStatus.Draft);
+        var result = _sut.GetAllowedTransitions(OrderStatus.New);
 
         result.Should().HaveCount(2);
-        result.Select(s => s.Status).Should().Contain(OrderStatus.Assigned);
+        result.Select(s => s.Status).Should().Contain(OrderStatus.InProgress);
         result.Select(s => s.Status).Should().Contain(OrderStatus.Cancelled);
     }
 
     [Fact]
-    public void GetAllowedTransitions_FromCompleted_ShouldReturnEmpty()
+    public void GetAllowedTransitions_FromDone_ShouldReturnEmpty()
     {
-        var result = _sut.GetAllowedTransitions(OrderStatus.Completed);
+        var result = _sut.GetAllowedTransitions(OrderStatus.Done);
 
         result.Should().BeEmpty();
     }
@@ -158,27 +146,27 @@ public class OrderStatusServiceTest : IDisposable
     }
 
     [Fact]
-    public void GetAllowedTransitions_FromSentToLims_ShouldReturnOnlyResultsReceived()
+    public void GetAllowedTransitions_FromTransmitted_ShouldReturnOnlyDone()
     {
-        var result = _sut.GetAllowedTransitions(OrderStatus.SentToLims);
+        var result = _sut.GetAllowedTransitions(OrderStatus.Transmitted);
 
         result.Should().HaveCount(1);
-        result.Single().Status.Should().Be(OrderStatus.ResultsReceived);
+        result.Single().Status.Should().Be(OrderStatus.Done);
     }
 
     [Fact]
     public async Task TransitionOrderAsync_ShouldUpdateStatus_WhenTransitionIsValid()
     {
-        await SeedOrder(OrderStatus.Draft);
+        await SeedOrder(OrderStatus.New);
 
-        var result = await _sut.TransitionOrderAsync(OrderId, OrderStatus.Assigned, UserId, TenantId);
+        var result = await _sut.TransitionOrderAsync(OrderId, OrderStatus.InProgress, UserId, TenantId);
 
-        result.FromStatus.Should().Be(OrderStatus.Draft);
-        result.ToStatus.Should().Be(OrderStatus.Assigned);
+        result.FromStatus.Should().Be(OrderStatus.New);
+        result.ToStatus.Should().Be(OrderStatus.InProgress);
         result.TransitionDate.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
 
         var order = await _dbContext.Orders.FindAsync(OrderId);
-        order!.Status.Should().Be(OrderStatus.Assigned);
+        order!.Status.Should().Be(OrderStatus.InProgress);
         order.StatusChangedAt.Should().NotBeNull();
         order.StatusChangedBy.Should().Be(UserId);
         order.UpdatedAt.Should().NotBeNull();
@@ -188,11 +176,11 @@ public class OrderStatusServiceTest : IDisposable
     [Fact]
     public async Task TransitionOrderAsync_ShouldThrowInvalidOperationException_WhenTransitionIsInvalid()
     {
-        await SeedOrder(OrderStatus.Draft);
+        await SeedOrder(OrderStatus.New);
 
-        await _sut.Awaiting(x => x.TransitionOrderAsync(OrderId, OrderStatus.Completed, UserId, TenantId))
+        await _sut.Awaiting(x => x.TransitionOrderAsync(OrderId, OrderStatus.Done, UserId, TenantId))
             .Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Draft*Completed*not allowed*");
+            .WithMessage("*New*Done*not allowed*");
     }
 
     [Fact]
@@ -200,54 +188,54 @@ public class OrderStatusServiceTest : IDisposable
     {
         var nonExistentId = Guid.NewGuid();
 
-        await _sut.Awaiting(x => x.TransitionOrderAsync(nonExistentId, OrderStatus.Assigned, UserId, TenantId))
+        await _sut.Awaiting(x => x.TransitionOrderAsync(nonExistentId, OrderStatus.InProgress, UserId, TenantId))
             .Should().ThrowAsync<KeyNotFoundException>();
     }
 
     [Fact]
     public async Task TransitionOrderAsync_ShouldThrowKeyNotFoundException_WhenOrderBelongsToOtherTenant()
     {
-        await SeedOrder(OrderStatus.Draft);
+        await SeedOrder(OrderStatus.New);
         var otherTenantId = Guid.Parse("00000000-0000-0000-0000-000000000099");
 
-        await _sut.Awaiting(x => x.TransitionOrderAsync(OrderId, OrderStatus.Assigned, UserId, otherTenantId))
+        await _sut.Awaiting(x => x.TransitionOrderAsync(OrderId, OrderStatus.InProgress, UserId, otherTenantId))
             .Should().ThrowAsync<KeyNotFoundException>();
     }
 
     [Fact]
     public async Task TransitionOrderAsync_ShouldNotAllowTransitionFromTerminalStatus()
     {
-        await SeedOrder(OrderStatus.Completed);
+        await SeedOrder(OrderStatus.Done);
 
-        await _sut.Awaiting(x => x.TransitionOrderAsync(OrderId, OrderStatus.Draft, UserId, TenantId))
+        await _sut.Awaiting(x => x.TransitionOrderAsync(OrderId, OrderStatus.New, UserId, TenantId))
             .Should().ThrowAsync<InvalidOperationException>();
     }
 
     [Fact]
-    public async Task TransitionOrderAsync_ToCancelled_ShouldSucceedFromAssigned()
+    public async Task TransitionOrderAsync_ToCancelled_ShouldSucceedFromNew()
     {
-        await SeedOrder(OrderStatus.Assigned);
+        await SeedOrder(OrderStatus.New);
 
         var result = await _sut.TransitionOrderAsync(OrderId, OrderStatus.Cancelled, UserId, TenantId);
 
-        result.FromStatus.Should().Be(OrderStatus.Assigned);
+        result.FromStatus.Should().Be(OrderStatus.New);
         result.ToStatus.Should().Be(OrderStatus.Cancelled);
     }
 
     [Fact]
     public async Task TransitionOrderAsync_ShouldCreateAuditLogEntry_WhenTransitionIsValid()
     {
-        await SeedOrder(OrderStatus.Draft);
+        await SeedOrder(OrderStatus.New);
 
-        await _sut.TransitionOrderAsync(OrderId, OrderStatus.Assigned, UserId, TenantId);
+        await _sut.TransitionOrderAsync(OrderId, OrderStatus.InProgress, UserId, TenantId);
 
         _auditServiceMock.Verify(
             a => a.LogAsync(
                 OrderId,
                 "StatusTransitioned",
-                It.Is<string>(s => s.Contains("Draft") && s.Contains("Assigned")),
-                "Draft",
-                "Assigned",
+                It.Is<string>(s => s.Contains("New") && s.Contains("InProgress")),
+                "New",
+                "InProgress",
                 UserId,
                 TenantId,
                 It.IsAny<CancellationToken>()),

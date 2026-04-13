@@ -88,7 +88,7 @@ import { AuthService } from '../../services/auth.service';
 
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
         <tr mat-row *matRowDef="let row; columns: displayedColumns;"
-            class="clickable-row" (click)="openEditForm(row)"></tr>
+            [class.clickable-row]="isAdmin()" (click)="openEditForm(row)"></tr>
       </table>
 
       @if (store.profiles().length === 0) {
@@ -189,6 +189,7 @@ export class AnalysisProfilesComponent implements OnInit {
   }
 
   openEditForm(profile: { id: string; code: string; name: string; description?: string; category: AnalysisCategory }): void {
+    if (!this.isAdmin()) return;
     this.editingId.set(profile.id);
     this.formCode = profile.code;
     this.formName = profile.name;

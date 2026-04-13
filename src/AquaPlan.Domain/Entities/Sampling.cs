@@ -13,6 +13,8 @@ public class Sampling
     public double? LocationLat { get; set; }
     public double? LocationLng { get; set; }
     public string? Notes { get; set; }
+    public bool? HasWaterSoftener { get; set; }
+    public bool IsChlorinated { get; set; }
     public string? SampleBarcode { get; set; }
     public DateTime? BarcodeScannedAt { get; set; }
     public bool IsValidated { get; set; }

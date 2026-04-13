@@ -16,11 +16,31 @@ public class UsersController(
 {
     [HttpGet]
     [Authorize(Roles = "Administrator")]
-    public async Task<ActionResult<IList<UserListDto>>> GetUsers(CancellationToken cancellationToken)
+    public async Task<ActionResult<IList<UserListDto>>> GetUsers(
+        [FromQuery] string? role = null,
+        [FromQuery] Guid? distributorId = null,
+        [FromQuery] bool? isActive = null,
+        CancellationToken cancellationToken = default)
     {
         var tenantId = GetTenantId();
-        var users = await userManagementService.GetUsersAsync(tenantId, cancellationToken);
+        var users = await userManagementService.GetUsersAsync(tenantId, role, distributorId, isActive, cancellationToken);
         return Ok(users);
+    }
+
+    [HttpGet("preleveurs")]
+    [Authorize]
+    public async Task<ActionResult<IList<UserListDto>>> GetPreleveurs(
+        [FromQuery] Guid? distributorId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var tenantId = GetTenantId();
+        var users = await userManagementService.GetUsersAsync(tenantId, null, distributorId, true, cancellationToken);
+        var preleveurs = users.Where(u =>
+            u.Role != null && (
+                u.Role.Contains("réleveur", StringComparison.OrdinalIgnoreCase) ||
+                u.Role.Contains("releveur", StringComparison.OrdinalIgnoreCase)
+            )).ToList();
+        return Ok(preleveurs);
     }
 
     [HttpGet("{id}")]

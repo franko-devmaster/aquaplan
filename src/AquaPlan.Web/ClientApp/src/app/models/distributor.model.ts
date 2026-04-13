@@ -1,6 +1,7 @@
 export interface DistributorDto {
   id: string;
   name: string;
+  shortName: string | null;
   cantonRegion: string | null;
   distributionNetwork: string | null;
   isActive: boolean;
@@ -10,6 +11,7 @@ export interface DistributorDto {
 export interface DistributorListDto {
   id: string;
   name: string;
+  shortName: string | null;
   cantonRegion: string | null;
   distributionNetwork: string | null;
   isActive: boolean;
@@ -18,12 +20,14 @@ export interface DistributorListDto {
 
 export interface DistributorAddDto {
   name: string;
+  shortName: string | null;
   cantonRegion: string | null;
   distributionNetwork: string | null;
 }
 
 export interface DistributorUpdateDto {
   name: string;
+  shortName: string | null;
   cantonRegion: string | null;
   distributionNetwork: string | null;
 }

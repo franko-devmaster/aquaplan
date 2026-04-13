@@ -206,24 +206,24 @@ export class OrderDetailComponent implements OnInit {
     const o = this.order();
     if (!o) return false;
     if (this.isAdmin()) {
-      return o.status !== OrderStatus.Completed && o.status !== OrderStatus.Cancelled;
+      return o.status !== OrderStatus.Done && o.status !== OrderStatus.Cancelled;
     }
-    return o.status === OrderStatus.Draft || o.status === OrderStatus.Assigned;
+    return o.status === OrderStatus.New || o.status === OrderStatus.InProgress;
   }
 
   canDelete(): boolean {
     const o = this.order();
     if (!o) return false;
     if (this.isAdmin()) {
-      return o.status < OrderStatus.SamplingCompleted;
+      return o.status === OrderStatus.New || o.status === OrderStatus.InProgress;
     }
-    return o.status === OrderStatus.Draft || o.status === OrderStatus.Assigned;
+    return o.status === OrderStatus.New;
   }
 
   getStatusLabel(): string {
     const o = this.order();
     if (!o) return '';
-    return OrderStatusLabels[o.status] ?? 'orders.status.draft';
+    return OrderStatusLabels[o.status] ?? 'orders.status.new';
   }
 
   getUnplannedReasonLabel(): string {
@@ -235,7 +235,7 @@ export class OrderDetailComponent implements OnInit {
   canLinkToRound(): boolean {
     const o = this.order();
     if (!o) return false;
-    return o.status === OrderStatus.Draft;
+    return o.status === OrderStatus.New;
   }
 
   openLinkRoundDialog(): void {

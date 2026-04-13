@@ -124,7 +124,7 @@ public class DistributorServiceTest : IDisposable
     [Fact]
     public async Task CreateAsync_ShouldCreateDistributor()
     {
-        var dto = new DistributorAddDto("Nouveau Distributeur", "Gruyère", "Réseau B");
+        var dto = new DistributorAddDto("Nouveau Distributeur", null, "Gruyère", "Réseau B");
 
         var result = await _sut.CreateAsync(dto, TenantId);
 
@@ -139,7 +139,7 @@ public class DistributorServiceTest : IDisposable
     public async Task CreateAsync_ShouldThrow_WhenNameAlreadyExists()
     {
         await SeedDistributors();
-        var dto = new DistributorAddDto("Eau de Fribourg", "Sarine", "Réseau C");
+        var dto = new DistributorAddDto("Eau de Fribourg", null, "Sarine", "Réseau C");
 
         await _sut.Invoking(x => x.CreateAsync(dto, TenantId))
             .Should().ThrowAsync<InvalidOperationException>()
@@ -150,7 +150,7 @@ public class DistributorServiceTest : IDisposable
     public async Task CreateAsync_ShouldAllowSameNameInDifferentTenant()
     {
         await SeedDistributors();
-        var dto = new DistributorAddDto("Eau de Fribourg", "Sarine", "Réseau C");
+        var dto = new DistributorAddDto("Eau de Fribourg", null, "Sarine", "Réseau C");
 
         var result = await _sut.CreateAsync(dto, OtherTenantId);
 
@@ -163,7 +163,7 @@ public class DistributorServiceTest : IDisposable
     {
         var distributors = await SeedDistributors();
         var distributorId = distributors[0].Id;
-        var dto = new DistributorUpdateDto("Nom Modifié", "Broye", "Réseau X");
+        var dto = new DistributorUpdateDto("Nom Modifié", null, "Broye", "Réseau X");
 
         var result = await _sut.UpdateAsync(distributorId, dto, TenantId);
 
@@ -176,7 +176,7 @@ public class DistributorServiceTest : IDisposable
     [Fact]
     public async Task UpdateAsync_ShouldReturnNull_WhenNotExists()
     {
-        var dto = new DistributorUpdateDto("Nom Modifié", "Broye", "Réseau X");
+        var dto = new DistributorUpdateDto("Nom Modifié", null, "Broye", "Réseau X");
 
         var result = await _sut.UpdateAsync(Guid.NewGuid(), dto, TenantId);
 
@@ -188,7 +188,7 @@ public class DistributorServiceTest : IDisposable
     {
         var distributors = await SeedDistributors();
         var distributorId = distributors[1].Id;
-        var dto = new DistributorUpdateDto("Eau de Fribourg", "Sarine", "Réseau A");
+        var dto = new DistributorUpdateDto("Eau de Fribourg", null, "Sarine", "Réseau A");
 
         await _sut.Invoking(x => x.UpdateAsync(distributorId, dto, TenantId))
             .Should().ThrowAsync<InvalidOperationException>()
@@ -200,7 +200,7 @@ public class DistributorServiceTest : IDisposable
     {
         var distributors = await SeedDistributors();
         var distributorId = distributors[0].Id;
-        var dto = new DistributorUpdateDto("Eau de Fribourg", "Broye", "Réseau X");
+        var dto = new DistributorUpdateDto("Eau de Fribourg", null, "Broye", "Réseau X");
 
         var result = await _sut.UpdateAsync(distributorId, dto, TenantId);
 

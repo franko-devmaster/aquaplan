@@ -5,6 +5,8 @@ export interface SamplingLocationDto {
   latitude: number | null;
   longitude: number | null;
   description: string | null;
+  address: string | null;
+  accessDescription: string | null;
   isActive: boolean;
   distributorId: string;
   distributorName: string | null;
@@ -19,6 +21,8 @@ export interface SamplingLocationCreateDto {
   latitude: number | null;
   longitude: number | null;
   description: string | null;
+  address: string | null;
+  accessDescription: string | null;
   distributorId: string;
   sectorId: string;
 }
@@ -29,6 +33,8 @@ export interface SamplingLocationUpdateDto {
   latitude: number | null;
   longitude: number | null;
   description: string | null;
+  address: string | null;
+  accessDescription: string | null;
   isActive: boolean;
   sectorId: string;
 }

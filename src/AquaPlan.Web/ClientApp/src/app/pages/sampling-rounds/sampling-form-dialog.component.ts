@@ -6,6 +6,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TranslateModule } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
@@ -25,7 +26,7 @@ export interface SamplingFormDialogData {
   imports: [
     ReactiveFormsModule, MatButtonModule, MatDialogModule,
     MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatIconModule, MatProgressSpinnerModule, TranslateModule,
+    MatIconModule, MatCheckboxModule, MatProgressSpinnerModule, TranslateModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -73,6 +74,15 @@ export interface SamplingFormDialogData {
           <mat-label>{{ 'sampling.notes' | translate }}</mat-label>
           <textarea matInput formControlName="notes" rows="3"></textarea>
         </mat-form-field>
+
+        <div class="checkbox-row">
+          <mat-checkbox formControlName="isChlorinated">
+            {{ 'sampling.isChlorinated' | translate }}
+          </mat-checkbox>
+          <mat-checkbox formControlName="hasWaterSoftener">
+            {{ 'sampling.hasWaterSoftener' | translate }}
+          </mat-checkbox>
+        </div>
       </form>
     </mat-dialog-content>
 
@@ -94,6 +104,7 @@ export interface SamplingFormDialogData {
     .row { display: flex; gap: 16px; }
     .half-width { flex: 1; }
     .full-width { width: 100%; }
+    .checkbox-row { display: flex; gap: 24px; margin: 8px 0 16px; }
     mat-dialog-content { max-height: 70vh; }
   `],
 })
@@ -113,6 +124,8 @@ export class SamplingFormDialogComponent implements OnInit {
     locationLat: new FormControl<number | null>(null),
     locationLng: new FormControl<number | null>(null),
     notes: new FormControl<string | null>(null),
+    hasWaterSoftener: new FormControl<boolean>(false),
+    isChlorinated: new FormControl<boolean>(false),
   });
 
   ngOnInit(): void {
@@ -126,6 +139,8 @@ export class SamplingFormDialogComponent implements OnInit {
         locationLat: sampling.locationLat,
         locationLng: sampling.locationLng,
         notes: sampling.notes,
+        hasWaterSoftener: sampling.hasWaterSoftener ?? false,
+        isChlorinated: sampling.isChlorinated,
       });
     } else {
       // Default to current date/time
@@ -149,6 +164,8 @@ export class SamplingFormDialogComponent implements OnInit {
         locationLat: formValue.locationLat,
         locationLng: formValue.locationLng,
         notes: formValue.notes,
+        hasWaterSoftener: formValue.hasWaterSoftener || null,
+        isChlorinated: formValue.isChlorinated ?? false,
       };
 
       let result: SamplingDto;

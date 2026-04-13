@@ -2,11 +2,13 @@ namespace AquaPlan.Application.DTOs.Users;
 
 public record UserListDto(
     string Id,
+    int UserNumber,
     string Email,
     string FirstName,
     string LastName,
-    string? Organization,
+    string? Role,
+    Guid? DistributorId,
+    string? DistributorName,
     bool IsActive,
     Guid TenantId,
-    IList<string> Roles,
     DateTime CreatedAt);

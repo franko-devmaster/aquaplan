@@ -5,4 +5,5 @@ namespace AquaPlan.Application.DTOs.Sectors;
 public record SectorUpdateDto(
     [Required] string Name,
     [Required] string Code,
-    string? Description);
+    string? Description,
+    [Required] Guid DistributorId);

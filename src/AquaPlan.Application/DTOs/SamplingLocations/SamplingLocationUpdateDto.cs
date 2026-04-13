@@ -8,5 +8,7 @@ public record SamplingLocationUpdateDto(
     double? Latitude,
     double? Longitude,
     [StringLength(1000)] string? Description,
+    [StringLength(500)] string? Address,
+    [StringLength(1000)] string? AccessDescription,
     bool IsActive,
     [Required] Guid SectorId);

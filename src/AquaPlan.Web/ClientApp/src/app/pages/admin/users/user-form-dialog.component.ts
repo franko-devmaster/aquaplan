@@ -10,7 +10,9 @@ import { TranslateModule } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { UserApiService } from '../../../services/user-api.service';
 import { RoleApiService } from '../../../services/role-api.service';
+import { DistributorApiService } from '../../../services/distributor-api.service';
 import { RoleDto } from '../../../models/role.model';
+import { DistributorListDto } from '../../../models/distributor.model';
 import { AuthService } from '../../../services/auth.service';
 
 export interface UserFormDialogData {
@@ -32,12 +34,17 @@ export interface UserFormDialogData {
     </h2>
     <mat-dialog-content>
       <form [formGroup]="form" class="form-container">
-        @if (data.mode === 'create') {
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>{{ 'users.email' | translate }}</mat-label>
-            <input matInput formControlName="email" type="email">
-          </mat-form-field>
+        @if (data.mode === 'edit') {
+          <div class="readonly-field">
+            <span class="readonly-label">{{ 'users.userNumber' | translate }}</span>
+            <span class="readonly-value">{{ userNumber() }}</span>
+          </div>
         }
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>{{ 'users.email' | translate }}</mat-label>
+          <input matInput formControlName="email" type="email">
+        </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>{{ 'users.firstName' | translate }}</mat-label>
@@ -49,10 +56,22 @@ export interface UserFormDialogData {
           <input matInput formControlName="lastName">
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>{{ 'users.organization' | translate }}</mat-label>
-          <input matInput formControlName="organization">
-        </mat-form-field>
+        @if (data.mode === 'create') {
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>{{ 'users.distributor' | translate }}</mat-label>
+            <mat-select formControlName="distributorId">
+              <mat-option [value]="null">-</mat-option>
+              @for (dist of distributors(); track dist.id) {
+                <mat-option [value]="dist.id">{{ dist.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        } @else {
+          <div class="readonly-field">
+            <span class="readonly-label">{{ 'users.distributor' | translate }}</span>
+            <span class="readonly-value">{{ distributorName() ?? '-' }}</span>
+          </div>
+        }
 
         @if (data.mode === 'create') {
           <mat-form-field appearance="outline" class="full-width">
@@ -62,8 +81,9 @@ export interface UserFormDialogData {
         }
 
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>{{ 'users.roles' | translate }}</mat-label>
-          <mat-select formControlName="roles" multiple>
+          <mat-label>{{ 'users.role' | translate }}</mat-label>
+          <mat-select formControlName="role">
+            <mat-option [value]="null">-</mat-option>
             @for (role of roles(); track role.id) {
               <mat-option [value]="role.name">{{ role.name }}</mat-option>
             }
@@ -86,6 +106,9 @@ export interface UserFormDialogData {
   styles: [`
     .form-container { display: flex; flex-direction: column; min-width: 400px; }
     .full-width { width: 100%; }
+    .readonly-field { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #e0e0e0; margin-bottom: 12px; }
+    .readonly-label { font-weight: 500; color: #666; }
+    .readonly-value { font-weight: 500; }
   `],
 })
 export class UserFormDialogComponent implements OnInit {
@@ -94,9 +117,13 @@ export class UserFormDialogComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly userApi = inject(UserApiService);
   private readonly roleApi = inject(RoleApiService);
+  private readonly distributorApi = inject(DistributorApiService);
   private readonly authService = inject(AuthService);
 
   readonly roles = signal<RoleDto[]>([]);
+  readonly distributors = signal<DistributorListDto[]>([]);
+  readonly userNumber = signal<number>(0);
+  readonly distributorName = signal<string | null>(null);
   readonly saving = signal(false);
   readonly form: FormGroup;
 
@@ -105,9 +132,9 @@ export class UserFormDialogComponent implements OnInit {
       email: ['', [Validators.required, Validators.email]],
       firstName: ['', Validators.required],
       lastName: ['', Validators.required],
-      organization: [''],
+      distributorId: [null as string | null],
       password: ['', this.data.mode === 'create' ? Validators.required : []],
-      roles: [[] as string[]],
+      role: [null as string | null],
     });
   }
 
@@ -115,13 +142,20 @@ export class UserFormDialogComponent implements OnInit {
     const allRoles = await firstValueFrom(this.roleApi.getAll());
     this.roles.set(allRoles);
 
+    if (this.data.mode === 'create') {
+      const allDistributors = await firstValueFrom(this.distributorApi.getAll({ isActive: true }));
+      this.distributors.set(allDistributors);
+    }
+
     if (this.data.mode === 'edit' && this.data.userId) {
       const user = await firstValueFrom(this.userApi.getById(this.data.userId));
+      this.userNumber.set(user.userNumber);
+      this.distributorName.set(user.distributorName);
       this.form.patchValue({
+        email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        organization: user.organization,
-        roles: user.roles,
+        role: user.role,
       });
     }
   }
@@ -138,19 +172,17 @@ export class UserFormDialogComponent implements OnInit {
           email: val.email,
           firstName: val.firstName,
           lastName: val.lastName,
-          organization: val.organization || null,
           password: val.password,
           tenantId,
-          roles: val.roles,
-          distributorIds: [],
+          role: val.role,
+          distributorId: val.distributorId,
         }));
       } else {
         await firstValueFrom(this.userApi.update(this.data.userId!, {
+          email: val.email,
           firstName: val.firstName,
           lastName: val.lastName,
-          organization: val.organization || null,
-          roles: val.roles,
-          distributorIds: [],
+          role: val.role,
         }));
       }
       this.dialogRef.close(true);

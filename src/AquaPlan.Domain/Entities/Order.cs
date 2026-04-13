@@ -6,7 +6,7 @@ public class Order
 {
     public Guid Id { get; set; }
     public string OrderNumber { get; set; } = string.Empty;
-    public OrderStatus Status { get; set; } = OrderStatus.Draft;
+    public OrderStatus Status { get; set; } = OrderStatus.New;
     public bool IsUnplanned { get; set; }
     public UnplannedReason? UnplannedReason { get; set; }
     public string? UnplannedReasonDetails { get; set; }

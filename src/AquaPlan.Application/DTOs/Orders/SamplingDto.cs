@@ -11,6 +11,8 @@ public record SamplingDto(
     double? LocationLat,
     double? LocationLng,
     string? Notes,
+    bool? HasWaterSoftener,
+    bool IsChlorinated,
     string? SampleBarcode,
     DateTime? BarcodeScannedAt,
     bool IsValidated,

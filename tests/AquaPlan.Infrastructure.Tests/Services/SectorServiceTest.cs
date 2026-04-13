@@ -156,7 +156,7 @@ public class SectorServiceTest : IDisposable
     {
         await SeedSector(SectorId, "Secteur Nord", "SN");
 
-        var updateDto = new SectorUpdateDto("Secteur Modifie", "SM", "Nouvelle description");
+        var updateDto = new SectorUpdateDto("Secteur Modifie", "SM", "Nouvelle description", DistributorId);
 
         var result = await _sut.UpdateAsync(SectorId, updateDto, TenantId);
 
@@ -169,7 +169,7 @@ public class SectorServiceTest : IDisposable
     [Fact]
     public async Task UpdateAsync_ShouldReturnNull_WhenNotFound()
     {
-        var updateDto = new SectorUpdateDto("Secteur Modifie", "SM", null);
+        var updateDto = new SectorUpdateDto("Secteur Modifie", "SM", null, DistributorId);
 
         var result = await _sut.UpdateAsync(Guid.NewGuid(), updateDto, TenantId);
 
@@ -183,7 +183,7 @@ public class SectorServiceTest : IDisposable
         var otherId = Guid.NewGuid();
         await SeedSector(otherId, "Secteur Sud", "SS");
 
-        var updateDto = new SectorUpdateDto("Secteur Nord", "SS", null);
+        var updateDto = new SectorUpdateDto("Secteur Nord", "SS", null, DistributorId);
 
         await _sut.Awaiting(x => x.UpdateAsync(otherId, updateDto, TenantId))
             .Should().ThrowAsync<InvalidOperationException>()

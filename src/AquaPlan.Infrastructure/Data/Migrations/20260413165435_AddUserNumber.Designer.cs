@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using AquaPlan.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AquaPlan.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(AquaPlanDbContext))]
-    partial class AquaPlanDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260413165435_AddUserNumber")]
+    partial class AddUserNumber
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -161,10 +164,6 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("created_by");
 
-                    b.Property<Guid?>("DistributorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("distributor_id");
-
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)")
@@ -273,9 +272,6 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                     b.HasKey("Id")
                         .HasName("pk_asp_net_users");
 
-                    b.HasIndex("DistributorId")
-                        .HasDatabaseName("ix_asp_net_users_distributor_id");
-
                     b.HasIndex("ExternalId")
                         .IsUnique()
                         .HasDatabaseName("ix_asp_net_users_external_id")
@@ -369,10 +365,6 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("name");
-
-                    b.Property<string>("ShortName")
-                        .HasColumnType("text")
-                        .HasColumnName("short_name");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
@@ -1447,20 +1439,12 @@ namespace AquaPlan.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("AquaPlan.Domain.Entities.AppUser", b =>
                 {
-                    b.HasOne("AquaPlan.Domain.Entities.Distributor", "Distributor")
-                        .WithMany()
-                        .HasForeignKey("DistributorId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("fk_asp_net_users_distributors_distributor_id");
-
                     b.HasOne("AquaPlan.Domain.Entities.Tenant", "Tenant")
                         .WithMany("Users")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_asp_net_users_tenants_tenant_id");
-
-                    b.Navigation("Distributor");
 
                     b.Navigation("Tenant");
                 });

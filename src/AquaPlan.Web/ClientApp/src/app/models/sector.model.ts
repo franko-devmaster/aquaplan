@@ -31,6 +31,7 @@ export interface SectorUpdateDto {
   name: string;
   code: string;
   description: string | null;
+  distributorId: string;
 }
 
 export interface SectorFilteringInputDto {

@@ -43,7 +43,7 @@ public class OrdersControllerTest
     }
 
     private static OrderDetailDto CreateOrderDetail(
-        Guid? id = null, string orderNumber = "ORD-001", OrderStatus status = OrderStatus.Draft,
+        Guid? id = null, string orderNumber = "ORD-001", OrderStatus status = OrderStatus.New,
         string? preleveurId = null, string? preleveurName = null)
     {
         return new OrderDetailDto(
@@ -58,7 +58,7 @@ public class OrdersControllerTest
     private static OrderListDto CreateOrderList(Guid? id = null, string orderNumber = "ORD-001")
     {
         return new OrderListDto(
-            id ?? OrderId, orderNumber, OrderStatus.Draft, false, null,
+            id ?? OrderId, orderNumber, OrderStatus.New, false, null,
             UserId, "John Doe", null, null,
             DistributorId, "Distributor A",
             null, null, null, false, DateTime.UtcNow);
@@ -86,7 +86,7 @@ public class OrdersControllerTest
     [Fact]
     public async Task GetOrders_ShouldPassFilterParams()
     {
-        var statuses = new List<OrderStatus> { OrderStatus.Draft, OrderStatus.Assigned };
+        var statuses = new List<OrderStatus> { OrderStatus.New, OrderStatus.InProgress };
         var pagedResult = new OrderPagedResultDto([], 0, 1, 20);
         _permissionServiceMock
             .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
@@ -287,7 +287,7 @@ public class OrdersControllerTest
     public async Task AssignPreleveur_ShouldReturnOk_WhenSuccess()
     {
         var assignDto = new OrderAssignDto("preleveur-1");
-        var updatedOrder = CreateOrderDetail(status: OrderStatus.Assigned, preleveurId: "preleveur-1", preleveurName: "Preleveur Name");
+        var updatedOrder = CreateOrderDetail(status: OrderStatus.New, preleveurId: "preleveur-1", preleveurName: "Preleveur Name");
         _orderServiceMock
             .Setup(x => x.AssignPreleveurAsync(OrderId, assignDto, UserId, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(updatedOrder);
@@ -315,10 +315,10 @@ public class OrdersControllerTest
     [Fact]
     public async Task TransitionOrder_ShouldReturnOk_WhenTransitionIsValid()
     {
-        var dto = new OrderTransitionRequestDto(OrderStatus.Assigned);
-        var transition = new OrderStatusTransitionDto(OrderStatus.Draft, OrderStatus.Assigned, DateTime.UtcNow);
+        var dto = new OrderTransitionRequestDto(OrderStatus.InProgress);
+        var transition = new OrderStatusTransitionDto(OrderStatus.New, OrderStatus.InProgress, DateTime.UtcNow);
         _orderStatusServiceMock
-            .Setup(x => x.TransitionOrderAsync(OrderId, OrderStatus.Assigned, UserId, TenantId, It.IsAny<CancellationToken>()))
+            .Setup(x => x.TransitionOrderAsync(OrderId, OrderStatus.InProgress, UserId, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(transition);
 
         var result = await _sut.TransitionOrder(OrderId, dto, CancellationToken.None);

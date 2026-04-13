@@ -121,6 +121,8 @@ internal class SamplingLocationService(
             Latitude = dto.Latitude,
             Longitude = dto.Longitude,
             Description = dto.Description,
+            Address = dto.Address,
+            AccessDescription = dto.AccessDescription,
             DistributorId = dto.DistributorId,
             SectorId = dto.SectorId,
         };
@@ -155,6 +157,8 @@ internal class SamplingLocationService(
         location.Latitude = dto.Latitude;
         location.Longitude = dto.Longitude;
         location.Description = dto.Description;
+        location.Address = dto.Address;
+        location.AccessDescription = dto.AccessDescription;
         location.IsActive = dto.IsActive;
         location.SectorId = dto.SectorId;
 
@@ -322,7 +326,8 @@ internal class SamplingLocationService(
     {
         return new SamplingLocationDto(
             sl.Id, sl.Name, sl.LocationCode, sl.Latitude, sl.Longitude,
-            sl.Description, sl.IsActive, sl.DistributorId,
+            sl.Description, sl.Address, sl.AccessDescription,
+            sl.IsActive, sl.DistributorId,
             sl.Distributor != null ? sl.Distributor.Name : null,
             sl.SectorId,
             sl.Sector != null ? sl.Sector.Name : null,

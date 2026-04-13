@@ -7,4 +7,6 @@ public record SamplingCreateDto(
     string? Weather,
     double? LocationLat,
     double? LocationLng,
-    string? Notes);
+    string? Notes,
+    bool? HasWaterSoftener,
+    bool IsChlorinated = false);

@@ -1,8 +1,7 @@
 namespace AquaPlan.Application.DTOs.Users;
 
 public record UserUpdateDto(
+    string? Email,
     string FirstName,
     string LastName,
-    string? Organization,
-    List<string> Roles,
-    List<Guid> DistributorIds);
+    string? Role);

@@ -7,6 +7,8 @@ public record SamplingLocationDto(
     double? Latitude,
     double? Longitude,
     string? Description,
+    string? Address,
+    string? AccessDescription,
     bool IsActive,
     Guid DistributorId,
     string? DistributorName,

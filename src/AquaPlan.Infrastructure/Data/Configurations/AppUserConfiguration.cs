@@ -14,11 +14,22 @@ public class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
         builder.Property(u => u.ExternalId).HasMaxLength(256);
         builder.HasIndex(u => u.ExternalId).IsUnique().HasFilter("external_id IS NOT NULL");
 
+        builder.Property(u => u.UserNumber)
+            .IsRequired()
+            .ValueGeneratedOnAdd();
+
+        builder.HasIndex(u => new { u.UserNumber, u.TenantId }).IsUnique();
+
         builder.HasOne(u => u.Tenant)
             .WithMany(t => t.Users)
             .HasForeignKey(u => u.TenantId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(u => new { u.Email, u.TenantId }).IsUnique();
+
+        builder.HasOne(u => u.Distributor)
+            .WithMany()
+            .HasForeignKey(u => u.DistributorId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

@@ -14,27 +14,21 @@ internal class OrderStatusService(
 {
     private static readonly Dictionary<OrderStatus, OrderStatusDto> StatusDefinitions = new()
     {
-        [OrderStatus.Draft] = new OrderStatusDto(OrderStatus.Draft, "Draft", "Order created, not yet assigned", "#9E9E9E", false),
-        [OrderStatus.Assigned] = new OrderStatusDto(OrderStatus.Assigned, "Assigned", "Sampler assigned to the order", "#2196F3", false),
+        [OrderStatus.New] = new OrderStatusDto(OrderStatus.New, "New", "Order created, waiting for sampling", "#9E9E9E", false),
         [OrderStatus.InProgress] = new OrderStatusDto(OrderStatus.InProgress, "InProgress", "Sampling in progress", "#FF9800", false),
-        [OrderStatus.SamplingCompleted] = new OrderStatusDto(OrderStatus.SamplingCompleted, "SamplingCompleted", "Sampling completed, awaiting validation", "#7B1FA2", false),
-        [OrderStatus.Validated] = new OrderStatusDto(OrderStatus.Validated, "Validated", "Results validated, ready to send to LIMS", "#00BCD4", false),
-        [OrderStatus.SentToLims] = new OrderStatusDto(OrderStatus.SentToLims, "SentToLims", "Order sent to Limsophy LIMS", "#3F51B5", false),
-        [OrderStatus.ResultsReceived] = new OrderStatusDto(OrderStatus.ResultsReceived, "ResultsReceived", "Results received from LIMS", "#8BC34A", false),
-        [OrderStatus.Completed] = new OrderStatusDto(OrderStatus.Completed, "Completed", "Order fully completed", "#4CAF50", true),
+        [OrderStatus.Completed] = new OrderStatusDto(OrderStatus.Completed, "Completed", "Sampling completed, ready to transmit", "#7B1FA2", false),
+        [OrderStatus.Transmitted] = new OrderStatusDto(OrderStatus.Transmitted, "Transmitted", "Order sent to Limsophy LIMS", "#3F51B5", false),
+        [OrderStatus.Done] = new OrderStatusDto(OrderStatus.Done, "Done", "Results received, order done", "#4CAF50", true),
         [OrderStatus.Cancelled] = new OrderStatusDto(OrderStatus.Cancelled, "Cancelled", "Order cancelled", "#F44336", true),
     };
 
     private static readonly Dictionary<OrderStatus, OrderStatus[]> TransitionMatrix = new()
     {
-        [OrderStatus.Draft] = [OrderStatus.Assigned, OrderStatus.Cancelled],
-        [OrderStatus.Assigned] = [OrderStatus.InProgress, OrderStatus.Cancelled],
-        [OrderStatus.InProgress] = [OrderStatus.SamplingCompleted, OrderStatus.Cancelled],
-        [OrderStatus.SamplingCompleted] = [OrderStatus.Validated, OrderStatus.Cancelled],
-        [OrderStatus.Validated] = [OrderStatus.SentToLims, OrderStatus.Cancelled],
-        [OrderStatus.SentToLims] = [OrderStatus.ResultsReceived],
-        [OrderStatus.ResultsReceived] = [OrderStatus.Completed],
-        [OrderStatus.Completed] = [],
+        [OrderStatus.New] = [OrderStatus.InProgress, OrderStatus.Cancelled],
+        [OrderStatus.InProgress] = [OrderStatus.Completed, OrderStatus.Cancelled],
+        [OrderStatus.Completed] = [OrderStatus.Transmitted, OrderStatus.Cancelled],
+        [OrderStatus.Transmitted] = [OrderStatus.Done],
+        [OrderStatus.Done] = [],
         [OrderStatus.Cancelled] = [],
     };
 

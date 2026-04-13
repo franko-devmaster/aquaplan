@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { firstValueFrom } from 'rxjs';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
@@ -16,6 +17,8 @@ import { MatSortModule, Sort } from '@angular/material/sort';
 import { DatePipe } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { SamplingRoundDatastore } from '../../datastore/sampling-round.datastore';
+import { DistributorApiService } from '../../services/distributor-api.service';
+import { DistributorListDto } from '../../models/distributor.model';
 import {
   SamplingRoundListDto,
   SamplingRoundDetailDto,
@@ -51,6 +54,16 @@ import { SamplingRoundCreateDialogComponent } from './sampling-round-create-dial
         <mat-select multiple [ngModel]="store.statusFilter()" (ngModelChange)="store.setStatusFilter($event)">
           @for (status of availableStatuses; track status.value) {
             <mat-option [value]="status.value">{{ status.label | translate }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>{{ 'samplingRounds.distributor' | translate }}</mat-label>
+        <mat-select [ngModel]="store.distributorFilter()" (ngModelChange)="store.setDistributorFilter($event || undefined)">
+          <mat-option [value]="''">{{ 'common.all' | translate }}</mat-option>
+          @for (dist of distributors(); track dist.id) {
+            <mat-option [value]="dist.id">{{ dist.shortName ?? dist.name }}</mat-option>
           }
         </mat-select>
       </mat-form-field>
@@ -98,7 +111,7 @@ import { SamplingRoundCreateDialogComponent } from './sampling-round-create-dial
 
           <ng-container matColumnDef="distributor">
             <th mat-header-cell *matHeaderCellDef mat-sort-header="distributor">{{ 'samplingRounds.distributor' | translate }}</th>
-            <td mat-cell *matCellDef="let round" [attr.data-label]="'samplingRounds.distributor' | translate">{{ round.distributorName }}</td>
+            <td mat-cell *matCellDef="let round" [attr.data-label]="'samplingRounds.distributor' | translate" [matTooltip]="round.distributorName">{{ round.distributorShortName ?? round.distributorName }}</td>
           </ng-container>
 
           <ng-container matColumnDef="orders">
@@ -147,7 +160,9 @@ export class SamplingRoundListComponent implements OnInit {
   readonly store = inject(SamplingRoundDatastore);
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
+  private readonly distributorApi = inject(DistributorApiService);
 
+  readonly distributors = signal<DistributorListDto[]>([]);
   readonly searchValue = signal('');
   private searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -156,12 +171,15 @@ export class SamplingRoundListComponent implements OnInit {
   readonly availableStatuses = [
     { value: SamplingRoundStatus.Draft, label: SamplingRoundStatusLabels[SamplingRoundStatus.Draft] },
     { value: SamplingRoundStatus.Assigned, label: SamplingRoundStatusLabels[SamplingRoundStatus.Assigned] },
+    { value: SamplingRoundStatus.Validated, label: SamplingRoundStatusLabels[SamplingRoundStatus.Validated] },
     { value: SamplingRoundStatus.InProgress, label: SamplingRoundStatusLabels[SamplingRoundStatus.InProgress] },
     { value: SamplingRoundStatus.Completed, label: SamplingRoundStatusLabels[SamplingRoundStatus.Completed] },
     { value: SamplingRoundStatus.Cancelled, label: SamplingRoundStatusLabels[SamplingRoundStatus.Cancelled] },
   ];
 
   async ngOnInit(): Promise<void> {
+    const allDistributors = await firstValueFrom(this.distributorApi.getAll());
+    this.distributors.set(allDistributors);
     this.store.loadFiltered();
   }
 

@@ -208,14 +208,11 @@ export class OrderListComponent implements OnInit {
   ];
 
   readonly availableStatuses = [
-    { value: OrderStatus.Draft, label: OrderStatusLabels[OrderStatus.Draft] },
-    { value: OrderStatus.Assigned, label: OrderStatusLabels[OrderStatus.Assigned] },
+    { value: OrderStatus.New, label: OrderStatusLabels[OrderStatus.New] },
     { value: OrderStatus.InProgress, label: OrderStatusLabels[OrderStatus.InProgress] },
-    { value: OrderStatus.SamplingCompleted, label: OrderStatusLabels[OrderStatus.SamplingCompleted] },
-    { value: OrderStatus.Validated, label: OrderStatusLabels[OrderStatus.Validated] },
-    { value: OrderStatus.SentToLims, label: OrderStatusLabels[OrderStatus.SentToLims] },
-    { value: OrderStatus.ResultsReceived, label: OrderStatusLabels[OrderStatus.ResultsReceived] },
     { value: OrderStatus.Completed, label: OrderStatusLabels[OrderStatus.Completed] },
+    { value: OrderStatus.Transmitted, label: OrderStatusLabels[OrderStatus.Transmitted] },
+    { value: OrderStatus.Done, label: OrderStatusLabels[OrderStatus.Done] },
     { value: OrderStatus.Cancelled, label: OrderStatusLabels[OrderStatus.Cancelled] },
   ];
 
@@ -228,7 +225,7 @@ export class OrderListComponent implements OnInit {
   }
 
   getStatusLabel(order: OrderListDto): string {
-    return OrderStatusLabels[order.status] ?? 'orders.status.draft';
+    return OrderStatusLabels[order.status] ?? 'orders.status.new';
   }
 
   onSearchChange(value: string): void {

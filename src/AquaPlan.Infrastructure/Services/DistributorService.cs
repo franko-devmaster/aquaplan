@@ -29,7 +29,7 @@ internal class DistributorService(
         return await query
             .OrderBy(d => d.Name)
             .Select(d => new DistributorListDto(
-                d.Id, d.Name, d.CantonRegion, d.DistributionNetwork,
+                d.Id, d.Name, d.ShortName, d.CantonRegion, d.DistributionNetwork,
                 d.IsActive, d.CreatedAt))
             .ToListAsync(cancellationToken);
     }
@@ -39,7 +39,7 @@ internal class DistributorService(
         return await dbContext.Distributors
             .Where(d => d.Id == id && d.TenantId == tenantId)
             .Select(d => new DistributorDto(
-                d.Id, d.Name, d.CantonRegion, d.DistributionNetwork,
+                d.Id, d.Name, d.ShortName, d.CantonRegion, d.DistributionNetwork,
                 d.IsActive, d.CreatedAt))
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -58,6 +58,7 @@ internal class DistributorService(
         {
             Id = Guid.NewGuid(),
             Name = dto.Name,
+            ShortName = dto.ShortName,
             CantonRegion = dto.CantonRegion,
             DistributionNetwork = dto.DistributionNetwork,
             TenantId = tenantId,
@@ -91,6 +92,7 @@ internal class DistributorService(
         }
 
         distributor.Name = dto.Name;
+        distributor.ShortName = dto.ShortName;
         distributor.CantonRegion = dto.CantonRegion;
         distributor.DistributionNetwork = dto.DistributionNetwork;
 

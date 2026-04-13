@@ -1,30 +1,28 @@
-export interface DistributorSummary {
-  id: string;
-  name: string;
-}
-
 export interface UserListDto {
   id: string;
+  userNumber: number;
   email: string;
   firstName: string;
   lastName: string;
-  organization: string | null;
+  role: string | null;
+  distributorId: string | null;
+  distributorName: string | null;
   isActive: boolean;
   tenantId: string;
-  roles: string[];
   createdAt: string;
 }
 
 export interface UserDetailDto {
   id: string;
+  userNumber: number;
   email: string;
   firstName: string;
   lastName: string;
-  organization: string | null;
+  role: string | null;
+  distributorId: string | null;
+  distributorName: string | null;
   isActive: boolean;
   tenantId: string;
-  roles: string[];
-  distributors: DistributorSummary[];
   createdAt: string;
   updatedAt: string | null;
 }
@@ -33,17 +31,15 @@ export interface UserCreateDto {
   email: string;
   firstName: string;
   lastName: string;
-  organization: string | null;
   password: string;
   tenantId: string;
-  roles: string[];
-  distributorIds: string[];
+  role: string | null;
+  distributorId: string | null;
 }
 
 export interface UserUpdateDto {
+  email: string | null;
   firstName: string;
   lastName: string;
-  organization: string | null;
-  roles: string[];
-  distributorIds: string[];
+  role: string | null;
 }

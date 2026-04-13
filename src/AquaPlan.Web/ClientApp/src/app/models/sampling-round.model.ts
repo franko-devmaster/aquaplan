@@ -1,14 +1,16 @@
 export enum SamplingRoundStatus {
   Draft = 0,
   Assigned = 1,
-  InProgress = 2,
-  Completed = 3,
-  Cancelled = 4,
+  Validated = 2,
+  InProgress = 3,
+  Completed = 4,
+  Cancelled = 5,
 }
 
 export const SamplingRoundStatusLabels: Record<SamplingRoundStatus, string> = {
   [SamplingRoundStatus.Draft]: 'samplingRounds.status.draft',
   [SamplingRoundStatus.Assigned]: 'samplingRounds.status.assigned',
+  [SamplingRoundStatus.Validated]: 'samplingRounds.status.validated',
   [SamplingRoundStatus.InProgress]: 'samplingRounds.status.inProgress',
   [SamplingRoundStatus.Completed]: 'samplingRounds.status.completed',
   [SamplingRoundStatus.Cancelled]: 'samplingRounds.status.cancelled',
@@ -17,6 +19,7 @@ export const SamplingRoundStatusLabels: Record<SamplingRoundStatus, string> = {
 export const SamplingRoundStatusColors: Record<SamplingRoundStatus, string> = {
   [SamplingRoundStatus.Draft]: '#9E9E9E',
   [SamplingRoundStatus.Assigned]: '#1976D2',
+  [SamplingRoundStatus.Validated]: '#00897B',
   [SamplingRoundStatus.InProgress]: '#FF9800',
   [SamplingRoundStatus.Completed]: '#388E3C',
   [SamplingRoundStatus.Cancelled]: '#D32F2F',
@@ -32,6 +35,7 @@ export interface SamplingRoundListDto {
   samplerName: string | null;
   distributorId: string;
   distributorName: string;
+  distributorShortName: string | null;
   orderCount: number;
   completedOrderCount: number;
   createdAt: string;
@@ -43,6 +47,7 @@ export interface SamplingRoundOrderDto {
   sortOrder: number;
   samplingLocationName: string;
   samplingLocationCode: string;
+  sectorName: string | null;
   analysisProfileNames: string[];
   status: string;
   hasLocationReplacement: boolean;
@@ -62,6 +67,7 @@ export interface SamplingRoundDetailDto {
   samplerName: string | null;
   distributorId: string;
   distributorName: string;
+  distributorShortName: string | null;
   orders: SamplingRoundOrderDto[];
   tenantId: string;
   createdAt: string;
@@ -82,11 +88,12 @@ export interface SamplingRoundUpdateDto {
 }
 
 export interface SamplingRoundAssignDto {
-  samplerId: string;
+  preleveurId: string;
 }
 
 export interface SamplingRoundFilterDto {
   statuses?: SamplingRoundStatus[];
+  distributorId?: string;
   search?: string;
   page?: number;
   pageSize?: number;

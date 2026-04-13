@@ -25,6 +25,9 @@ export class OrderApiService {
     if (filter.isUnassigned !== undefined) {
       params = params.set('isUnassigned', filter.isUnassigned.toString());
     }
+    if (filter.hasNoRound !== undefined) {
+      params = params.set('hasNoRound', filter.hasNoRound.toString());
+    }
     if (filter.search) {
       params = params.set('search', filter.search);
     }

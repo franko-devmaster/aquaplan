@@ -29,12 +29,15 @@ import {
 } from '../../models/sampling-round.model';
 import { SamplingDto } from '../../models/sampling.model';
 import { SamplingFormDialogComponent, SamplingFormDialogData } from './sampling-form-dialog.component';
+import { RoundAddOrderDialogComponent, RoundAddOrderDialogData } from './round-add-order-dialog.component';
+import { AssignSamplerDialogComponent, AssignSamplerDialogData } from './assign-sampler-dialog.component';
 
 const OrderStatusColors: Record<string, string> = {
-  Assigned: '#9E9E9E',
+  New: '#9E9E9E',
   InProgress: '#1976D2',
-  SamplingCompleted: '#7B1FA2',
-  SentToLims: '#388E3C',
+  Completed: '#7B1FA2',
+  Transmitted: '#388E3C',
+  Done: '#4CAF50',
 };
 
 @Component({
@@ -88,6 +91,18 @@ const OrderStatusColors: Record<string, string> = {
               {{ 'samplingRounds.addOrder' | translate }}
             </button>
           }
+          @if (isAssigned()) {
+            <button mat-raised-button color="primary" (click)="validateRound()" [disabled]="saving()">
+              <mat-icon>verified</mat-icon>
+              {{ 'samplingRounds.validateRound' | translate }}
+            </button>
+          }
+          @if (isInProgress() && hasCompletedOrders()) {
+            <button mat-raised-button color="accent" (click)="transmitAll()" [disabled]="saving()">
+              <mat-icon>send</mat-icon>
+              {{ 'samplingRounds.transmitAll' | translate }}
+            </button>
+          }
         </div>
       </div>
 
@@ -109,10 +124,18 @@ const OrderStatusColors: Record<string, string> = {
         </mat-card-content>
       </mat-card>
 
-      <!-- Orders -->
+      <!-- Orders with progress -->
       <div class="orders-header">
         <h3>{{ 'samplingRounds.orders' | translate }} ({{ round()!.orders.length }})</h3>
+        @if (round()!.orders.length > 0) {
+          <span class="progress-label">{{ completedCount() }}/{{ round()!.orders.length }} {{ 'samplingRounds.progress' | translate }}</span>
+        }
       </div>
+      @if (round()!.orders.length > 0) {
+        <div class="progress-bar-container">
+          <div class="progress-bar" [style.width.%]="progressPercent()"></div>
+        </div>
+      }
 
       @if (round()!.orders.length > 0) {
         <div class="responsive-table-container" cdkDropList (cdkDropListDropped)="onDrop($event)"
@@ -135,6 +158,11 @@ const OrderStatusColors: Record<string, string> = {
               </td>
             </ng-container>
 
+            <ng-container matColumnDef="sector">
+              <th mat-header-cell *matHeaderCellDef>{{ 'samplingRounds.sector' | translate }}</th>
+              <td mat-cell *matCellDef="let order">{{ order.sectorName ?? '-' }}</td>
+            </ng-container>
+
             <ng-container matColumnDef="profiles">
               <th mat-header-cell *matHeaderCellDef>{{ 'samplingRounds.profiles' | translate }}</th>
               <td mat-cell *matCellDef="let order">
@@ -152,8 +180,8 @@ const OrderStatusColors: Record<string, string> = {
               </td>
             </ng-container>
 
-            <ng-container matColumnDef="indicators">
-              <th mat-header-cell *matHeaderCellDef>{{ 'samplingRounds.indicators' | translate }}</th>
+            <ng-container matColumnDef="remarks">
+              <th mat-header-cell *matHeaderCellDef>{{ 'samplingRounds.remarks' | translate }}</th>
               <td mat-cell *matCellDef="let order">
                 <div class="indicators">
                   @if (order.hasLocationReplacement) {
@@ -193,6 +221,12 @@ const OrderStatusColors: Record<string, string> = {
                       <mat-icon>remove_circle_outline</mat-icon>
                     </button>
                   }
+                  @if (isDraft() || isAssigned() || isValidated()) {
+                    <button mat-icon-button (click)="editOrder(order, $event)"
+                            [matTooltip]="'common.edit' | translate">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                  }
                   @if (canSample() && order.status === 'InProgress' && !orderSamplings()[order.id]) {
                     <button mat-icon-button color="primary" (click)="openSamplingForm(order, $event)"
                             [matTooltip]="'sampling.enter' | translate">
@@ -209,9 +243,15 @@ const OrderStatusColors: Record<string, string> = {
                       <mat-icon>task_alt</mat-icon>
                     </button>
                   }
-                  @if (order.status === 'SamplingCompleted') {
-                    <mat-icon class="sampling-done-icon" [style.color]="'#388E3C'"
+                  @if (order.status === 'Completed') {
+                    <mat-icon class="sampling-done-icon" [style.color]="'#7B1FA2'"
                               [matTooltip]="'sampling.completed' | translate">
+                      check_circle
+                    </mat-icon>
+                  }
+                  @if (order.status === 'Transmitted' || order.status === 'Done') {
+                    <mat-icon class="sampling-done-icon" [style.color]="'#388E3C'"
+                              [matTooltip]="'sampling.transmitted' | translate">
                       check_circle
                     </mat-icon>
                   }
@@ -238,6 +278,9 @@ const OrderStatusColors: Record<string, string> = {
     .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin-bottom: 12px; }
     .description { margin-top: 8px; }
     .orders-header { display: flex; justify-content: space-between; align-items: center; margin: 16px 0; }
+    .progress-label { font-size: 14px; color: #666; }
+    .progress-bar-container { height: 6px; background: #e0e0e0; border-radius: 3px; margin-bottom: 16px; overflow: hidden; }
+    .progress-bar { height: 100%; background: #388E3C; border-radius: 3px; transition: width 0.3s ease; }
     .full-width { width: 100%; }
     .responsive-table-container { overflow-x: auto; }
     .no-data { text-align: center; padding: 24px; color: #666; }
@@ -272,10 +315,37 @@ export class SamplingRoundDetailComponent implements OnInit {
 
   readonly isDraft = computed(() => this.round()?.status === SamplingRoundStatus.Draft);
   readonly isAssigned = computed(() => this.round()?.status === SamplingRoundStatus.Assigned);
+  readonly isValidated = computed(() => this.round()?.status === SamplingRoundStatus.Validated);
   readonly isInProgress = computed(() => this.round()?.status === SamplingRoundStatus.InProgress);
-  readonly canSample = computed(() => this.isInProgress() || this.isAssigned());
+  readonly canSample = computed(() => this.isInProgress() || this.isValidated());
 
-  readonly orderColumns = ['sortOrder', 'location', 'profiles', 'status', 'indicators', 'actions'];
+  readonly allOrdersCompleted = computed(() => {
+    const r = this.round();
+    if (!r || r.orders.length === 0) return false;
+    return r.orders.every(o => o.status === 'Completed' || o.status === 'Transmitted' || o.status === 'Done' || o.status === 'Cancelled');
+  });
+
+  readonly hasCompletedOrders = computed(() => {
+    const r = this.round();
+    if (!r) return false;
+    return r.orders.some(o => o.status === 'Completed');
+  });
+
+  readonly completedCount = computed(() => {
+    const r = this.round();
+    if (!r) return 0;
+    return r.orders.filter(o =>
+      o.status === 'Completed' || o.status === 'Transmitted' || o.status === 'Done'
+    ).length;
+  });
+
+  readonly progressPercent = computed(() => {
+    const r = this.round();
+    if (!r || r.orders.length === 0) return 0;
+    return (this.completedCount() / r.orders.length) * 100;
+  });
+
+  readonly orderColumns = ['sortOrder', 'location', 'sector', 'profiles', 'status', 'remarks', 'actions'];
 
   async ngOnInit(): Promise<void> {
     const id = this.route.snapshot.paramMap.get('id');
@@ -352,6 +422,11 @@ export class SamplingRoundDetailComponent implements OnInit {
     }
   }
 
+  editOrder(order: SamplingRoundOrderDto, event: Event): void {
+    event.stopPropagation();
+    this.router.navigate(['/orders', order.id]);
+  }
+
   showNotes(order: SamplingRoundOrderDto, event: Event): void {
     event.stopPropagation();
     this.snackBar.open(
@@ -385,12 +460,17 @@ export class SamplingRoundDetailComponent implements OnInit {
     const r = this.round();
     if (!r) return;
 
-    const samplerId = prompt(this.translate.instant('samplingRounds.enterSamplerId'));
-    if (!samplerId) return;
+    const dialogRef = this.dialog.open(AssignSamplerDialogComponent, {
+      data: { distributorId: r.distributorId, distributorName: r.distributorName } as AssignSamplerDialogData,
+      width: '500px',
+    });
+
+    const preleveurId = await firstValueFrom(dialogRef.afterClosed());
+    if (!preleveurId) return;
 
     this.saving.set(true);
     try {
-      const updated = await firstValueFrom(this.roundApi.assign(r.id, { samplerId }));
+      const updated = await firstValueFrom(this.roundApi.assign(r.id, { preleveurId }));
       this.round.set(updated);
       this.snackBar.open(
         this.translate.instant('samplingRounds.assigned'),
@@ -424,6 +504,58 @@ export class SamplingRoundDetailComponent implements OnInit {
     }
   }
 
+  async validateRound(): Promise<void> {
+    const r = this.round();
+    if (!r) return;
+    if (!confirm(this.translate.instant('samplingRounds.confirmValidate'))) return;
+
+    this.saving.set(true);
+    try {
+      const updated = await firstValueFrom(this.roundApi.validate(r.id));
+      this.round.set(updated);
+      this.snackBar.open(
+        this.translate.instant('samplingRounds.validated'),
+        this.translate.instant('common.close'),
+        { duration: 3000 }
+      );
+    } catch (err: unknown) {
+      const apiError = err as { error?: { error?: string } };
+      this.snackBar.open(
+        apiError?.error?.error ?? 'Error',
+        this.translate.instant('common.close'),
+        { duration: 5000 }
+      );
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  async transmitAll(): Promise<void> {
+    const r = this.round();
+    if (!r) return;
+    if (!confirm(this.translate.instant('samplingRounds.confirmTransmitAll'))) return;
+
+    this.saving.set(true);
+    try {
+      const updated = await firstValueFrom(this.roundApi.transmitAll(r.id));
+      this.round.set(updated);
+      this.snackBar.open(
+        this.translate.instant('samplingRounds.transmittedAll'),
+        this.translate.instant('common.close'),
+        { duration: 3000 }
+      );
+    } catch (err: unknown) {
+      const apiError = err as { error?: { error?: string } };
+      this.snackBar.open(
+        apiError?.error?.error ?? 'Error',
+        this.translate.instant('common.close'),
+        { duration: 5000 }
+      );
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
   async deleteRound(): Promise<void> {
     const r = this.round();
     if (!r) return;
@@ -434,23 +566,25 @@ export class SamplingRoundDetailComponent implements OnInit {
     this.router.navigate(['/sampling-rounds']);
   }
 
-  addOrder(): void {
+  async addOrder(): Promise<void> {
     const r = this.round();
     if (!r) return;
 
-    const orderId = prompt(this.translate.instant('samplingRounds.enterOrderId'));
-    if (!orderId) return;
+    const dialogData: RoundAddOrderDialogData = {
+      roundId: r.id,
+      distributorId: r.distributorId,
+      distributorName: r.distributorName,
+    };
 
-    firstValueFrom(this.roundApi.addOrder(r.id, orderId))
-      .then(updated => this.round.set(updated))
-      .catch((err: unknown) => {
-        const apiError = err as { error?: { error?: string } };
-        this.snackBar.open(
-          apiError?.error?.error ?? 'Error',
-          this.translate.instant('common.close'),
-          { duration: 5000 }
-        );
-      });
+    const dialogRef = this.dialog.open(RoundAddOrderDialogComponent, {
+      data: dialogData,
+      width: '560px',
+    });
+
+    const result = await firstValueFrom(dialogRef.afterClosed());
+    if (result) {
+      this.round.set(result);
+    }
   }
 
   async openSamplingForm(order: SamplingRoundOrderDto, event: Event): Promise<void> {

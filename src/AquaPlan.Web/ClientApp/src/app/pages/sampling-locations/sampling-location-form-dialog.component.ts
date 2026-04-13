@@ -76,6 +76,16 @@ export interface SamplingLocationFormDialogData {
           <mat-label>{{ 'samplingLocations.description' | translate }}</mat-label>
           <textarea matInput formControlName="description" rows="3"></textarea>
         </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>{{ 'samplingLocations.address' | translate }}</mat-label>
+          <input matInput formControlName="address">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>{{ 'samplingLocations.accessDescription' | translate }}</mat-label>
+          <textarea matInput formControlName="accessDescription" rows="2"></textarea>
+        </mat-form-field>
       </form>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
@@ -118,6 +128,8 @@ export class SamplingLocationFormDialogComponent implements OnInit {
       latitude: [null as number | null],
       longitude: [null as number | null],
       description: ['', Validators.maxLength(1000)],
+      address: ['', Validators.maxLength(500)],
+      accessDescription: ['', Validators.maxLength(1000)],
       sectorId: ['', Validators.required],
     });
 
@@ -130,11 +142,17 @@ export class SamplingLocationFormDialogComponent implements OnInit {
     await this.store.loadAll();
     this.distributors.set(this.store.distributors());
 
-    const sectorList = await firstValueFrom(this.sectorApi.getAll({ isActive: true }));
-    this.sectors.set(Array.isArray(sectorList) ? sectorList as unknown as SectorDto[] : []);
+    // Listen for distributor changes to filter sectors
+    this.form.get('distributorId')!.valueChanges.subscribe((distributorId: string) => {
+      this.loadSectorsForDistributor(distributorId);
+      // Reset sector selection when distributor changes
+      this.form.get('sectorId')!.setValue('');
+    });
 
     if (this.data.mode === 'edit' && this.data.locationId) {
       const location = await firstValueFrom(this.locationApi.getById(this.data.locationId));
+      // Load sectors for the location's distributor before patching
+      await this.loadSectorsForDistributor(location.distributorId);
       this.form.patchValue({
         name: location.name,
         locationCode: location.locationCode,
@@ -142,9 +160,20 @@ export class SamplingLocationFormDialogComponent implements OnInit {
         latitude: location.latitude,
         longitude: location.longitude,
         description: location.description,
+        address: location.address ?? '',
+        accessDescription: location.accessDescription ?? '',
         sectorId: location.sectorId ?? '',
       });
     }
+  }
+
+  private async loadSectorsForDistributor(distributorId: string): Promise<void> {
+    if (!distributorId) {
+      this.sectors.set([]);
+      return;
+    }
+    const sectorList = await firstValueFrom(this.sectorApi.getAll({ isActive: true, distributorId }));
+    this.sectors.set(Array.isArray(sectorList) ? sectorList as unknown as SectorDto[] : []);
   }
 
   async onSubmit(): Promise<void> {
@@ -161,6 +190,8 @@ export class SamplingLocationFormDialogComponent implements OnInit {
           latitude: val.latitude || null,
           longitude: val.longitude || null,
           description: val.description || null,
+          address: val.address || null,
+          accessDescription: val.accessDescription || null,
           sectorId: val.sectorId || null,
         });
       } else {
@@ -170,6 +201,8 @@ export class SamplingLocationFormDialogComponent implements OnInit {
           latitude: val.latitude || null,
           longitude: val.longitude || null,
           description: val.description || null,
+          address: val.address || null,
+          accessDescription: val.accessDescription || null,
           isActive: true,
           sectorId: val.sectorId || null,
         });

@@ -88,6 +88,28 @@ public class SamplingRoundsController(
         return Ok(result);
     }
 
+    [HttpPost("{id:guid}/validate")]
+    public async Task<ActionResult<SamplingRoundDetailDto>> ValidateRound(
+        Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+        var result = await samplingRoundService.ValidateAsync(id, userId, tenantId, cancellationToken);
+        if (result is null) return NotFound();
+        return Ok(result);
+    }
+
+    [HttpPost("{id:guid}/transmit-all")]
+    public async Task<ActionResult<SamplingRoundDetailDto>> TransmitAll(
+        Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+        var result = await samplingRoundService.TransmitAllAsync(id, userId, tenantId, cancellationToken);
+        if (result is null) return NotFound();
+        return Ok(result);
+    }
+
     [HttpPost("{id:guid}/cancel")]
     public async Task<ActionResult<SamplingRoundDetailDto>> CancelRound(
         Guid id, CancellationToken cancellationToken)

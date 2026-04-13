@@ -22,6 +22,9 @@ export class SectorApiService {
     if (filter?.isActive !== undefined) {
       params = params.set('isActive', filter.isActive.toString());
     }
+    if (filter?.distributorId) {
+      params = params.set('distributorId', filter.distributorId);
+    }
     return this.http.get<SectorListDto[]>(this.baseUrl, { params });
   }
 

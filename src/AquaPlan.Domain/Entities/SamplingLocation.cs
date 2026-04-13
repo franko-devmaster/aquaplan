@@ -8,6 +8,8 @@ public class SamplingLocation
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public string? Description { get; set; }
+    public string? Address { get; set; }
+    public string? AccessDescription { get; set; }
     public bool IsActive { get; set; } = true;
     public Guid DistributorId { get; set; }
     public Distributor? Distributor { get; set; }

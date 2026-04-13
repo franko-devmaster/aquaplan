@@ -354,7 +354,7 @@ export class ResultsComponent implements OnInit {
   }
 
   getStatusLabel(status: OrderStatus): string {
-    return OrderStatusLabels[status] ?? 'orders.status.draft';
+    return OrderStatusLabels[status] ?? 'orders.status.new';
   }
 
   navigateToOrder(orderId: string): void {

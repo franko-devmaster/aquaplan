@@ -16,6 +16,7 @@ internal class UserManagementService(
     public async Task<IList<UserListDto>> GetUsersAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
         var users = await dbContext.Users
+            .Include(u => u.Distributor)
             .Where(u => u.TenantId == tenantId)
             .OrderBy(u => u.LastName)
             .ThenBy(u => u.FirstName)
@@ -26,8 +27,47 @@ internal class UserManagementService(
         {
             var roles = await userManager.GetRolesAsync(user);
             result.Add(new UserListDto(
-                user.Id, user.Email ?? string.Empty, user.FirstName, user.LastName,
-                user.Organization, user.IsActive, user.TenantId, roles, user.CreatedAt));
+                user.Id, user.UserNumber, user.Email ?? string.Empty, user.FirstName, user.LastName,
+                roles.FirstOrDefault(), user.DistributorId, user.Distributor?.Name,
+                user.IsActive, user.TenantId, user.CreatedAt));
+        }
+        return result;
+    }
+
+    public async Task<IList<UserListDto>> GetUsersAsync(Guid tenantId, string? role, Guid? distributorId, bool? isActive, CancellationToken cancellationToken)
+    {
+        var query = dbContext.Users
+            .Include(u => u.Distributor)
+            .Where(u => u.TenantId == tenantId);
+
+        if (isActive.HasValue)
+        {
+            query = query.Where(u => u.IsActive == isActive.Value);
+        }
+
+        if (distributorId.HasValue)
+        {
+            query = query.Where(u => u.DistributorId == distributorId.Value);
+        }
+
+        var users = await query
+            .OrderBy(u => u.LastName)
+            .ThenBy(u => u.FirstName)
+            .ToListAsync(cancellationToken);
+
+        var result = new List<UserListDto>();
+        foreach (var user in users)
+        {
+            var roles = await userManager.GetRolesAsync(user);
+            var userRole = roles.FirstOrDefault();
+            if (role is not null && !string.Equals(userRole, role, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+            result.Add(new UserListDto(
+                user.Id, user.UserNumber, user.Email ?? string.Empty, user.FirstName, user.LastName,
+                userRole, user.DistributorId, user.Distributor?.Name,
+                user.IsActive, user.TenantId, user.CreatedAt));
         }
         return result;
     }
@@ -35,8 +75,7 @@ internal class UserManagementService(
     public async Task<UserDetailDto?> GetUserByIdAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default)
     {
         var user = await dbContext.Users
-            .Include(u => u.UserDistributors)
-                .ThenInclude(ud => ud.Distributor)
+            .Include(u => u.Distributor)
             .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
 
         if (user is null)
@@ -45,15 +84,11 @@ internal class UserManagementService(
         }
 
         var roles = await userManager.GetRolesAsync(user);
-        var distributors = user.UserDistributors
-            .Where(ud => ud.Distributor is not null)
-            .Select(ud => new DistributorSummaryDto(ud.DistributorId, ud.Distributor!.Name))
-            .ToList();
 
         return new UserDetailDto(
-            user.Id, user.Email ?? string.Empty, user.FirstName, user.LastName,
-            user.Organization, user.IsActive, user.TenantId, roles, distributors,
-            user.CreatedAt, user.UpdatedAt);
+            user.Id, user.UserNumber, user.Email ?? string.Empty, user.FirstName, user.LastName,
+            roles.FirstOrDefault(), user.DistributorId, user.Distributor?.Name,
+            user.IsActive, user.TenantId, user.CreatedAt, user.UpdatedAt);
     }
 
     public async Task<UserDetailDto> CreateUserAsync(UserCreateDto dto, string createdBy, CancellationToken cancellationToken = default)
@@ -64,10 +99,17 @@ internal class UserManagementService(
             Email = dto.Email,
             FirstName = dto.FirstName,
             LastName = dto.LastName,
-            Organization = dto.Organization,
+            DistributorId = dto.DistributorId,
             TenantId = dto.TenantId,
             CreatedBy = createdBy,
         };
+
+        // Generate next UserNumber for this tenant
+        var maxNumber = await dbContext.Users
+            .Where(u => u.TenantId == dto.TenantId)
+            .Select(u => (int?)u.UserNumber)
+            .MaxAsync(cancellationToken) ?? 100000;
+        user.UserNumber = maxNumber + 1;
 
         var result = await userManager.CreateAsync(user, dto.Password);
         if (!result.Succeeded)
@@ -76,19 +118,11 @@ internal class UserManagementService(
             throw new InvalidOperationException($"Failed to create user: {errors}");
         }
 
-        if (dto.Roles.Count > 0)
+        if (!string.IsNullOrEmpty(dto.Role))
         {
-            await userManager.AddToRolesAsync(user, dto.Roles);
+            await userManager.AddToRoleAsync(user, dto.Role);
         }
 
-        foreach (var distributorId in dto.DistributorIds)
-        {
-            dbContext.UserDistributors.Add(new UserDistributor
-            {
-                UserId = user.Id,
-                DistributorId = distributorId,
-            });
-        }
         await dbContext.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation("User {Email} created by {CreatedBy}", dto.Email, createdBy);
@@ -99,7 +133,6 @@ internal class UserManagementService(
     public async Task<UserDetailDto?> UpdateUserAsync(string userId, UserUpdateDto dto, string updatedBy, Guid tenantId, CancellationToken cancellationToken = default)
     {
         var user = await dbContext.Users
-            .Include(u => u.UserDistributors)
             .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == tenantId, cancellationToken);
 
         if (user is null)
@@ -109,26 +142,25 @@ internal class UserManagementService(
 
         user.FirstName = dto.FirstName;
         user.LastName = dto.LastName;
-        user.Organization = dto.Organization;
         user.UpdatedAt = DateTime.UtcNow;
         user.UpdatedBy = updatedBy;
 
-        // Update roles
-        var currentRoles = await userManager.GetRolesAsync(user);
-        var rolesToRemove = currentRoles.Except(dto.Roles).ToList();
-        var rolesToAdd = dto.Roles.Except(currentRoles).ToList();
-        if (rolesToRemove.Count > 0) await userManager.RemoveFromRolesAsync(user, rolesToRemove);
-        if (rolesToAdd.Count > 0) await userManager.AddToRolesAsync(user, rolesToAdd);
-
-        // Update distributor assignments
-        dbContext.UserDistributors.RemoveRange(user.UserDistributors);
-        foreach (var distributorId in dto.DistributorIds)
+        // Update email if changed
+        if (!string.IsNullOrEmpty(dto.Email) && !string.Equals(user.Email, dto.Email, StringComparison.OrdinalIgnoreCase))
         {
-            dbContext.UserDistributors.Add(new UserDistributor
-            {
-                UserId = user.Id,
-                DistributorId = distributorId,
-            });
+            await userManager.SetEmailAsync(user, dto.Email);
+            await userManager.SetUserNameAsync(user, dto.Email);
+        }
+
+        // Update role (single role)
+        var currentRoles = await userManager.GetRolesAsync(user);
+        if (currentRoles.Count > 0)
+        {
+            await userManager.RemoveFromRolesAsync(user, currentRoles);
+        }
+        if (!string.IsNullOrEmpty(dto.Role))
+        {
+            await userManager.AddToRoleAsync(user, dto.Role);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

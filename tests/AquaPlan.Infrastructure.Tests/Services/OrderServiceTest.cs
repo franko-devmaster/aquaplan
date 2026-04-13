@@ -95,7 +95,7 @@ public class OrderServiceTest : IDisposable
         result.IsUnplanned.Should().BeFalse();
         result.UnplannedReason.Should().BeNull();
         result.UnplannedReasonDetails.Should().BeNull();
-        result.Status.Should().Be(OrderStatus.Draft);
+        result.Status.Should().Be(OrderStatus.New);
     }
 
     [Theory]
@@ -120,7 +120,7 @@ public class OrderServiceTest : IDisposable
         result.UnplannedReason.Should().Be(reason);
     }
 
-    // ─── AQ-40: Admin order management ─────────────────────────
+    // --- Admin order management ---
 
     [Fact]
     public async Task UpdateOrderAsync_ShouldAllowAdmin_WhenStatusInProgress()
@@ -135,9 +135,9 @@ public class OrderServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task UpdateOrderAsync_ShouldThrowForAdmin_WhenStatusCompleted()
+    public async Task UpdateOrderAsync_ShouldThrowForAdmin_WhenStatusDone()
     {
-        var order = await CreateSeedOrder(OrderStatus.Completed);
+        var order = await CreateSeedOrder(OrderStatus.Done);
         var dto = new OrderUpdateDto(null, null, null, null, "Should fail");
 
         await _sut.Awaiting(s => s.UpdateOrderAsync(order.Id, dto, UserId, TenantId, isAdmin: true))
@@ -153,13 +153,13 @@ public class OrderServiceTest : IDisposable
 
         await _sut.Awaiting(s => s.UpdateOrderAsync(order.Id, dto, UserId, TenantId, isAdmin: false))
             .Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Draft and Assigned*");
+            .WithMessage("*New*");
     }
 
     [Fact]
-    public async Task DeleteOrderAsync_ShouldAllowAdmin_WhenStatusAssigned()
+    public async Task DeleteOrderAsync_ShouldAllowAdmin_WhenStatusNew()
     {
-        var order = await CreateSeedOrder(OrderStatus.Assigned);
+        var order = await CreateSeedOrder(OrderStatus.New);
 
         var deleted = await _sut.DeleteOrderAsync(order.Id, UserId, TenantId, isAdmin: true);
 
@@ -177,9 +177,9 @@ public class OrderServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task DeleteOrderAsync_ShouldThrowForAdmin_WhenStatusSamplingCompleted()
+    public async Task DeleteOrderAsync_ShouldThrowForAdmin_WhenStatusCompleted()
     {
-        var order = await CreateSeedOrder(OrderStatus.SamplingCompleted);
+        var order = await CreateSeedOrder(OrderStatus.Completed);
 
         await _sut.Awaiting(s => s.DeleteOrderAsync(order.Id, UserId, TenantId, isAdmin: true))
             .Should().ThrowAsync<InvalidOperationException>()
@@ -193,18 +193,18 @@ public class OrderServiceTest : IDisposable
 
         await _sut.Awaiting(s => s.DeleteOrderAsync(order.Id, UserId, TenantId, isAdmin: false))
             .Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Draft and Assigned*");
+            .WithMessage("*New*");
     }
 
-    // ─── AQ-29: Advanced filters + CSV export ──────────────────
+    // --- Advanced filters + CSV export ---
 
     [Fact]
     public async Task GetOrdersFilteredAsync_ShouldFilterByDistributor()
     {
         var otherDistId = Guid.NewGuid();
         _dbContext.Distributors.Add(new Distributor { Id = otherDistId, Name = "Other Dist", TenantId = TenantId, IsActive = true });
-        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-DIST-01", Status = OrderStatus.Draft, IsUnplanned = false, CreatedById = UserId, DistributorId = DistributorId, TenantId = TenantId });
-        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-DIST-02", Status = OrderStatus.Draft, IsUnplanned = false, CreatedById = UserId, DistributorId = otherDistId, TenantId = TenantId });
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-DIST-01", Status = OrderStatus.New, IsUnplanned = false, CreatedById = UserId, DistributorId = DistributorId, TenantId = TenantId });
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-DIST-02", Status = OrderStatus.New, IsUnplanned = false, CreatedById = UserId, DistributorId = otherDistId, TenantId = TenantId });
         _dbContext.UserDistributors.Add(new UserDistributor { UserId = UserId, DistributorId = otherDistId });
         await _dbContext.SaveChangesAsync();
 
@@ -217,8 +217,8 @@ public class OrderServiceTest : IDisposable
     [Fact]
     public async Task GetOrdersFilteredAsync_ShouldFilterByDateRange()
     {
-        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-DATE-01", Status = OrderStatus.Draft, IsUnplanned = false, CreatedById = UserId, DistributorId = DistributorId, TenantId = TenantId, PlannedDate = new DateTime(2026, 3, 15) });
-        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-DATE-02", Status = OrderStatus.Draft, IsUnplanned = false, CreatedById = UserId, DistributorId = DistributorId, TenantId = TenantId, PlannedDate = new DateTime(2026, 5, 20) });
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-DATE-01", Status = OrderStatus.New, IsUnplanned = false, CreatedById = UserId, DistributorId = DistributorId, TenantId = TenantId, PlannedDate = new DateTime(2026, 3, 15) });
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-DATE-02", Status = OrderStatus.New, IsUnplanned = false, CreatedById = UserId, DistributorId = DistributorId, TenantId = TenantId, PlannedDate = new DateTime(2026, 5, 20) });
         await _dbContext.SaveChangesAsync();
 
         var filter = new OrderFilterDto(null, null, null, null, DateFrom: new DateTime(2026, 4, 1), DateTo: new DateTime(2026, 6, 1));
@@ -231,7 +231,7 @@ public class OrderServiceTest : IDisposable
     [Fact]
     public async Task ExportOrdersCsvAsync_ShouldReturnCsvBytes()
     {
-        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-CSV-01", Status = OrderStatus.Draft, IsUnplanned = false, CreatedById = UserId, DistributorId = DistributorId, TenantId = TenantId });
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-CSV-01", Status = OrderStatus.New, IsUnplanned = false, CreatedById = UserId, DistributorId = DistributorId, TenantId = TenantId });
         await _dbContext.SaveChangesAsync();
 
         var filter = new OrderFilterDto(null, null, null, null);
@@ -243,7 +243,7 @@ public class OrderServiceTest : IDisposable
         content.Should().Contain("ORD-CSV-01");
     }
 
-    // ─── AQ-39: Delegation ─────────────────────────────────────
+    // --- Delegation ---
 
     [Fact]
     public async Task GetOrdersFilteredAsync_ShouldIncludeDelegatedDistributors()
@@ -259,7 +259,7 @@ public class OrderServiceTest : IDisposable
             IsActive = true,
             TenantId = TenantId,
         });
-        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-DEL-01", Status = OrderStatus.Draft, IsUnplanned = false, CreatedById = UserId, DistributorId = delegatedDistId, TenantId = TenantId });
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-DEL-01", Status = OrderStatus.New, IsUnplanned = false, CreatedById = UserId, DistributorId = delegatedDistId, TenantId = TenantId });
         await _dbContext.SaveChangesAsync();
 
         var filter = new OrderFilterDto(null, null, null, null);

@@ -401,7 +401,7 @@ public class SamplingPlanServiceTest : IDisposable
         return new OrderDetailDto(
             Id: id,
             OrderNumber: orderNumber,
-            Status: OrderStatus.Draft,
+            Status: OrderStatus.New,
             IsUnplanned: false,
             UnplannedReason: null,
             UnplannedReasonDetails: null,

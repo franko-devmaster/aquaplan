@@ -35,6 +35,11 @@ export interface DistributorFormDialogData {
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
+          <mat-label>{{ 'distributors.shortName' | translate }}</mat-label>
+          <input matInput formControlName="shortName">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
           <mat-label>{{ 'distributors.cantonRegion' | translate }}</mat-label>
           <input matInput formControlName="cantonRegion">
         </mat-form-field>
@@ -75,6 +80,7 @@ export class DistributorFormDialogComponent implements OnInit {
   constructor() {
     this.form = this.fb.group({
       name: ['', Validators.required],
+      shortName: [''],
       cantonRegion: [''],
       distributionNetwork: [''],
     });
@@ -85,6 +91,7 @@ export class DistributorFormDialogComponent implements OnInit {
       const distributor = await firstValueFrom(this.api.getById(this.data.distributorId));
       this.form.patchValue({
         name: distributor.name,
+        shortName: distributor.shortName,
         cantonRegion: distributor.cantonRegion,
         distributionNetwork: distributor.distributionNetwork,
       });
@@ -99,6 +106,7 @@ export class DistributorFormDialogComponent implements OnInit {
       const val = this.form.value;
       const dto = {
         name: val.name,
+        shortName: val.shortName || null,
         cantonRegion: val.cantonRegion || null,
         distributionNetwork: val.distributionNetwork || null,
       };

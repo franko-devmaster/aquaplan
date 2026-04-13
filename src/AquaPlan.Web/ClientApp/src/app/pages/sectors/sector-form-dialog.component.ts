@@ -94,9 +94,7 @@ export class SectorFormDialogComponent implements OnInit {
       description: [''],
     });
 
-    if (this.data.mode === 'edit') {
-      this.form.get('distributorId')!.disable();
-    }
+    // distributorId is editable in both create and edit modes
   }
 
   async ngOnInit(): Promise<void> {
@@ -132,6 +130,7 @@ export class SectorFormDialogComponent implements OnInit {
           name: val.name,
           code: val.code,
           description: val.description || null,
+          distributorId: val.distributorId,
         });
       }
       this.dialogRef.close(true);

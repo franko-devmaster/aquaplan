@@ -43,7 +43,7 @@ public class DistributorsControllerTest
     {
         var distributors = new List<DistributorListDto>
         {
-            new(DistributorId, "Eau de Fribourg", "Sarine", "Réseau A", true, DateTime.UtcNow),
+            new(DistributorId, "Eau de Fribourg", null, "Sarine", "Réseau A", true, DateTime.UtcNow),
         };
         _distributorServiceMock
             .Setup(x => x.GetAllAsync(It.IsAny<DistributorFilteringInputDto>(), TenantId, It.IsAny<CancellationToken>()))
@@ -76,7 +76,7 @@ public class DistributorsControllerTest
     [Fact]
     public async Task GetById_ShouldReturnOk_WhenDistributorExists()
     {
-        var distributor = new DistributorDto(DistributorId, "Eau de Fribourg", "Sarine", "Réseau A", true, DateTime.UtcNow);
+        var distributor = new DistributorDto(DistributorId, "Eau de Fribourg", null, "Sarine", "Réseau A", true, DateTime.UtcNow);
         _distributorServiceMock
             .Setup(x => x.GetByIdAsync(DistributorId, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(distributor);
@@ -102,8 +102,8 @@ public class DistributorsControllerTest
     [Fact]
     public async Task Create_ShouldReturnCreatedAtAction()
     {
-        var addDto = new DistributorAddDto("Nouveau Distributeur", "Gruyère", "Réseau B");
-        var created = new DistributorDto(DistributorId, "Nouveau Distributeur", "Gruyère", "Réseau B", true, DateTime.UtcNow);
+        var addDto = new DistributorAddDto("Nouveau Distributeur", null, "Gruyère", "Réseau B");
+        var created = new DistributorDto(DistributorId, "Nouveau Distributeur", null, "Gruyère", "Réseau B", true, DateTime.UtcNow);
         _distributorServiceMock
             .Setup(x => x.CreateAsync(addDto, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(created);
@@ -128,8 +128,8 @@ public class DistributorsControllerTest
     [Fact]
     public async Task Update_ShouldReturnOk_WhenSuccess()
     {
-        var updateDto = new DistributorUpdateDto("Distributeur Modifié", "Sarine", "Réseau A");
-        var updated = new DistributorDto(DistributorId, "Distributeur Modifié", "Sarine", "Réseau A", true, DateTime.UtcNow);
+        var updateDto = new DistributorUpdateDto("Distributeur Modifié", null, "Sarine", "Réseau A");
+        var updated = new DistributorDto(DistributorId, "Distributeur Modifié", null, "Sarine", "Réseau A", true, DateTime.UtcNow);
         _distributorServiceMock
             .Setup(x => x.UpdateAsync(DistributorId, updateDto, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(updated);
@@ -143,7 +143,7 @@ public class DistributorsControllerTest
     [Fact]
     public async Task Update_ShouldReturnNotFound_WhenDistributorDoesNotExist()
     {
-        var updateDto = new DistributorUpdateDto("Distributeur Modifié", "Sarine", "Réseau A");
+        var updateDto = new DistributorUpdateDto("Distributeur Modifié", null, "Sarine", "Réseau A");
         _distributorServiceMock
             .Setup(x => x.UpdateAsync(DistributorId, updateDto, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((DistributorDto?)null);
@@ -166,7 +166,7 @@ public class DistributorsControllerTest
     [Fact]
     public async Task ToggleStatus_ShouldReturnOk_WhenSuccess()
     {
-        var toggled = new DistributorDto(DistributorId, "Eau de Fribourg", "Sarine", "Réseau A", false, DateTime.UtcNow);
+        var toggled = new DistributorDto(DistributorId, "Eau de Fribourg", null, "Sarine", "Réseau A", false, DateTime.UtcNow);
         _distributorServiceMock
             .Setup(x => x.ToggleStatusAsync(DistributorId, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(toggled);

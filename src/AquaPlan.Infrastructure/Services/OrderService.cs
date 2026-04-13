@@ -166,13 +166,7 @@ internal class OrderService(
             throw new InvalidOperationException("An unplanned order must have an UnplannedReason.");
         }
 
-        var initialStatus = dto.IsUnplanned ? OrderStatus.InProgress : OrderStatus.Draft;
-
-        // If a préleveur is assigned at creation and it's not unplanned, auto-transition to Assigned
-        if (!dto.IsUnplanned && !string.IsNullOrEmpty(dto.PreleveurId))
-        {
-            initialStatus = OrderStatus.Assigned;
-        }
+        var initialStatus = dto.IsUnplanned ? OrderStatus.InProgress : OrderStatus.New;
 
         // Check if the order's distributor is a delegated one (not user's own)
         var userOwnDistributorIds = await dbContext.UserDistributors
@@ -236,8 +230,8 @@ internal class OrderService(
             return null;
         }
 
-        // Business rule: admin can edit non-terminal orders; regular users only Draft/Assigned
-        var terminalStatuses = new[] { OrderStatus.Completed, OrderStatus.Cancelled };
+        // Business rule: admin can edit non-terminal orders; regular users only New
+        var terminalStatuses = new[] { OrderStatus.Done, OrderStatus.Cancelled };
         if (isAdmin)
         {
             if (terminalStatuses.Contains(order.Status))
@@ -245,9 +239,9 @@ internal class OrderService(
                 throw new InvalidOperationException($"Cannot modify order in terminal status {order.Status}.");
             }
         }
-        else if (order.Status != OrderStatus.Draft && order.Status != OrderStatus.Assigned)
+        else if (order.Status != OrderStatus.New)
         {
-            throw new InvalidOperationException($"Cannot modify order in status {order.Status}. Only Draft and Assigned orders can be modified.");
+            throw new InvalidOperationException($"Cannot modify order in status {order.Status}. Only New orders can be modified.");
         }
 
         order.SamplingLocationId = dto.SamplingLocationId;
@@ -262,18 +256,6 @@ internal class OrderService(
         if (dto.PreleveurId != order.PreleveurId)
         {
             order.PreleveurId = dto.PreleveurId;
-            if (!string.IsNullOrEmpty(dto.PreleveurId) && order.Status == OrderStatus.Draft)
-            {
-                order.Status = OrderStatus.Assigned;
-                order.StatusChangedAt = DateTime.UtcNow;
-                order.StatusChangedBy = updatedBy;
-            }
-            else if (string.IsNullOrEmpty(dto.PreleveurId) && order.Status == OrderStatus.Assigned)
-            {
-                order.Status = OrderStatus.Draft;
-                order.StatusChangedAt = DateTime.UtcNow;
-                order.StatusChangedBy = updatedBy;
-            }
         }
 
         // Replace analysis profiles
@@ -307,17 +289,17 @@ internal class OrderService(
             return false;
         }
 
-        // Business rule: admin can delete non-treated orders (< SamplingCompleted); regular users only Draft/Assigned
+        // Business rule: admin can delete non-completed orders (< Completed); regular users only New
         if (isAdmin)
         {
-            if (order.Status >= OrderStatus.SamplingCompleted)
+            if (order.Status >= OrderStatus.Completed)
             {
                 throw new InvalidOperationException($"Cannot delete order in status {order.Status}. Admin can only delete orders before sampling is completed.");
             }
         }
-        else if (order.Status != OrderStatus.Draft && order.Status != OrderStatus.Assigned)
+        else if (order.Status != OrderStatus.New)
         {
-            throw new InvalidOperationException($"Cannot delete order in status {order.Status}. Only Draft and Assigned orders can be deleted.");
+            throw new InvalidOperationException($"Cannot delete order in status {order.Status}. Only New orders can be deleted.");
         }
 
         dbContext.Orders.Remove(order);
@@ -341,14 +323,6 @@ internal class OrderService(
         order.PreleveurId = dto.PreleveurId;
         order.UpdatedAt = DateTime.UtcNow;
         order.UpdatedBy = updatedBy;
-
-        // Auto-transition Draft → Assigned when préleveur is assigned
-        if (order.Status == OrderStatus.Draft && !string.IsNullOrEmpty(dto.PreleveurId))
-        {
-            order.Status = OrderStatus.Assigned;
-            order.StatusChangedAt = DateTime.UtcNow;
-            order.StatusChangedBy = updatedBy;
-        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -482,6 +456,7 @@ internal class OrderService(
                 s.Preleveur is not null ? s.Preleveur.FirstName + " " + s.Preleveur.LastName : null,
                 s.SamplingDateTime, s.Temperature, s.Weather,
                 s.LocationLat, s.LocationLng, s.Notes,
+                s.HasWaterSoftener, s.IsChlorinated,
                 s.SampleBarcode, s.BarcodeScannedAt,
                 s.IsValidated, s.ValidatedAt, s.CreatedAt);
         }

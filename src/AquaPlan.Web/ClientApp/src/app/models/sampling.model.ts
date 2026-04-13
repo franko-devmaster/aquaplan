@@ -13,6 +13,8 @@ export interface SamplingDto {
   locationLat: number | null;
   locationLng: number | null;
   notes: string | null;
+  hasWaterSoftener: boolean | null;
+  isChlorinated: boolean;
   isValidated: boolean;
   validatedAt: string | null;
   createdAt: string;
@@ -26,4 +28,6 @@ export interface SamplingCreateDto {
   locationLat: number | null;
   locationLng: number | null;
   notes: string | null;
+  hasWaterSoftener: boolean | null;
+  isChlorinated: boolean;
 }

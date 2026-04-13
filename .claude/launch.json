@@ -2,9 +2,17 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "api",
+      "runtimeExecutable": "/Users/francois/.dotnet/dotnet",
+      "runtimeArgs": ["run", "--project", "/Users/francois/Documents/Claude/Projects/AquaPlan/src/AquaPlan.Api/AquaPlan.Api.csproj", "--urls", "http://localhost:5002"],
+      "port": 5002,
+      "autoPort": false,
+      "cwd": "/Users/francois/Documents/Claude/Projects/AquaPlan"
+    },
+    {
       "name": "angular",
       "runtimeExecutable": "/usr/local/bin/node",
-      "runtimeArgs": ["/Users/francois/Documents/Claude/Projects/AquaPlan/src/AquaPlan.Web/ClientApp/node_modules/@angular/cli/bin/ng.js", "serve"],
+      "runtimeArgs": ["/Users/francois/Documents/Claude/Projects/AquaPlan/src/AquaPlan.Web/ClientApp/node_modules/@angular/cli/bin/ng.js", "serve", "--proxy-config", "proxy.conf.json"],
       "port": 4200,
       "cwd": "/Users/francois/Documents/Claude/Projects/AquaPlan/src/AquaPlan.Web/ClientApp"
     }

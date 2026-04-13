@@ -24,6 +24,9 @@ export class SamplingRoundApiService {
         params = params.append('statuses', status.toString());
       }
     }
+    if (filter.distributorId) {
+      params = params.set('distributorId', filter.distributorId);
+    }
     if (filter.search) {
       params = params.set('search', filter.search);
     }
@@ -60,6 +63,14 @@ export class SamplingRoundApiService {
 
   assign(id: string, dto: SamplingRoundAssignDto): Observable<SamplingRoundDetailDto> {
     return this.http.post<SamplingRoundDetailDto>(`${this.baseUrl}/${id}/assign`, dto);
+  }
+
+  validate(id: string): Observable<SamplingRoundDetailDto> {
+    return this.http.post<SamplingRoundDetailDto>(`${this.baseUrl}/${id}/validate`, {});
+  }
+
+  transmitAll(id: string): Observable<SamplingRoundDetailDto> {
+    return this.http.post<SamplingRoundDetailDto>(`${this.baseUrl}/${id}/transmit-all`, {});
   }
 
   cancel(id: string): Observable<SamplingRoundDetailDto> {

@@ -15,6 +15,7 @@ import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
 import { SamplingLocationDatastore, DistributorOption } from '../../datastore/sampling-location.datastore';
 import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
+import { AuthService } from '../../services/auth.service';
 import { SamplingLocationDto, SamplingLocationFilteringInputDto } from '../../models/sampling-location.model';
 import { SamplingLocationFormDialogComponent } from './sampling-location-form-dialog.component';
 
@@ -36,10 +37,12 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
           <mat-icon>picture_as_pdf</mat-icon>
           {{ 'samplingLocations.exportPdf' | translate }}
         </button>
-        <button mat-raised-button color="primary" (click)="openCreateDialog()">
-          <mat-icon>add</mat-icon>
-          {{ 'samplingLocations.createLocation' | translate }}
-        </button>
+        @if (isAdmin()) {
+          <button mat-raised-button color="primary" (click)="openCreateDialog()">
+            <mat-icon>add</mat-icon>
+            {{ 'samplingLocations.createLocation' | translate }}
+          </button>
+        }
       </div>
     </div>
 
@@ -120,7 +123,7 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
 
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
           <tr mat-row *matRowDef="let row; columns: displayedColumns;"
-              class="clickable-row" [class.inactive-row]="!row.isActive"
+              [class.clickable-row]="isAdmin()" [class.inactive-row]="!row.isActive"
               (click)="openEditDialog(row)"></tr>
         </table>
       </div>
@@ -156,6 +159,7 @@ export class SamplingLocationListComponent implements OnInit {
   readonly store = inject(SamplingLocationDatastore);
   private readonly dialog = inject(MatDialog);
   private readonly apiService = inject(SamplingLocationApiService);
+  private readonly authService = inject(AuthService);
 
   readonly displayedColumns = ['locationCode', 'name', 'distributor', 'sector', 'coordinates', 'status'];
 
@@ -167,6 +171,11 @@ export class SamplingLocationListComponent implements OnInit {
 
   readonly filteredLocations = signal<SamplingLocationDto[]>([]);
   readonly totalFilteredCount = signal(0);
+
+  isAdmin(): boolean {
+    const user = this.authService.currentUser();
+    return user?.roles.includes('Administrator') ?? false;
+  }
 
   ngOnInit(): void {
     this.store.loadAll().then(() => this.applyFilters());
@@ -222,6 +231,7 @@ export class SamplingLocationListComponent implements OnInit {
   }
 
   openEditDialog(location: SamplingLocationDto): void {
+    if (!this.isAdmin()) return;
     const dialogRef = this.dialog.open(SamplingLocationFormDialogComponent, {
       width: '550px',
       panelClass: 'responsive-dialog',

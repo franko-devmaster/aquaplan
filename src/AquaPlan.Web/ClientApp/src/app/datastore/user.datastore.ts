@@ -10,10 +10,10 @@ export class UserDatastore {
   readonly users = signal<UserListDto[]>([]);
   readonly loading = signal(false);
 
-  async loadAll(): Promise<void> {
+  async loadAll(filter?: { role?: string; distributorId?: string; isActive?: boolean }): Promise<void> {
     this.loading.set(true);
     try {
-      const data = await firstValueFrom(this.api.getAll());
+      const data = await firstValueFrom(this.api.getAll(filter));
       this.users.set(data);
     } finally {
       this.loading.set(false);
