@@ -9,4 +9,4 @@ public record SamplingLocationUpdateDto(
     double? Longitude,
     [StringLength(1000)] string? Description,
     bool IsActive,
-    Guid? SectorId);
+    [Required] Guid SectorId);

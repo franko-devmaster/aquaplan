@@ -9,4 +9,4 @@ public record SamplingLocationCreateDto(
     double? Longitude,
     [StringLength(1000)] string? Description,
     [Required] Guid DistributorId,
-    Guid? SectorId);
+    [Required] Guid SectorId);

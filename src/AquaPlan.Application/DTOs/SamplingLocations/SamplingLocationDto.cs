@@ -10,6 +10,6 @@ public record SamplingLocationDto(
     bool IsActive,
     Guid DistributorId,
     string? DistributorName,
-    Guid? SectorId,
+    Guid SectorId,
     string? SectorName,
     DateTime CreatedAt);

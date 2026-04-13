@@ -20,6 +20,6 @@ public class SamplingLocationConfiguration : IEntityTypeConfiguration<SamplingLo
         builder.HasOne(s => s.Sector)
             .WithMany(s => s.SamplingLocations)
             .HasForeignKey(s => s.SectorId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

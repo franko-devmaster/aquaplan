@@ -54,7 +54,6 @@ export interface SamplingLocationFormDialogData {
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>{{ 'samplingLocations.sector' | translate }}</mat-label>
           <mat-select formControlName="sectorId">
-            <mat-option [value]="''">{{ 'samplingLocations.noSector' | translate }}</mat-option>
             @for (sector of sectors(); track sector.id) {
               <mat-option [value]="sector.id">{{ sector.name }}</mat-option>
             }
@@ -119,7 +118,7 @@ export class SamplingLocationFormDialogComponent implements OnInit {
       latitude: [null as number | null],
       longitude: [null as number | null],
       description: ['', Validators.maxLength(1000)],
-      sectorId: [''],
+      sectorId: ['', Validators.required],
     });
 
     if (this.data.mode === 'edit') {

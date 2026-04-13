@@ -19,6 +19,7 @@ public class SamplingLocationsControllerTest
     private static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly Guid LocationId = Guid.Parse("00000000-0000-0000-0000-000000000030");
     private static readonly Guid DistributorId = Guid.Parse("00000000-0000-0000-0000-000000000020");
+    private static readonly Guid SectorId = Guid.Parse("00000000-0000-0000-0000-000000000040");
     private const string UserId = "user-1";
 
     public SamplingLocationsControllerTest()
@@ -51,7 +52,7 @@ public class SamplingLocationsControllerTest
         return new SamplingLocationDto(
             id ?? LocationId, name, code, 46.8, 7.15,
             "A description", isActive, DistributorId, "Distributor A",
-            null, null, DateTime.UtcNow);
+            SectorId, "Secteur Nord", DateTime.UtcNow);
     }
 
     #region GetForCurrentUser
@@ -180,7 +181,7 @@ public class SamplingLocationsControllerTest
     [Fact]
     public async Task Create_ShouldReturnCreatedAtAction_WhenCodeIsUnique()
     {
-        var createDto = new SamplingLocationCreateDto("New Source", "LOC-003", 46.85, 7.1, "New location", DistributorId, null);
+        var createDto = new SamplingLocationCreateDto("New Source", "LOC-003", 46.85, 7.1, "New location", DistributorId, SectorId);
         var created = CreateLocationDto(name: "New Source", code: "LOC-003");
         _samplingLocationServiceMock
             .Setup(x => x.IsLocationCodeUniqueAsync("LOC-003", DistributorId, null, TenantId, It.IsAny<CancellationToken>()))
@@ -199,7 +200,7 @@ public class SamplingLocationsControllerTest
     [Fact]
     public async Task Create_ShouldReturnConflict_WhenCodeIsNotUnique()
     {
-        var createDto = new SamplingLocationCreateDto("New Source", "LOC-001", 46.85, 7.1, "New location", DistributorId, null);
+        var createDto = new SamplingLocationCreateDto("New Source", "LOC-001", 46.85, 7.1, "New location", DistributorId, SectorId);
         _samplingLocationServiceMock
             .Setup(x => x.IsLocationCodeUniqueAsync("LOC-001", DistributorId, null, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
@@ -234,7 +235,7 @@ public class SamplingLocationsControllerTest
     [Fact]
     public async Task Update_ShouldReturnOk_WhenSuccess()
     {
-        var updateDto = new SamplingLocationUpdateDto("Updated Source", "LOC-001", 46.8, 7.15, "Updated description", true, null);
+        var updateDto = new SamplingLocationUpdateDto("Updated Source", "LOC-001", 46.8, 7.15, "Updated description", true, SectorId);
         var updated = CreateLocationDto(name: "Updated Source");
         _samplingLocationServiceMock
             .Setup(x => x.UpdateAsync(LocationId, updateDto, TenantId, It.IsAny<CancellationToken>()))
@@ -249,7 +250,7 @@ public class SamplingLocationsControllerTest
     [Fact]
     public async Task Update_ShouldReturnNotFound_WhenLocationDoesNotExist()
     {
-        var updateDto = new SamplingLocationUpdateDto("Updated Source", "LOC-001", 46.8, 7.15, "Updated description", true, null);
+        var updateDto = new SamplingLocationUpdateDto("Updated Source", "LOC-001", 46.8, 7.15, "Updated description", true, SectorId);
         _samplingLocationServiceMock
             .Setup(x => x.UpdateAsync(LocationId, updateDto, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((SamplingLocationDto?)null);
