@@ -8,6 +8,8 @@ export interface SamplingLocationDto {
   isActive: boolean;
   distributorId: string;
   distributorName: string | null;
+  sectorId: string | null;
+  sectorName: string | null;
   createdAt: string;
 }
 
@@ -18,6 +20,7 @@ export interface SamplingLocationCreateDto {
   longitude: number | null;
   description: string | null;
   distributorId: string;
+  sectorId: string | null;
 }
 
 export interface SamplingLocationUpdateDto {
@@ -27,6 +30,7 @@ export interface SamplingLocationUpdateDto {
   longitude: number | null;
   description: string | null;
   isActive: boolean;
+  sectorId: string | null;
 }
 
 export interface SamplingLocationListDto {
@@ -38,6 +42,7 @@ export interface SamplingLocationListDto {
 
 export interface SamplingLocationFilteringInputDto {
   distributorId?: string;
+  sectorId?: string;
   search?: string;
   isActive?: boolean;
   page?: number;

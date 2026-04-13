@@ -9,6 +9,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TranslateModule } from '@ngx-translate/core';
 import { SamplingLocationDatastore, DistributorOption } from '../../datastore/sampling-location.datastore';
 import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
+import { SectorApiService } from '../../services/sector-api.service';
+import { SectorDto } from '../../models/sector.model';
 import { firstValueFrom } from 'rxjs';
 
 export interface SamplingLocationFormDialogData {
@@ -45,6 +47,16 @@ export interface SamplingLocationFormDialogData {
           <mat-select formControlName="distributorId">
             @for (dist of distributors(); track dist.id) {
               <mat-option [value]="dist.id">{{ dist.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>{{ 'samplingLocations.sector' | translate }}</mat-label>
+          <mat-select formControlName="sectorId">
+            <mat-option [value]="''">{{ 'samplingLocations.noSector' | translate }}</mat-option>
+            @for (sector of sectors(); track sector.id) {
+              <mat-option [value]="sector.id">{{ sector.name }}</mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -92,8 +104,10 @@ export class SamplingLocationFormDialogComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly store = inject(SamplingLocationDatastore);
   private readonly locationApi = inject(SamplingLocationApiService);
+  private readonly sectorApi = inject(SectorApiService);
 
   readonly distributors = signal<DistributorOption[]>([]);
+  readonly sectors = signal<SectorDto[]>([]);
   readonly saving = signal(false);
   readonly form: FormGroup;
 
@@ -105,6 +119,7 @@ export class SamplingLocationFormDialogComponent implements OnInit {
       latitude: [null as number | null],
       longitude: [null as number | null],
       description: ['', Validators.maxLength(1000)],
+      sectorId: [''],
     });
 
     if (this.data.mode === 'edit') {
@@ -116,6 +131,9 @@ export class SamplingLocationFormDialogComponent implements OnInit {
     await this.store.loadAll();
     this.distributors.set(this.store.distributors());
 
+    const sectorList = await firstValueFrom(this.sectorApi.getAll({ isActive: true }));
+    this.sectors.set(Array.isArray(sectorList) ? sectorList as unknown as SectorDto[] : []);
+
     if (this.data.mode === 'edit' && this.data.locationId) {
       const location = await firstValueFrom(this.locationApi.getById(this.data.locationId));
       this.form.patchValue({
@@ -125,6 +143,7 @@ export class SamplingLocationFormDialogComponent implements OnInit {
         latitude: location.latitude,
         longitude: location.longitude,
         description: location.description,
+        sectorId: location.sectorId ?? '',
       });
     }
   }
@@ -143,6 +162,7 @@ export class SamplingLocationFormDialogComponent implements OnInit {
           latitude: val.latitude || null,
           longitude: val.longitude || null,
           description: val.description || null,
+          sectorId: val.sectorId || null,
         });
       } else {
         await this.store.update(this.data.locationId!, {
@@ -152,6 +172,7 @@ export class SamplingLocationFormDialogComponent implements OnInit {
           longitude: val.longitude || null,
           description: val.description || null,
           isActive: true,
+          sectorId: val.sectorId || null,
         });
       }
       this.dialogRef.close(true);

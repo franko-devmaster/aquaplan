@@ -21,7 +21,12 @@
     "delegations": "Délégations",
     "samplingPlans": "Plans de prélèvement",
     "samplingRounds": "Tournées",
-    "settings": "Paramètres"
+    "sectors": "Secteurs",
+    "settings": "Paramètres",
+    "groupPrincipal": "Principal",
+    "groupReseau": "Réseau",
+    "groupCatalog": "Catalogue d'analyses",
+    "groupAdmin": "Administration"
   },
   "auth": {
     "login": "Se connecter",
@@ -196,7 +201,10 @@
     "allStatuses": "Tous les statuts",
     "searchPlaceholder": "Rechercher par nom ou code",
     "coordinates": "Coordonnées",
-    "exportPdf": "Exporter PDF"
+    "exportPdf": "Exporter PDF",
+    "sector": "Secteur",
+    "allSectors": "Tous les secteurs",
+    "noSector": "Aucun"
   },
   "changeRequests": {
     "title": "Validation des demandes de modification",
@@ -325,6 +333,59 @@
     "assigned": "Préleveur assigné avec succès",
     "locationReplaced": "Lieu de prélèvement remplacé",
     "editComment": "Commentaire du préleveur :"
+  },
+  "sectors": {
+    "title": "Gestion des secteurs",
+    "name": "Nom",
+    "code": "Code",
+    "description": "Description",
+    "status": "Statut",
+    "addSector": "Créer un secteur",
+    "editSector": "Modifier le secteur",
+    "active": "Actif",
+    "inactive": "Inactif",
+    "filterByName": "Filtrer par nom",
+    "allStatuses": "Tous les statuts",
+    "confirmToggle": "Êtes-vous sûr de vouloir changer le statut de ce secteur ?",
+    "noSectors": "Aucun secteur"
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "ordersInProgress": "Mandats en cours",
+    "plannedRounds": "Tournées planifiées",
+    "nonConformities": "Non-conformités",
+    "completedOrders": "Mandats terminés",
+    "upcomingRounds": "Prochaines tournées",
+    "noUpcomingRounds": "Aucune tournée planifiée",
+    "recentResults": "Résultats récents (7 jours)",
+    "resultsPlaceholder": "Les résultats LIMS seront disponibles après l'intégration Limsophy (v0.8)",
+    "pendingActions": "Actions en attente",
+    "ldpToValidate": "LDP à valider",
+    "ordersWithComments": "Mandats avec commentaires",
+    "viewAll": "Voir tout"
+  },
+  "results": {
+    "title": "Résultats d'analyses",
+    "byRound": "Par tournée",
+    "byLocation": "Par lieu de prélèvement",
+    "selectRound": "Sélectionner une tournée",
+    "selectLocation": "Sélectionner un lieu de prélèvement",
+    "selectRoundPrompt": "Sélectionnez une tournée pour afficher les résultats",
+    "selectLocationPrompt": "Sélectionnez un lieu de prélèvement pour consulter l'historique",
+    "orderNumber": "N° mandat",
+    "samplingLocation": "Lieu de prélèvement",
+    "date": "Date",
+    "status": "Statut",
+    "preleveur": "Préleveur",
+    "verdict": "Verdict",
+    "orders": "mandats",
+    "orderHistory": "Historique des mandats",
+    "noOrdersInRound": "Aucun mandat dans cette tournée",
+    "noOrdersForLocation": "Aucun mandat pour ce lieu de prélèvement",
+    "awaitingLims": "En attente LIMS",
+    "limsPlaceholder": "Les colonnes de résultats d'analyse (paramètres, conformité) seront disponibles après l'intégration Limsophy (v0.8). Les mandats ci-dessus sont prêts à recevoir les résultats.",
+    "conforme": "CONFORME",
+    "nonConforme": "NON CONFORME"
   },
   "sampling": {
     "title": "Saisie terrain",

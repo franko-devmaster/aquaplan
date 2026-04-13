@@ -19,6 +19,7 @@ internal class SamplingLocationService(
         return await dbContext.SamplingLocations
             .Where(sl => sl.Distributor!.TenantId == tenantId)
             .Include(sl => sl.Distributor)
+            .Include(sl => sl.Sector)
             .OrderBy(sl => sl.Name)
             .Select(sl => MapToDto(sl))
             .ToListAsync(cancellationToken);
@@ -29,11 +30,17 @@ internal class SamplingLocationService(
         var query = dbContext.SamplingLocations
             .Where(sl => sl.Distributor!.TenantId == tenantId)
             .Include(sl => sl.Distributor)
+            .Include(sl => sl.Sector)
             .AsQueryable();
 
         if (filter.DistributorId.HasValue)
         {
             query = query.Where(sl => sl.DistributorId == filter.DistributorId.Value);
+        }
+
+        if (filter.SectorId.HasValue)
+        {
+            query = query.Where(sl => sl.SectorId == filter.SectorId.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
@@ -66,6 +73,7 @@ internal class SamplingLocationService(
         return await dbContext.SamplingLocations
             .Where(sl => sl.DistributorId == distributorId && sl.Distributor!.TenantId == tenantId)
             .Include(sl => sl.Distributor)
+            .Include(sl => sl.Sector)
             .OrderBy(sl => sl.Name)
             .Select(sl => MapToDto(sl))
             .ToListAsync(cancellationToken);
@@ -81,6 +89,7 @@ internal class SamplingLocationService(
         return await dbContext.SamplingLocations
             .Where(sl => userDistributorIds.Contains(sl.DistributorId) && sl.Distributor!.TenantId == tenantId)
             .Include(sl => sl.Distributor)
+            .Include(sl => sl.Sector)
             .OrderBy(sl => sl.Name)
             .Select(sl => MapToDto(sl))
             .ToListAsync(cancellationToken);
@@ -91,6 +100,7 @@ internal class SamplingLocationService(
         return await dbContext.SamplingLocations
             .Where(sl => sl.Id == id && sl.Distributor!.TenantId == tenantId)
             .Include(sl => sl.Distributor)
+            .Include(sl => sl.Sector)
             .Select(sl => MapToDto(sl))
             .FirstOrDefaultAsync(cancellationToken);
     }
@@ -112,6 +122,7 @@ internal class SamplingLocationService(
             Longitude = dto.Longitude,
             Description = dto.Description,
             DistributorId = dto.DistributorId,
+            SectorId = dto.SectorId,
         };
 
         dbContext.SamplingLocations.Add(location);
@@ -145,6 +156,7 @@ internal class SamplingLocationService(
         location.Longitude = dto.Longitude;
         location.Description = dto.Description;
         location.IsActive = dto.IsActive;
+        location.SectorId = dto.SectorId;
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -312,6 +324,8 @@ internal class SamplingLocationService(
             sl.Id, sl.Name, sl.LocationCode, sl.Latitude, sl.Longitude,
             sl.Description, sl.IsActive, sl.DistributorId,
             sl.Distributor != null ? sl.Distributor.Name : null,
+            sl.SectorId,
+            sl.Sector != null ? sl.Sector.Name : null,
             sl.CreatedAt);
     }
 }

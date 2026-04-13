@@ -93,6 +93,11 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
             <td mat-cell *matCellDef="let loc" [attr.data-label]="'samplingLocations.distributor' | translate">{{ loc.distributorName }}</td>
           </ng-container>
 
+          <ng-container matColumnDef="sector">
+            <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.sector' | translate }}</th>
+            <td mat-cell *matCellDef="let loc" [attr.data-label]="'samplingLocations.sector' | translate">{{ loc.sectorName ?? '—' }}</td>
+          </ng-container>
+
           <ng-container matColumnDef="coordinates">
             <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.latitude' | translate }} / {{ 'samplingLocations.longitude' | translate }}</th>
             <td mat-cell *matCellDef="let loc" [attr.data-label]="'samplingLocations.coordinates' | translate">
@@ -152,7 +157,7 @@ export class SamplingLocationListComponent implements OnInit {
   private readonly dialog = inject(MatDialog);
   private readonly apiService = inject(SamplingLocationApiService);
 
-  readonly displayedColumns = ['locationCode', 'name', 'distributor', 'coordinates', 'status'];
+  readonly displayedColumns = ['locationCode', 'name', 'distributor', 'sector', 'coordinates', 'status'];
 
   searchText = '';
   selectedDistributorId = '';

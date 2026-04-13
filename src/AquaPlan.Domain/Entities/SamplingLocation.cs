@@ -11,5 +11,7 @@ public class SamplingLocation
     public bool IsActive { get; set; } = true;
     public Guid DistributorId { get; set; }
     public Distributor? Distributor { get; set; }
+    public Guid? SectorId { get; set; }
+    public Sector? Sector { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

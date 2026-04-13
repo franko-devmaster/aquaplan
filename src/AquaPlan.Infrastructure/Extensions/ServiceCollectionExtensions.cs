@@ -37,6 +37,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOrderStatusService, OrderStatusService>();
         services.AddScoped<ISamplingLocationService, SamplingLocationService>();
         services.AddScoped<IDistributorService, DistributorService>();
+        services.AddScoped<ISectorService, SectorService>();
         services.AddScoped<IOidcUserService, OidcUserService>();
         services.AddScoped<IAnalysisProfileService, AnalysisProfileService>();
         services.AddScoped<IAnalysisProgramService, AnalysisProgramService>();

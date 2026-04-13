@@ -6,6 +6,7 @@ import { OrderListComponent } from './pages/orders/order-list.component';
 import { OrderDetailComponent } from './pages/orders/order-detail.component';
 import { SamplingLocationListComponent } from './pages/sampling-locations/sampling-location-list.component';
 import { DistributorListComponent } from './pages/distributors/distributor-list.component';
+import { SectorListComponent } from './pages/sectors/sector-list.component';
 import { UserListComponent } from './pages/admin/users/user-list.component';
 import { RoleListComponent } from './pages/admin/roles/role-list.component';
 import { OrderStatusComponent } from './pages/admin/order-status/order-status.component';
@@ -18,6 +19,7 @@ import { SamplingPlanListComponent } from './pages/sampling-plans/sampling-plan-
 import { SamplingPlanDetailComponent } from './pages/sampling-plans/sampling-plan-detail.component';
 import { SamplingRoundListComponent } from './pages/sampling-rounds/sampling-round-list.component';
 import { SamplingRoundDetailComponent } from './pages/sampling-rounds/sampling-round-detail.component';
+import { ResultsComponent } from './pages/results/results.component';
 import { authorizeGuard } from './guards/authorize.guard';
 import { featureGuard } from './guards/feature.guard';
 
@@ -36,8 +38,10 @@ export const routes: Routes = [
       { path: 'sampling-plans/:id', component: SamplingPlanDetailComponent },
       { path: 'sampling-rounds', component: SamplingRoundListComponent },
       { path: 'sampling-rounds/:id', component: SamplingRoundDetailComponent },
+      { path: 'results', component: ResultsComponent },
       { path: 'sampling-locations', component: SamplingLocationListComponent },
       { path: 'distributors', component: DistributorListComponent, canActivate: [featureGuard(['Administrator'])] },
+      { path: 'sectors', component: SectorListComponent, canActivate: [featureGuard(['Administrator'])] },
       { path: 'analysis-profiles', component: AnalysisProfilesComponent },
       { path: 'analysis-programs', component: AnalysisProgramsComponent },
       { path: 'admin/users', component: UserListComponent, canActivate: [featureGuard(['Administrator'])] },
