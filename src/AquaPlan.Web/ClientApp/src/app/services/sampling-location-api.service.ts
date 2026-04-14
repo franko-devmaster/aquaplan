@@ -62,6 +62,14 @@ export class SamplingLocationApiService {
     return this.http.put<ToggleStatusResultDto>(`${this.baseUrl}/${id}/toggle-status`, {});
   }
 
+  validate(id: string): Observable<SamplingLocationDto> {
+    return this.http.put<SamplingLocationDto>(`${this.baseUrl}/${id}/validate`, {});
+  }
+
+  getUnvalidated(): Observable<SamplingLocationDto[]> {
+    return this.http.get<SamplingLocationDto[]>(`${this.baseUrl}/unvalidated`);
+  }
+
   checkCodeUnique(locationCode: string, distributorId: string, excludeId?: string): Observable<boolean> {
     let params = new HttpParams()
       .set('locationCode', locationCode)

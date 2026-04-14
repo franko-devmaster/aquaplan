@@ -189,7 +189,13 @@
     "confirmReject": "Rejection reason",
     "rejectCommentRequired": "A comment is required to reject a request",
     "noRequestsPending": "No pending requests",
-    "submitRequest": "Submit request"
+    "submitRequest": "Submit request",
+    "tabLocations": "Locations to validate",
+    "tabRequests": "Change requests",
+    "noLocationsPending": "No locations pending validation",
+    "validate": "Validate",
+    "viewAndValidate": "View and validate",
+    "locationValidated": "Sampling location validated successfully"
   },
   "samplingLocations": {
     "title": "Sampling locations",

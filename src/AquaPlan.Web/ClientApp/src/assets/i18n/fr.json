@@ -236,7 +236,13 @@
     "confirmReject": "Motif du rejet",
     "rejectCommentRequired": "Un commentaire est requis pour rejeter une demande",
     "noRequestsPending": "Aucune demande en attente",
-    "submitRequest": "Soumettre la demande"
+    "submitRequest": "Soumettre la demande",
+    "tabLocations": "Lieux de prélèvement à valider",
+    "tabRequests": "Demandes de modification",
+    "noLocationsPending": "Aucun lieu de prélèvement en attente de validation",
+    "validate": "Valider",
+    "viewAndValidate": "Voir et valider",
+    "locationValidated": "Lieu de prélèvement validé avec succès"
   },
   "analysisCatalog": {
     "categories": {

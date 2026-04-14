@@ -112,12 +112,13 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.status' | translate }}</th>
             <td mat-cell *matCellDef="let loc" [attr.data-label]="'samplingLocations.status' | translate">
-              <span class="status-badge" [ngClass]="loc.isActive ? 'status-active' : 'status-inactive'">
-                {{ (loc.isActive ? 'common.active' : 'common.inactive') | translate }}
-              </span>
               @if (!loc.isValidated) {
-                <span class="status-badge status-to-validate" style="margin-left: 4px;">
+                <span class="status-badge status-to-validate">
                   {{ 'samplingLocations.toValidate' | translate }}
+                </span>
+              } @else {
+                <span class="status-badge" [ngClass]="loc.isActive ? 'status-active' : 'status-inactive'">
+                  {{ (loc.isActive ? 'common.active' : 'common.inactive') | translate }}
                 </span>
               }
             </td>

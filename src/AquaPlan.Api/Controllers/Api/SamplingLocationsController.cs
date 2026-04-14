@@ -99,6 +99,28 @@ public class SamplingLocationsController(
         return Ok(result);
     }
 
+    [HttpPut("{id:guid}/validate")]
+    [Authorize(Roles = "Administrator")]
+    public async Task<ActionResult<SamplingLocationDto>> Validate(Guid id, CancellationToken cancellationToken)
+    {
+        var tenantId = GetTenantId();
+        var location = await samplingLocationService.ValidateAsync(id, tenantId, cancellationToken);
+        if (location is null)
+        {
+            return NotFound();
+        }
+        return Ok(location);
+    }
+
+    [HttpGet("unvalidated")]
+    [Authorize(Roles = "Administrator")]
+    public async Task<ActionResult<IList<SamplingLocationDto>>> GetUnvalidated(CancellationToken cancellationToken)
+    {
+        var tenantId = GetTenantId();
+        var locations = await samplingLocationService.GetUnvalidatedAsync(tenantId, cancellationToken);
+        return Ok(locations);
+    }
+
     [HttpGet("check-code-unique")]
     public async Task<ActionResult<bool>> CheckCodeUnique(
         [FromQuery] string locationCode,

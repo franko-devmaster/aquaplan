@@ -126,6 +126,7 @@ internal class SamplingLocationService(
             DistributorId = dto.DistributorId,
             SectorId = dto.SectorId,
             IsValidated = isValidated,
+            IsActive = isValidated,
         };
 
         dbContext.SamplingLocations.Add(location);
@@ -321,6 +322,37 @@ internal class SamplingLocationService(
         using var stream = new MemoryStream();
         document.GeneratePdf(stream);
         return stream.ToArray();
+    }
+
+    public async Task<SamplingLocationDto?> ValidateAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        var location = await dbContext.SamplingLocations
+            .Include(sl => sl.Distributor)
+            .Include(sl => sl.Sector)
+            .Where(sl => sl.Distributor!.TenantId == tenantId && sl.Id == id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (location is null)
+        {
+            return null;
+        }
+
+        location.IsValidated = true;
+        location.IsActive = true;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return MapToDto(location);
+    }
+
+    public async Task<IList<SamplingLocationDto>> GetUnvalidatedAsync(Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        var locations = await dbContext.SamplingLocations
+            .Include(sl => sl.Distributor)
+            .Include(sl => sl.Sector)
+            .Where(sl => sl.Distributor!.TenantId == tenantId && !sl.IsValidated)
+            .OrderByDescending(sl => sl.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        return locations.Select(MapToDto).ToList();
     }
 
     private static SamplingLocationDto MapToDto(SamplingLocation sl)

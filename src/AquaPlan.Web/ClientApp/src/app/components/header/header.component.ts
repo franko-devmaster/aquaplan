@@ -36,10 +36,7 @@ import { LocaleService } from '../../services/locale.service';
 
       @if (authService.isAuthenticated()) {
         <button mat-button [matMenuTriggerFor]="userMenu" class="user-chip" aria-label="User menu">
-          <span class="user-avatar">{{ userInitial() }}</span>
-          @if (!isMobile()) {
-            <span class="user-name">{{ userDisplayName() }}</span>
-          }
+          <span class="user-name">{{ userDisplayName() }}</span>
           <mat-icon>arrow_drop_down</mat-icon>
         </button>
         <mat-menu #userMenu="matMenu">
@@ -74,25 +71,15 @@ import { LocaleService } from '../../services/locale.service';
     .user-chip {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       border-radius: 20px;
-      padding: 4px 8px 4px 4px;
+      padding: 4px 12px;
       color: white;
-    }
-    .user-avatar {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.25);
-      font-size: 13px;
-      font-weight: 600;
+      border: 1px solid rgba(255, 255, 255, 0.5);
     }
     .user-name {
       font-size: 14px;
-      font-weight: 400;
+      font-weight: 500;
     }
     @media (max-width: 767px) {
       .logo { font-size: 16px; }
@@ -104,11 +91,6 @@ export class HeaderComponent {
   readonly localeService = inject(LocaleService);
   readonly isMobile = input(false);
   readonly menuToggle = output();
-
-  readonly userInitial = computed(() => {
-    const user = this.authService.currentUser();
-    return user?.firstName?.charAt(0).toUpperCase() ?? '';
-  });
 
   readonly userDisplayName = computed(() => {
     const user = this.authService.currentUser();

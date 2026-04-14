@@ -19,6 +19,7 @@ export interface SamplingLocationFormDialogData {
   readonly: boolean;
   userDistributorId: string | null;
   isAdmin: boolean;
+  showValidateButton?: boolean;
 }
 
 @Component({
@@ -93,6 +94,16 @@ export interface SamplingLocationFormDialogData {
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>{{ (data.readonly ? 'common.close' : 'common.cancel') | translate }}</button>
+      @if (data.showValidateButton) {
+        <button mat-raised-button color="accent" (click)="onValidate()"
+                [disabled]="saving()">
+          @if (saving()) {
+            <mat-spinner diameter="20"></mat-spinner>
+          } @else {
+            {{ 'changeRequests.validate' | translate }}
+          }
+        </button>
+      }
       @if (!data.readonly) {
         <button mat-raised-button color="primary" (click)="onSubmit()"
                 [disabled]="form.invalid || saving()">
@@ -191,6 +202,32 @@ export class SamplingLocationFormDialogComponent implements OnInit {
     }
     const sectorList = await firstValueFrom(this.sectorApi.getAll({ isActive: true, distributorId }));
     this.sectors.set(Array.isArray(sectorList) ? sectorList as unknown as SectorDto[] : []);
+  }
+
+  async onValidate(): Promise<void> {
+    if (!this.data.locationId) return;
+    this.saving.set(true);
+    try {
+      // Save changes first if form is dirty and valid
+      if (this.form.dirty && this.form.valid) {
+        const val = this.form.getRawValue();
+        await this.store.update(this.data.locationId, {
+          name: val.name,
+          locationCode: val.locationCode,
+          latitude: val.latitude || null,
+          longitude: val.longitude || null,
+          description: val.description || null,
+          address: val.address || null,
+          accessDescription: val.accessDescription || null,
+          isActive: true,
+          sectorId: val.sectorId || null,
+        });
+      }
+      await firstValueFrom(this.locationApi.validate(this.data.locationId));
+      this.dialogRef.close(true);
+    } finally {
+      this.saving.set(false);
+    }
   }
 
   async onSubmit(): Promise<void> {
