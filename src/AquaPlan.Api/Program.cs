@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using AquaPlan.Api.Middleware;
 using AquaPlan.Application.Extensions;
 using AquaPlan.Infrastructure.Data;
@@ -34,7 +35,11 @@ builder.Services.WithInfrastructure(builder.Configuration);
 builder.Services.WithApplication();
 
 // Controllers
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");

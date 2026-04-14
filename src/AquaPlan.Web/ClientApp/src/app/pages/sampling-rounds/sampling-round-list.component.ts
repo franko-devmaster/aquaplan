@@ -6,7 +6,6 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -14,7 +13,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSortModule, Sort } from '@angular/material/sort';
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgClass } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { SamplingRoundDatastore } from '../../datastore/sampling-round.datastore';
 import { DistributorApiService } from '../../services/distributor-api.service';
@@ -24,7 +23,6 @@ import {
   SamplingRoundDetailDto,
   SamplingRoundStatus,
   SamplingRoundStatusLabels,
-  SamplingRoundStatusColors,
 } from '../../models/sampling-round.model';
 import { SamplingRoundCreateDialogComponent } from './sampling-round-create-dialog.component';
 
@@ -32,11 +30,11 @@ import { SamplingRoundCreateDialogComponent } from './sampling-round-create-dial
   selector: 'app-sampling-round-list',
   standalone: true,
   imports: [
-    FormsModule, MatTableModule, MatButtonModule, MatIconModule, MatChipsModule,
+    FormsModule, MatTableModule, MatButtonModule, MatIconModule,
     MatProgressSpinnerModule, MatTooltipModule,
     MatFormFieldModule, MatInputModule, MatSelectModule,
     MatPaginatorModule, MatSortModule, MatDialogModule,
-    DatePipe, TranslateModule,
+    DatePipe, NgClass, TranslateModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -97,10 +95,9 @@ import { SamplingRoundCreateDialogComponent } from './sampling-round-create-dial
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef mat-sort-header="status">{{ 'samplingRounds.status.label' | translate }}</th>
             <td mat-cell *matCellDef="let round" [attr.data-label]="'samplingRounds.status.label' | translate">
-              <mat-chip [style.background-color]="getStatusColor(round.status)"
-                        [style.color]="'white'">
+              <span class="status-badge-round" [ngClass]="getStatusClass(round.status)">
                 {{ getStatusLabel(round) | translate }}
-              </mat-chip>
+              </span>
             </td>
           </ng-container>
 
@@ -171,7 +168,6 @@ export class SamplingRoundListComponent implements OnInit {
   readonly availableStatuses = [
     { value: SamplingRoundStatus.Draft, label: SamplingRoundStatusLabels[SamplingRoundStatus.Draft] },
     { value: SamplingRoundStatus.Assigned, label: SamplingRoundStatusLabels[SamplingRoundStatus.Assigned] },
-    { value: SamplingRoundStatus.Validated, label: SamplingRoundStatusLabels[SamplingRoundStatus.Validated] },
     { value: SamplingRoundStatus.InProgress, label: SamplingRoundStatusLabels[SamplingRoundStatus.InProgress] },
     { value: SamplingRoundStatus.Completed, label: SamplingRoundStatusLabels[SamplingRoundStatus.Completed] },
     { value: SamplingRoundStatus.Cancelled, label: SamplingRoundStatusLabels[SamplingRoundStatus.Cancelled] },
@@ -187,8 +183,15 @@ export class SamplingRoundListComponent implements OnInit {
     return SamplingRoundStatusLabels[round.status] ?? 'samplingRounds.status.draft';
   }
 
-  getStatusColor(status: SamplingRoundStatus): string {
-    return SamplingRoundStatusColors[status] ?? '#9E9E9E';
+  getStatusClass(status: SamplingRoundStatus): string {
+    const map: Record<string, string> = {
+      'Draft': 'status-round-draft',
+      'Assigned': 'status-round-assigned',
+      'InProgress': 'status-round-inprogress',
+      'Completed': 'status-round-completed',
+      'Cancelled': 'status-round-cancelled',
+    };
+    return map[status] ?? 'status-round-draft';
   }
 
   onSearchChange(value: string): void {

@@ -1,28 +1,25 @@
 export enum SamplingRoundStatus {
-  Draft = 0,
-  Assigned = 1,
-  Validated = 2,
-  InProgress = 3,
-  Completed = 4,
-  Cancelled = 5,
+  Draft = 'Draft',
+  Assigned = 'Assigned',
+  InProgress = 'InProgress',
+  Completed = 'Completed',
+  Cancelled = 'Cancelled',
 }
 
 export const SamplingRoundStatusLabels: Record<SamplingRoundStatus, string> = {
   [SamplingRoundStatus.Draft]: 'samplingRounds.status.draft',
   [SamplingRoundStatus.Assigned]: 'samplingRounds.status.assigned',
-  [SamplingRoundStatus.Validated]: 'samplingRounds.status.validated',
   [SamplingRoundStatus.InProgress]: 'samplingRounds.status.inProgress',
   [SamplingRoundStatus.Completed]: 'samplingRounds.status.completed',
   [SamplingRoundStatus.Cancelled]: 'samplingRounds.status.cancelled',
 };
 
 export const SamplingRoundStatusColors: Record<SamplingRoundStatus, string> = {
-  [SamplingRoundStatus.Draft]: '#9E9E9E',
-  [SamplingRoundStatus.Assigned]: '#1976D2',
-  [SamplingRoundStatus.Validated]: '#00897B',
-  [SamplingRoundStatus.InProgress]: '#FF9800',
-  [SamplingRoundStatus.Completed]: '#388E3C',
-  [SamplingRoundStatus.Cancelled]: '#D32F2F',
+  [SamplingRoundStatus.Draft]: '#455A64',
+  [SamplingRoundStatus.Assigned]: '#00695C',
+  [SamplingRoundStatus.InProgress]: '#1565C0',
+  [SamplingRoundStatus.Completed]: '#2E7D32',
+  [SamplingRoundStatus.Cancelled]: '#C62828',
 };
 
 export interface SamplingRoundListDto {
@@ -63,7 +60,7 @@ export interface SamplingRoundDetailDto {
   description: string | null;
   deadline: string;
   status: SamplingRoundStatus;
-  samplerId: string | null;
+  preleveurId: string | null;
   samplerName: string | null;
   distributorId: string;
   distributorName: string;

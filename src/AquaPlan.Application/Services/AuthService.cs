@@ -109,7 +109,8 @@ internal class AuthService(
             user.LastName,
             user.Organization,
             user.TenantId,
-            roles);
+            roles,
+            user.DistributorId);
     }
 
     public async Task<IList<string>> GetUserRolesAsync(string userId, CancellationToken cancellationToken = default)

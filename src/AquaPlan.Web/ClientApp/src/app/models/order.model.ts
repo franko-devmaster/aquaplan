@@ -1,16 +1,16 @@
 export enum OrderStatus {
-  New = 0,
-  InProgress = 1,
-  Completed = 2,
-  Transmitted = 3,
-  Done = 4,
-  Cancelled = 5,
+  New = 'New',
+  InProgress = 'InProgress',
+  Completed = 'Completed',
+  Transmitted = 'Transmitted',
+  Done = 'Done',
+  Cancelled = 'Cancelled',
 }
 
 export enum UnplannedReason {
-  Pollution = 0,
-  Urgency = 1,
-  ComplementaryControl = 2,
+  Pollution = 'Pollution',
+  Urgency = 'Urgency',
+  ComplementaryControl = 'ComplementaryControl',
 }
 
 export const UnplannedReasonLabels: Record<UnplannedReason, string> = {

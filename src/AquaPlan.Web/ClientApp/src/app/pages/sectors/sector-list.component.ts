@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,6 +14,7 @@ import { TranslateModule } from '@ngx-translate/core';
 import { SectorDatastore } from '../../datastore/sector.datastore';
 import { SectorListDto } from '../../models/sector.model';
 import { SectorFormDialogComponent } from './sector-form-dialog.component';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-sector-list',
@@ -28,29 +29,33 @@ import { SectorFormDialogComponent } from './sector-form-dialog.component';
   template: `
     <div class="page-header">
       <h2>{{ 'sectors.title' | translate }}</h2>
-      <button mat-raised-button color="primary" (click)="openCreateDialog()">
-        <mat-icon>add</mat-icon>
-        {{ 'sectors.addSector' | translate }}
-      </button>
+      @if (isAdmin()) {
+        <button mat-raised-button color="primary" (click)="openCreateDialog()">
+          <mat-icon>add</mat-icon>
+          {{ 'sectors.addSector' | translate }}
+        </button>
+      }
     </div>
 
-    <div class="filters filters-row">
-      <mat-form-field appearance="outline">
-        <mat-label>{{ 'sectors.name' | translate }}</mat-label>
-        <input matInput [(ngModel)]="filterName" (keyup.enter)="applyFilter()">
-      </mat-form-field>
-      <mat-form-field appearance="outline">
-        <mat-label>{{ 'sectors.status' | translate }}</mat-label>
-        <mat-select [(ngModel)]="filterStatus" (selectionChange)="applyFilter()">
-          <mat-option>{{ 'sectors.allStatuses' | translate }}</mat-option>
-          <mat-option [value]="true">{{ 'common.active' | translate }}</mat-option>
-          <mat-option [value]="false">{{ 'common.inactive' | translate }}</mat-option>
-        </mat-select>
-      </mat-form-field>
-      <button mat-icon-button [matTooltip]="'common.search' | translate" (click)="applyFilter()">
-        <mat-icon>search</mat-icon>
-      </button>
-    </div>
+    @if (isAdmin()) {
+      <div class="filters filters-row">
+        <mat-form-field appearance="outline">
+          <mat-label>{{ 'sectors.name' | translate }}</mat-label>
+          <input matInput [(ngModel)]="filterName" (keyup.enter)="applyFilter()">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>{{ 'sectors.status' | translate }}</mat-label>
+          <mat-select [(ngModel)]="filterStatus" (selectionChange)="applyFilter()">
+            <mat-option>{{ 'sectors.allStatuses' | translate }}</mat-option>
+            <mat-option [value]="true">{{ 'common.active' | translate }}</mat-option>
+            <mat-option [value]="false">{{ 'common.inactive' | translate }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <button mat-icon-button [matTooltip]="'common.search' | translate" (click)="applyFilter()">
+          <mat-icon>search</mat-icon>
+        </button>
+      </div>
+    }
 
     @if (store.loading()) {
       <div class="loading-container">
@@ -71,7 +76,7 @@ import { SectorFormDialogComponent } from './sector-form-dialog.component';
 
           <ng-container matColumnDef="distributor">
             <th mat-header-cell *matHeaderCellDef>{{ 'sectors.distributor' | translate }}</th>
-            <td mat-cell *matCellDef="let s" [attr.data-label]="'sectors.distributor' | translate">{{ s.distributorName ?? '—' }}</td>
+            <td mat-cell *matCellDef="let s" [attr.data-label]="'sectors.distributor' | translate">{{ s.distributorName ?? '\u2014' }}</td>
           </ng-container>
 
           <ng-container matColumnDef="description">
@@ -90,7 +95,7 @@ import { SectorFormDialogComponent } from './sector-form-dialog.component';
 
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
           <tr mat-row *matRowDef="let row; columns: displayedColumns;"
-              class="clickable-row" (click)="openEditDialog(row)"></tr>
+              [class.clickable-row]="isAdmin()" (click)="openEditDialog(row)"></tr>
         </table>
       </div>
 
@@ -111,6 +116,11 @@ import { SectorFormDialogComponent } from './sector-form-dialog.component';
 export class SectorListComponent implements OnInit {
   readonly store = inject(SectorDatastore);
   private readonly dialog = inject(MatDialog);
+  private readonly authService = inject(AuthService);
+
+  readonly isAdmin = computed(() =>
+    this.authService.currentUser()?.roles.includes('Administrator') ?? false
+  );
 
   readonly displayedColumns = ['name', 'code', 'distributor', 'description', 'status'];
 
@@ -118,7 +128,13 @@ export class SectorListComponent implements OnInit {
   filterStatus: boolean | undefined;
 
   ngOnInit(): void {
-    this.store.loadAll();
+    const user = this.authService.currentUser();
+    if (this.isAdmin()) {
+      this.store.loadAll();
+    } else {
+      // Non-admin: only load sectors for their distributor
+      this.store.loadAll({ distributorId: user?.distributorId ?? undefined });
+    }
   }
 
   applyFilter(): void {
@@ -129,6 +145,7 @@ export class SectorListComponent implements OnInit {
   }
 
   openCreateDialog(): void {
+    if (!this.isAdmin()) return;
     const dialogRef = this.dialog.open(SectorFormDialogComponent, {
       width: '500px',
       panelClass: 'responsive-dialog',
@@ -142,6 +159,7 @@ export class SectorListComponent implements OnInit {
   }
 
   openEditDialog(sector: SectorListDto): void {
+    if (!this.isAdmin()) return;
     const dialogRef = this.dialog.open(SectorFormDialogComponent, {
       width: '500px',
       panelClass: 'responsive-dialog',
@@ -153,5 +171,4 @@ export class SectorListComponent implements OnInit {
       }
     });
   }
-
 }

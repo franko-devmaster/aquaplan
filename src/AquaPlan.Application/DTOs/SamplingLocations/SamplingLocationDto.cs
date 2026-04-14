@@ -10,6 +10,7 @@ public record SamplingLocationDto(
     string? Address,
     string? AccessDescription,
     bool IsActive,
+    bool IsValidated,
     Guid DistributorId,
     string? DistributorName,
     Guid SectorId,

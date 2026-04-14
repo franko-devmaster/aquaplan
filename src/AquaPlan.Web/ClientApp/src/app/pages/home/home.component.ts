@@ -119,8 +119,8 @@ import {
                                             <td>{{ round.name }}</td>
                                             <td>{{ round.orderCount }}</td>
                                             <td>
-                                                <span class="status-badge"
-                                                      [style.background-color]="getRoundStatusColor(round.status)">
+                                                <span class="status-badge-round"
+                                                      [ngClass]="getRoundStatusClass(round.status)">
                                                     {{ getRoundStatusLabel(round.status) | translate }}
                                                 </span>
                                             </td>
@@ -308,14 +308,6 @@ import {
             background-color: rgba(0, 0, 0, 0.04);
         }
 
-        .status-badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 500;
-            color: white;
-        }
 
         /* Empty state */
         .empty-state {
@@ -403,12 +395,12 @@ export class HomeComponent implements OnInit {
         this.authService.currentUser()?.roles.includes('Administrator') ?? false
     );
 
-    private readonly roundStatusColors: Record<number, string> = {
-        [SamplingRoundStatus.Draft]: '#9E9E9E',
-        [SamplingRoundStatus.Assigned]: '#1976D2',
-        [SamplingRoundStatus.InProgress]: '#FF9800',
-        [SamplingRoundStatus.Completed]: '#388E3C',
-        [SamplingRoundStatus.Cancelled]: '#D32F2F',
+    private readonly roundStatusColors: Record<string, string> = {
+        [SamplingRoundStatus.Draft]: '#455A64',
+        [SamplingRoundStatus.Assigned]: '#00695C',
+        [SamplingRoundStatus.InProgress]: '#1565C0',
+        [SamplingRoundStatus.Completed]: '#2E7D32',
+        [SamplingRoundStatus.Cancelled]: '#C62828',
     };
 
     ngOnInit(): void {
@@ -421,6 +413,17 @@ export class HomeComponent implements OnInit {
 
     getRoundStatusColor(status: SamplingRoundStatus): string {
         return this.roundStatusColors[status] ?? '#9E9E9E';
+    }
+
+    getRoundStatusClass(status: SamplingRoundStatus): string {
+        const map: Record<string, string> = {
+            'Draft': 'status-round-draft',
+            'Assigned': 'status-round-assigned',
+            'InProgress': 'status-round-inprogress',
+            'Completed': 'status-round-completed',
+            'Cancelled': 'status-round-cancelled',
+        };
+        return map[status] ?? 'status-round-draft';
     }
 
     getRoundStatusLabel(status: SamplingRoundStatus): string {

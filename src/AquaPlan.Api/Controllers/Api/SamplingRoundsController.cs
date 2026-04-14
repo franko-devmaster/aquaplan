@@ -88,13 +88,14 @@ public class SamplingRoundsController(
         return Ok(result);
     }
 
-    [HttpPost("{id:guid}/validate")]
-    public async Task<ActionResult<SamplingRoundDetailDto>> ValidateRound(
+    [HttpPost("{id:guid}/revert-to-draft")]
+    [Authorize(Roles = "Administrator")]
+    public async Task<ActionResult<SamplingRoundDetailDto>> RevertToDraft(
         Guid id, CancellationToken cancellationToken)
     {
         var userId = GetUserId();
         var tenantId = GetTenantId();
-        var result = await samplingRoundService.ValidateAsync(id, userId, tenantId, cancellationToken);
+        var result = await samplingRoundService.RevertToDraftAsync(id, userId, tenantId, cancellationToken);
         if (result is null) return NotFound();
         return Ok(result);
     }

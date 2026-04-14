@@ -228,26 +228,45 @@ public class SamplingRoundServiceTest : IDisposable
         });
     }
 
-    // --- ValidateAsync ---
+    // --- RevertToDraftAsync ---
 
     [Fact]
-    public async Task ValidateAsync_ShouldTransitionToValidated()
+    public async Task RevertToDraftAsync_ShouldTransitionToDraft()
     {
         var round = await CreateDraftRoundWithOrders(orderCount: 1);
         await TransitionToAssigned(round.Id);
 
-        var result = await _sut.ValidateAsync(round.Id, UserId, TenantId);
+        var result = await _sut.RevertToDraftAsync(round.Id, UserId, TenantId);
 
         result.Should().NotBeNull();
-        result!.Status.Should().Be(SamplingRoundStatus.Validated);
+        result!.Status.Should().Be(SamplingRoundStatus.Draft);
+        result.PreleveurId.Should().BeNull();
     }
 
     [Fact]
-    public async Task ValidateAsync_WhenNotAssigned_ShouldThrow()
+    public async Task RevertToDraftAsync_ShouldClearPreleveurFromOrders()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 2);
+        await TransitionToAssigned(round.Id);
+
+        await _sut.RevertToDraftAsync(round.Id, UserId, TenantId);
+
+        var orders = await _dbContext.Orders
+            .Where(o => o.SamplingRoundId == round.Id)
+            .ToListAsync();
+
+        orders.Should().AllSatisfy(o =>
+        {
+            o.PreleveurId.Should().BeNull();
+        });
+    }
+
+    [Fact]
+    public async Task RevertToDraftAsync_WhenNotAssigned_ShouldThrow()
     {
         var round = await CreateDraftRoundWithOrders(orderCount: 1);
 
-        await _sut.Awaiting(s => s.ValidateAsync(round.Id, UserId, TenantId))
+        await _sut.Awaiting(s => s.RevertToDraftAsync(round.Id, UserId, TenantId))
             .Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*assigned*");
     }
@@ -428,7 +447,6 @@ public class SamplingRoundServiceTest : IDisposable
     {
         var round = await CreateDraftRoundWithOrders(orderCount: 1);
         await TransitionToAssigned(round.Id);
-        await _sut.ValidateAsync(round.Id, UserId, TenantId);
 
         var order = await _dbContext.Orders
             .Where(o => o.SamplingRoundId == round.Id)
@@ -443,11 +461,10 @@ public class SamplingRoundServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task StartOrderAsync_ShouldTransitionRoundToInProgress()
+    public async Task StartOrderAsync_ShouldTransitionRoundFromAssignedToInProgress()
     {
         var round = await CreateDraftRoundWithOrders(orderCount: 1);
         await TransitionToAssigned(round.Id);
-        await _sut.ValidateAsync(round.Id, UserId, TenantId);
 
         var order = await _dbContext.Orders
             .Where(o => o.SamplingRoundId == round.Id)

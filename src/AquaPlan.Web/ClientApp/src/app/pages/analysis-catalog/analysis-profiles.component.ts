@@ -88,7 +88,7 @@ import { AuthService } from '../../services/auth.service';
 
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
         <tr mat-row *matRowDef="let row; columns: displayedColumns;"
-            [class.clickable-row]="isAdmin()" (click)="openEditForm(row)"></tr>
+            class="clickable-row" (click)="openViewForm(row)"></tr>
       </table>
 
       @if (store.profiles().length === 0) {
@@ -99,30 +99,32 @@ import { AuthService } from '../../services/auth.service';
     @if (showForm()) {
       <div class="form-overlay" (click)="closeForm()">
         <div class="form-panel" (click)="$event.stopPropagation()">
-          <h3>{{ (editingId() ? 'analysisCatalog.profiles.edit' : 'analysisCatalog.profiles.create') | translate }}</h3>
+          <h3>{{ (formReadonly() ? 'analysisCatalog.profiles.view' : (editingId() ? 'analysisCatalog.profiles.edit' : 'analysisCatalog.profiles.create')) | translate }}</h3>
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>{{ 'analysisCatalog.profiles.code' | translate }}</mat-label>
-            <input matInput [(ngModel)]="formCode">
+            <input matInput [(ngModel)]="formCode" [readonly]="formReadonly()">
           </mat-form-field>
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>{{ 'analysisCatalog.profiles.name' | translate }}</mat-label>
-            <input matInput [(ngModel)]="formName">
+            <input matInput [(ngModel)]="formName" [readonly]="formReadonly()">
           </mat-form-field>
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>{{ 'analysisCatalog.profiles.description' | translate }}</mat-label>
-            <textarea matInput [(ngModel)]="formDescription" rows="3"></textarea>
+            <textarea matInput [(ngModel)]="formDescription" rows="3" [readonly]="formReadonly()"></textarea>
           </mat-form-field>
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>{{ 'analysisCatalog.profiles.category' | translate }}</mat-label>
-            <mat-select [(ngModel)]="formCategory">
+            <mat-select [(ngModel)]="formCategory" [disabled]="formReadonly()">
               @for (cat of categories; track cat) {
                 <mat-option [value]="cat">{{ 'analysisCatalog.categories.' + cat | translate }}</mat-option>
               }
             </mat-select>
           </mat-form-field>
           <div class="form-actions">
-            <button mat-button (click)="closeForm()">{{ 'common.cancel' | translate }}</button>
-            <button mat-raised-button color="primary" (click)="saveProfile()">{{ 'common.save' | translate }}</button>
+            <button mat-button (click)="closeForm()">{{ (formReadonly() ? 'common.close' : 'common.cancel') | translate }}</button>
+            @if (!formReadonly()) {
+              <button mat-raised-button color="primary" (click)="saveProfile()">{{ 'common.save' | translate }}</button>
+            }
           </div>
         </div>
       </div>
@@ -144,6 +146,8 @@ import { AuthService } from '../../services/auth.service';
       background: white; padding: 24px; border-radius: 8px; min-width: 400px; max-width: 500px;
     }
     .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .clickable-row { cursor: pointer; }
+    .clickable-row:hover { background-color: rgba(0, 0, 0, 0.04); }
   `],
 })
 export class AnalysisProfilesComponent implements OnInit {
@@ -158,6 +162,7 @@ export class AnalysisProfilesComponent implements OnInit {
 
   readonly showForm = signal(false);
   readonly editingId = signal<string | null>(null);
+  readonly formReadonly = signal(false);
   formCode = '';
   formName = '';
   formDescription = '';
@@ -185,16 +190,17 @@ export class AnalysisProfilesComponent implements OnInit {
     this.formName = '';
     this.formDescription = '';
     this.formCategory = 'Other';
+    this.formReadonly.set(false);
     this.showForm.set(true);
   }
 
-  openEditForm(profile: { id: string; code: string; name: string; description?: string; category: AnalysisCategory }): void {
-    if (!this.isAdmin()) return;
+  openViewForm(profile: { id: string; code: string; name: string; description?: string; category: AnalysisCategory }): void {
     this.editingId.set(profile.id);
     this.formCode = profile.code;
     this.formName = profile.name;
     this.formDescription = profile.description ?? '';
     this.formCategory = profile.category;
+    this.formReadonly.set(!this.isAdmin());
     this.showForm.set(true);
   }
 

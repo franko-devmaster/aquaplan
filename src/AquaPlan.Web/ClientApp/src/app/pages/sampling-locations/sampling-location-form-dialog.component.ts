@@ -16,6 +16,9 @@ import { firstValueFrom } from 'rxjs';
 export interface SamplingLocationFormDialogData {
   mode: 'create' | 'edit';
   locationId?: string;
+  readonly: boolean;
+  userDistributorId: string | null;
+  isAdmin: boolean;
 }
 
 @Component({
@@ -28,7 +31,7 @@ export interface SamplingLocationFormDialogData {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h2 mat-dialog-title>
-      {{ (data.mode === 'create' ? 'samplingLocations.createLocation' : 'samplingLocations.editLocation') | translate }}
+      {{ (data.readonly ? 'samplingLocations.viewLocation' : (data.mode === 'create' ? 'samplingLocations.createLocation' : 'samplingLocations.editLocation')) | translate }}
     </h2>
     <mat-dialog-content>
       <form [formGroup]="form" class="form-container">
@@ -89,15 +92,17 @@ export interface SamplingLocationFormDialogData {
       </form>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
-      <button mat-button mat-dialog-close>{{ 'common.cancel' | translate }}</button>
-      <button mat-raised-button color="primary" (click)="onSubmit()"
-              [disabled]="form.invalid || saving()">
-        @if (saving()) {
-          <mat-spinner diameter="20"></mat-spinner>
-        } @else {
-          {{ 'common.save' | translate }}
-        }
-      </button>
+      <button mat-button mat-dialog-close>{{ (data.readonly ? 'common.close' : 'common.cancel') | translate }}</button>
+      @if (!data.readonly) {
+        <button mat-raised-button color="primary" (click)="onSubmit()"
+                [disabled]="form.invalid || saving()">
+          @if (saving()) {
+            <mat-spinner diameter="20"></mat-spinner>
+          } @else {
+            {{ 'common.save' | translate }}
+          }
+        </button>
+      }
     </mat-dialog-actions>
   `,
   styles: [`
@@ -133,8 +138,14 @@ export class SamplingLocationFormDialogComponent implements OnInit {
       sectorId: ['', Validators.required],
     });
 
-    if (this.data.mode === 'edit') {
+    // Disable distributor selection for edit mode or non-admin create (auto-assigned)
+    if (this.data.mode === 'edit' || (!this.data.isAdmin && this.data.userDistributorId)) {
       this.form.get('distributorId')!.disable();
+    }
+
+    // Disable entire form for readonly mode
+    if (this.data.readonly) {
+      this.form.disable();
     }
   }
 
@@ -148,6 +159,12 @@ export class SamplingLocationFormDialogComponent implements OnInit {
       // Reset sector selection when distributor changes
       this.form.get('sectorId')!.setValue('');
     });
+
+    if (this.data.mode === 'create' && !this.data.isAdmin && this.data.userDistributorId) {
+      // Non-admin creation: auto-set distributor and load sectors for their distributor
+      this.form.patchValue({ distributorId: this.data.userDistributorId });
+      await this.loadSectorsForDistributor(this.data.userDistributorId);
+    }
 
     if (this.data.mode === 'edit' && this.data.locationId) {
       const location = await firstValueFrom(this.locationApi.getById(this.data.locationId));

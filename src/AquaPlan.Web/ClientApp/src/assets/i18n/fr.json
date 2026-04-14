@@ -144,7 +144,10 @@
     "existingRound": "Tournée existante",
     "newRound": "Nouvelle tournée",
     "selectRound": "Sélectionner une tournée",
-    "noRoundsAvailable": "Aucune tournée disponible pour ce distributeur"
+    "noRoundsAvailable": "Aucune tournée disponible pour ce distributeur",
+    "transmit": "Transmettre",
+    "transmitted": "Transmis avec succès",
+    "confirmTransmit": "Confirmer la transmission de ce mandat ?"
   },
   "delegations": {
     "title": "Délégations",
@@ -196,6 +199,7 @@
     "status": "Statut",
     "createLocation": "Créer un lieu",
     "editLocation": "Modifier le lieu",
+    "viewLocation": "Détails du lieu",
     "activate": "Activer le lieu",
     "deactivate": "Désactiver le lieu",
     "allDistributors": "Tous les distributeurs",
@@ -207,7 +211,8 @@
     "exportPdf": "Exporter PDF",
     "sector": "Secteur",
     "allSectors": "Tous les secteurs",
-    "noSector": "Aucun"
+    "noSector": "Aucun",
+    "toValidate": "À valider"
   },
   "changeRequests": {
     "title": "Validation des demandes de modification",
@@ -245,7 +250,8 @@
       "description": "Description",
       "category": "Catégorie",
       "create": "Créer un profil",
-      "edit": "Modifier le profil"
+      "edit": "Modifier le profil",
+      "view": "Détails du profil"
     },
     "programs": {
       "title": "Programmes d'analyse",
@@ -313,7 +319,6 @@
       "label": "Statut",
       "draft": "Brouillon",
       "assigned": "Assignée",
-      "validated": "Validée",
       "inProgress": "En cours",
       "completed": "Terminée",
       "cancelled": "Annulée"
@@ -342,9 +347,11 @@
     "selectOrder": "Sélectionner un mandat",
     "noUnassignedOrders": "Aucun mandat sans tournée pour ce distributeur",
     "enterOrderId": "ID du mandat à ajouter :",
-    "validateRound": "Valider la tournée",
-    "confirmValidate": "Valider cette tournée ? Elle sera visible par le préleveur.",
-    "validated": "Tournée validée avec succès",
+    "revertToDraft": "Repasser en brouillon",
+    "confirmRevertToDraft": "Repasser cette tournée en brouillon ? Le préleveur sera désassigné.",
+    "revertedToDraft": "Tournée repassée en brouillon",
+    "startRound": "Démarrer la tournée",
+    "started": "Tournée démarrée avec succès",
     "transmitAll": "Tout transmettre",
     "confirmTransmitAll": "Transmettre tous les mandats effectués au LIMS ?",
     "transmittedAll": "Mandats transmis avec succès",

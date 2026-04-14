@@ -3,7 +3,6 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -14,41 +13,33 @@ import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatCardModule } from '@angular/material/card';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgClass } from '@angular/common';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { SamplingRoundApiService } from '../../services/sampling-round-api.service';
 import { SamplingApiService } from '../../services/sampling-api.service';
+import { OrderApiService } from '../../services/order-api.service';
 import { AuthService } from '../../services/auth.service';
 import {
   SamplingRoundDetailDto,
   SamplingRoundOrderDto,
   SamplingRoundStatus,
   SamplingRoundStatusLabels,
-  SamplingRoundStatusColors,
 } from '../../models/sampling-round.model';
 import { SamplingDto } from '../../models/sampling.model';
 import { SamplingFormDialogComponent, SamplingFormDialogData } from './sampling-form-dialog.component';
 import { RoundAddOrderDialogComponent, RoundAddOrderDialogData } from './round-add-order-dialog.component';
 import { AssignSamplerDialogComponent, AssignSamplerDialogData } from './assign-sampler-dialog.component';
 
-const OrderStatusColors: Record<string, string> = {
-  New: '#9E9E9E',
-  InProgress: '#1976D2',
-  Completed: '#7B1FA2',
-  Transmitted: '#388E3C',
-  Done: '#4CAF50',
-};
-
 @Component({
   selector: 'app-sampling-round-detail',
   standalone: true,
   imports: [
-    FormsModule, MatButtonModule, MatIconModule, MatChipsModule,
+    FormsModule, MatButtonModule, MatIconModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatTableModule,
     MatProgressSpinnerModule, MatTooltipModule, MatDialogModule,
     MatCardModule, MatSnackBarModule, DragDropModule,
-    DatePipe, TranslateModule,
+    DatePipe, NgClass, TranslateModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -63,10 +54,9 @@ const OrderStatusColors: Record<string, string> = {
             <mat-icon>arrow_back</mat-icon>
           </button>
           <h2>{{ round()!.name }}</h2>
-          <mat-chip [style.background-color]="getStatusColor(round()!.status)"
-                    [style.color]="'white'">
+          <span class="status-badge-round" [ngClass]="getRoundStatusClass(round()!.status)">
             {{ getStatusLabel() | translate }}
-          </mat-chip>
+          </span>
         </div>
         <div class="header-actions">
           @if (isDraft()) {
@@ -91,10 +81,16 @@ const OrderStatusColors: Record<string, string> = {
               {{ 'samplingRounds.addOrder' | translate }}
             </button>
           }
+          @if (isAssigned() && isAdmin()) {
+            <button mat-stroked-button (click)="revertToDraft()" [disabled]="saving()">
+              <mat-icon>undo</mat-icon>
+              {{ 'samplingRounds.revertToDraft' | translate }}
+            </button>
+          }
           @if (isAssigned()) {
-            <button mat-raised-button color="primary" (click)="validateRound()" [disabled]="saving()">
-              <mat-icon>verified</mat-icon>
-              {{ 'samplingRounds.validateRound' | translate }}
+            <button mat-raised-button color="primary" (click)="startRound()" [disabled]="saving()">
+              <mat-icon>play_arrow</mat-icon>
+              {{ 'samplingRounds.startRound' | translate }}
             </button>
           }
           @if (isInProgress() && hasCompletedOrders()) {
@@ -173,10 +169,9 @@ const OrderStatusColors: Record<string, string> = {
             <ng-container matColumnDef="status">
               <th mat-header-cell *matHeaderCellDef>{{ 'samplingRounds.status.label' | translate }}</th>
               <td mat-cell *matCellDef="let order">
-                <mat-chip [style.background-color]="getOrderStatusColor(order.status)"
-                          [style.color]="'white'">
+                <span class="status-badge-order" [ngClass]="getOrderStatusClass(order.status)">
                   {{ 'orders.status.' + toCamelCase(order.status) | translate }}
-                </mat-chip>
+                </span>
               </td>
             </ng-container>
 
@@ -221,7 +216,7 @@ const OrderStatusColors: Record<string, string> = {
                       <mat-icon>remove_circle_outline</mat-icon>
                     </button>
                   }
-                  @if (isDraft() || isAssigned() || isValidated()) {
+                  @if (isDraft() || isAssigned()) {
                     <button mat-icon-button (click)="editOrder(order, $event)"
                             [matTooltip]="'common.edit' | translate">
                       <mat-icon>edit</mat-icon>
@@ -248,6 +243,12 @@ const OrderStatusColors: Record<string, string> = {
                               [matTooltip]="'sampling.completed' | translate">
                       check_circle
                     </mat-icon>
+                  }
+                  @if (isInProgress() && order.status === 'Completed') {
+                    <button mat-icon-button color="primary" (click)="transmitOrder(order, $event)"
+                            [matTooltip]="'orders.transmit' | translate">
+                      <mat-icon>send</mat-icon>
+                    </button>
                   }
                   @if (order.status === 'Transmitted' || order.status === 'Done') {
                     <mat-icon class="sampling-done-icon" [style.color]="'#388E3C'"
@@ -301,6 +302,7 @@ export class SamplingRoundDetailComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly roundApi = inject(SamplingRoundApiService);
   private readonly samplingApi = inject(SamplingApiService);
+  private readonly orderApi = inject(OrderApiService);
   private readonly authService = inject(AuthService);
   private readonly translate = inject(TranslateService);
   private readonly snackBar = inject(MatSnackBar);
@@ -315,9 +317,11 @@ export class SamplingRoundDetailComponent implements OnInit {
 
   readonly isDraft = computed(() => this.round()?.status === SamplingRoundStatus.Draft);
   readonly isAssigned = computed(() => this.round()?.status === SamplingRoundStatus.Assigned);
-  readonly isValidated = computed(() => this.round()?.status === SamplingRoundStatus.Validated);
   readonly isInProgress = computed(() => this.round()?.status === SamplingRoundStatus.InProgress);
-  readonly canSample = computed(() => this.isInProgress() || this.isValidated());
+  readonly canSample = computed(() => this.isInProgress());
+  readonly isAdmin = computed(() =>
+    this.authService.currentUser()?.roles.includes('Administrator') ?? false
+  );
 
   readonly allOrdersCompleted = computed(() => {
     const r = this.round();
@@ -369,12 +373,27 @@ export class SamplingRoundDetailComponent implements OnInit {
     return r ? (SamplingRoundStatusLabels[r.status] ?? 'samplingRounds.status.draft') : '';
   }
 
-  getStatusColor(status: SamplingRoundStatus): string {
-    return SamplingRoundStatusColors[status] ?? '#9E9E9E';
+  getRoundStatusClass(status: SamplingRoundStatus): string {
+    const map: Record<string, string> = {
+      'Draft': 'status-round-draft',
+      'Assigned': 'status-round-assigned',
+      'InProgress': 'status-round-inprogress',
+      'Completed': 'status-round-completed',
+      'Cancelled': 'status-round-cancelled',
+    };
+    return map[status] ?? 'status-round-draft';
   }
 
-  getOrderStatusColor(status: string): string {
-    return OrderStatusColors[status] ?? '#9E9E9E';
+  getOrderStatusClass(status: string): string {
+    const map: Record<string, string> = {
+      'New': 'status-order-new',
+      'InProgress': 'status-order-inprogress',
+      'Completed': 'status-order-completed',
+      'Transmitted': 'status-order-transmitted',
+      'Done': 'status-order-done',
+      'Cancelled': 'status-order-cancelled',
+    };
+    return map[status] ?? 'status-order-new';
   }
 
   toCamelCase(value: string): string {
@@ -504,17 +523,49 @@ export class SamplingRoundDetailComponent implements OnInit {
     }
   }
 
-  async validateRound(): Promise<void> {
+  async revertToDraft(): Promise<void> {
     const r = this.round();
     if (!r) return;
-    if (!confirm(this.translate.instant('samplingRounds.confirmValidate'))) return;
+    if (!confirm(this.translate.instant('samplingRounds.confirmRevertToDraft'))) return;
 
     this.saving.set(true);
     try {
-      const updated = await firstValueFrom(this.roundApi.validate(r.id));
+      const updated = await firstValueFrom(this.roundApi.revertToDraft(r.id));
       this.round.set(updated);
       this.snackBar.open(
-        this.translate.instant('samplingRounds.validated'),
+        this.translate.instant('samplingRounds.revertedToDraft'),
+        this.translate.instant('common.close'),
+        { duration: 3000 }
+      );
+    } catch (err: unknown) {
+      const apiError = err as { error?: { error?: string } };
+      this.snackBar.open(
+        apiError?.error?.error ?? 'Error',
+        this.translate.instant('common.close'),
+        { duration: 5000 }
+      );
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  async startRound(): Promise<void> {
+    const r = this.round();
+    if (!r) return;
+
+    // Start all "New" orders in the round to transition them (and the round) to InProgress
+    const newOrders = r.orders.filter(o => o.status === 'New');
+    if (newOrders.length === 0) return;
+
+    this.saving.set(true);
+    try {
+      for (const order of newOrders) {
+        await firstValueFrom(this.roundApi.startOrder(order.id));
+      }
+      const refreshed = await firstValueFrom(this.roundApi.getById(r.id));
+      this.round.set(refreshed);
+      this.snackBar.open(
+        this.translate.instant('samplingRounds.started'),
         this.translate.instant('common.close'),
         { duration: 3000 }
       );
@@ -650,6 +701,32 @@ export class SamplingRoundDetailComponent implements OnInit {
     }
 
     this.orderSamplings.set(samplings);
+  }
+
+  async transmitOrder(order: SamplingRoundOrderDto, event: Event): Promise<void> {
+    event.stopPropagation();
+    if (!confirm(this.translate.instant('orders.confirmTransmit'))) return;
+
+    try {
+      await firstValueFrom(this.orderApi.transition(order.id, 'Transmitted'));
+      const r = this.round();
+      if (r) {
+        const refreshed = await firstValueFrom(this.roundApi.getById(r.id));
+        this.round.set(refreshed);
+      }
+      this.snackBar.open(
+        this.translate.instant('orders.transmitted'),
+        this.translate.instant('common.close'),
+        { duration: 3000 }
+      );
+    } catch (err: unknown) {
+      const apiError = err as { error?: { error?: string } };
+      this.snackBar.open(
+        apiError?.error?.error ?? 'Error',
+        this.translate.instant('common.close'),
+        { duration: 5000 }
+      );
+    }
   }
 
   goBack(): void {

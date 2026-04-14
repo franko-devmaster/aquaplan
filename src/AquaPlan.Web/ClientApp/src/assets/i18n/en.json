@@ -199,6 +199,7 @@
     "status": "Status",
     "createLocation": "Create location",
     "editLocation": "Edit location",
+    "viewLocation": "Location details",
     "activate": "Activate location",
     "deactivate": "Deactivate location",
     "allDistributors": "All distributors",

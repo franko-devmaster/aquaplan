@@ -25,11 +25,13 @@ import { AuthService } from '../../services/auth.service';
               <mat-icon matListItemIcon>home</mat-icon>
               <span matListItemTitle>{{ 'nav.home' | translate }}</span>
             </a>
-            <a mat-list-item routerLink="/orders" routerLinkActive="active"
-               (click)="navigated.emit()">
-              <mat-icon matListItemIcon>assignment</mat-icon>
-              <span matListItemTitle>{{ 'nav.orders' | translate }}</span>
-            </a>
+            @if (!isPreleveur()) {
+              <a mat-list-item routerLink="/orders" routerLinkActive="active"
+                 (click)="navigated.emit()">
+                <mat-icon matListItemIcon>assignment</mat-icon>
+                <span matListItemTitle>{{ 'nav.orders' | translate }}</span>
+              </a>
+            }
             <a mat-list-item routerLink="/sampling-plans" routerLinkActive="active"
                (click)="navigated.emit()">
               <mat-icon matListItemIcon>calendar_month</mat-icon>
@@ -54,12 +56,12 @@ import { AuthService } from '../../services/auth.service';
               <mat-icon matListItemIcon>place</mat-icon>
               <span matListItemTitle>{{ 'nav.samplingLocations' | translate }}</span>
             </a>
+            <a mat-list-item routerLink="/sectors" routerLinkActive="active"
+               (click)="navigated.emit()">
+              <mat-icon matListItemIcon>map</mat-icon>
+              <span matListItemTitle>{{ 'nav.sectors' | translate }}</span>
+            </a>
             @if (isAdmin()) {
-              <a mat-list-item routerLink="/sectors" routerLinkActive="active"
-                 (click)="navigated.emit()">
-                <mat-icon matListItemIcon>map</mat-icon>
-                <span matListItemTitle>{{ 'nav.sectors' | translate }}</span>
-              </a>
               <a mat-list-item routerLink="/distributors" routerLinkActive="active"
                  (click)="navigated.emit()">
                 <mat-icon matListItemIcon>water_drop</mat-icon>
@@ -158,4 +160,10 @@ export class SidebarComponent {
   readonly isAdmin = computed(() =>
     this.authService.currentUser()?.roles.includes('Administrator') ?? false
   );
+
+  readonly isPreleveur = computed(() => {
+    const user = this.authService.currentUser();
+    if (!user) return false;
+    return user.roles.some(r => r.toLowerCase().includes('réleveur')) && !user.roles.includes('Administrator');
+  });
 }

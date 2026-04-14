@@ -105,7 +105,7 @@ internal class SamplingLocationService(
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<SamplingLocationDto> CreateAsync(SamplingLocationCreateDto dto, Guid tenantId, CancellationToken cancellationToken = default)
+    public async Task<SamplingLocationDto> CreateAsync(SamplingLocationCreateDto dto, Guid tenantId, bool isValidated = true, CancellationToken cancellationToken = default)
     {
         var isUnique = await IsLocationCodeUniqueAsync(dto.LocationCode, dto.DistributorId, null, tenantId, cancellationToken);
         if (!isUnique)
@@ -125,6 +125,7 @@ internal class SamplingLocationService(
             AccessDescription = dto.AccessDescription,
             DistributorId = dto.DistributorId,
             SectorId = dto.SectorId,
+            IsValidated = isValidated,
         };
 
         dbContext.SamplingLocations.Add(location);
@@ -327,7 +328,7 @@ internal class SamplingLocationService(
         return new SamplingLocationDto(
             sl.Id, sl.Name, sl.LocationCode, sl.Latitude, sl.Longitude,
             sl.Description, sl.Address, sl.AccessDescription,
-            sl.IsActive, sl.DistributorId,
+            sl.IsActive, sl.IsValidated, sl.DistributorId,
             sl.Distributor != null ? sl.Distributor.Name : null,
             sl.SectorId,
             sl.Sector != null ? sl.Sector.Name : null,

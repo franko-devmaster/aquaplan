@@ -7,7 +7,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgClass } from '@angular/common';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { OrderApiService } from '../../services/order-api.service';
@@ -25,7 +25,7 @@ import { SamplingRoundDetailDto } from '../../models/sampling-round.model';
   imports: [
     MatCardModule, MatButtonModule, MatIconModule, MatChipsModule,
     MatProgressSpinnerModule, MatDialogModule, MatSnackBarModule,
-    DatePipe, TranslateModule,
+    DatePipe, NgClass, TranslateModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -74,7 +74,7 @@ import { SamplingRoundDetailDto } from '../../models/sampling-round.model';
             </div>
             <div class="detail-item">
               <label>{{ 'orders.status.label' | translate }}</label>
-              <mat-chip>{{ getStatusLabel() | translate }}</mat-chip>
+              <span class="status-badge-order" [ngClass]="getStatusClass()">{{ getStatusLabel() | translate }}</span>
             </div>
             <div class="detail-item">
               <label>{{ 'orders.distributor' | translate }}</label>
@@ -202,9 +202,16 @@ export class OrderDetailComponent implements OnInit {
     return this.authService.currentUser()?.roles.includes('Administrator') ?? false;
   }
 
+  private isPreleveur(): boolean {
+    const user = this.authService.currentUser();
+    if (!user) return false;
+    return user.roles.some(r => r.toLowerCase().includes('réleveur')) && !user.roles.includes('Administrator');
+  }
+
   canEdit(): boolean {
     const o = this.order();
     if (!o) return false;
+    if (this.isPreleveur()) return false;
     if (this.isAdmin()) {
       return o.status !== OrderStatus.Done && o.status !== OrderStatus.Cancelled;
     }
@@ -214,6 +221,7 @@ export class OrderDetailComponent implements OnInit {
   canDelete(): boolean {
     const o = this.order();
     if (!o) return false;
+    if (this.isPreleveur()) return false;
     if (this.isAdmin()) {
       return o.status === OrderStatus.New || o.status === OrderStatus.InProgress;
     }
@@ -226,6 +234,20 @@ export class OrderDetailComponent implements OnInit {
     return OrderStatusLabels[o.status] ?? 'orders.status.new';
   }
 
+  getStatusClass(): string {
+    const o = this.order();
+    if (!o) return 'status-order-new';
+    const map: Record<string, string> = {
+      'New': 'status-order-new',
+      'InProgress': 'status-order-inprogress',
+      'Completed': 'status-order-completed',
+      'Transmitted': 'status-order-transmitted',
+      'Done': 'status-order-done',
+      'Cancelled': 'status-order-cancelled',
+    };
+    return map[o.status] ?? 'status-order-new';
+  }
+
   getUnplannedReasonLabel(): string {
     const o = this.order();
     if (!o || o.unplannedReason === null) return '';
@@ -235,6 +257,7 @@ export class OrderDetailComponent implements OnInit {
   canLinkToRound(): boolean {
     const o = this.order();
     if (!o) return false;
+    if (this.isPreleveur()) return false;
     return o.status === OrderStatus.New;
   }
 

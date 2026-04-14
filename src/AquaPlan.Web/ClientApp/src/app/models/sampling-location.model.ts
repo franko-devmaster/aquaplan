@@ -12,6 +12,7 @@ export interface SamplingLocationDto {
   distributorName: string | null;
   sectorId: string;
   sectorName: string | null;
+  isValidated: boolean;
   createdAt: string;
 }
 

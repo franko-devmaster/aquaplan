@@ -199,6 +199,7 @@
     "status": "Status",
     "createLocation": "Ort erstellen",
     "editLocation": "Ort bearbeiten",
+    "viewLocation": "Ortdetails",
     "activate": "Ort aktivieren",
     "deactivate": "Ort deaktivieren",
     "allDistributors": "Alle Verteiler",

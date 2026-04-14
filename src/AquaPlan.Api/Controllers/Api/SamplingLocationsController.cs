@@ -58,7 +58,6 @@ public class SamplingLocationsController(
     }
 
     [HttpPost]
-    [Authorize(Roles = "Administrator")]
     public async Task<ActionResult<SamplingLocationDto>> Create([FromBody] SamplingLocationCreateDto dto, CancellationToken cancellationToken)
     {
         var tenantId = GetTenantId();
@@ -69,7 +68,8 @@ public class SamplingLocationsController(
             return Conflict(new { message = $"A sampling location with code '{dto.LocationCode}' already exists for this distributor." });
         }
 
-        var location = await samplingLocationService.CreateAsync(dto, tenantId, cancellationToken);
+        var isAdmin = User.IsInRole("Administrator");
+        var location = await samplingLocationService.CreateAsync(dto, tenantId, isValidated: isAdmin, cancellationToken);
         return CreatedAtAction(nameof(GetById), new { id = location.Id }, location);
     }
 
@@ -100,7 +100,6 @@ public class SamplingLocationsController(
     }
 
     [HttpGet("check-code-unique")]
-    [Authorize(Roles = "Administrator")]
     public async Task<ActionResult<bool>> CheckCodeUnique(
         [FromQuery] string locationCode,
         [FromQuery] Guid distributorId,

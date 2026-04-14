@@ -11,6 +11,7 @@ public class SamplingLocation
     public string? Address { get; set; }
     public string? AccessDescription { get; set; }
     public bool IsActive { get; set; } = true;
+    public bool IsValidated { get; set; } = true;
     public Guid DistributorId { get; set; }
     public Distributor? Distributor { get; set; }
     public Guid SectorId { get; set; }

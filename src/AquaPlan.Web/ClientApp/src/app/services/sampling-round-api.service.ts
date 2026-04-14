@@ -65,8 +65,8 @@ export class SamplingRoundApiService {
     return this.http.post<SamplingRoundDetailDto>(`${this.baseUrl}/${id}/assign`, dto);
   }
 
-  validate(id: string): Observable<SamplingRoundDetailDto> {
-    return this.http.post<SamplingRoundDetailDto>(`${this.baseUrl}/${id}/validate`, {});
+  revertToDraft(id: string): Observable<SamplingRoundDetailDto> {
+    return this.http.post<SamplingRoundDetailDto>(`${this.baseUrl}/${id}/revert-to-draft`, {});
   }
 
   transmitAll(id: string): Observable<SamplingRoundDetailDto> {

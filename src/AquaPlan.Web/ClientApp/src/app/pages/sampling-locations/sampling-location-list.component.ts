@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@ang
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -10,7 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
 import { SamplingLocationDatastore, DistributorOption } from '../../datastore/sampling-location.datastore';
@@ -23,9 +22,9 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
   selector: 'app-sampling-location-list',
   standalone: true,
   imports: [
-    MatTableModule, MatButtonModule, MatIconModule, MatChipsModule,
+    MatTableModule, MatButtonModule, MatIconModule,
     MatProgressSpinnerModule, MatTooltipModule, MatFormFieldModule, MatInputModule,
-    MatSelectModule, MatPaginatorModule, MatDialogModule, DecimalPipe, FormsModule,
+    MatSelectModule, MatPaginatorModule, MatDialogModule, DecimalPipe, NgClass, FormsModule,
     TranslateModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -37,12 +36,10 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
           <mat-icon>picture_as_pdf</mat-icon>
           {{ 'samplingLocations.exportPdf' | translate }}
         </button>
-        @if (isAdmin()) {
-          <button mat-raised-button color="primary" (click)="openCreateDialog()">
-            <mat-icon>add</mat-icon>
-            {{ 'samplingLocations.createLocation' | translate }}
-          </button>
-        }
+        <button mat-raised-button color="primary" (click)="openCreateDialog()">
+          <mat-icon>add</mat-icon>
+          {{ 'samplingLocations.createLocation' | translate }}
+        </button>
       </div>
     </div>
 
@@ -115,16 +112,21 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.status' | translate }}</th>
             <td mat-cell *matCellDef="let loc" [attr.data-label]="'samplingLocations.status' | translate">
-              <mat-chip class="status-chip" [class.inactive]="!loc.isActive">
+              <span class="status-badge" [ngClass]="loc.isActive ? 'status-active' : 'status-inactive'">
                 {{ (loc.isActive ? 'common.active' : 'common.inactive') | translate }}
-              </mat-chip>
+              </span>
+              @if (!loc.isValidated) {
+                <span class="status-badge status-to-validate" style="margin-left: 4px;">
+                  {{ 'samplingLocations.toValidate' | translate }}
+                </span>
+              }
             </td>
           </ng-container>
 
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
           <tr mat-row *matRowDef="let row; columns: displayedColumns;"
-              [class.clickable-row]="isAdmin()" [class.inactive-row]="!row.isActive"
-              (click)="openEditDialog(row)"></tr>
+              class="clickable-row" [class.inactive-row]="!row.isActive"
+              (click)="openViewOrEditDialog(row)"></tr>
         </table>
       </div>
 
@@ -153,6 +155,8 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
     .no-data { text-align: center; padding: 24px; color: #666; }
     .inactive { opacity: 0.6; }
     .inactive-row { opacity: 0.6; }
+    .clickable-row { cursor: pointer; }
+    .clickable-row:hover { background-color: rgba(0, 0, 0, 0.04); }
   `],
 })
 export class SamplingLocationListComponent implements OnInit {
@@ -218,10 +222,16 @@ export class SamplingLocationListComponent implements OnInit {
   }
 
   openCreateDialog(): void {
+    const user = this.authService.currentUser();
     const dialogRef = this.dialog.open(SamplingLocationFormDialogComponent, {
       width: '550px',
       panelClass: 'responsive-dialog',
-      data: { mode: 'create' },
+      data: {
+        mode: 'create',
+        readonly: false,
+        userDistributorId: user?.distributorId ?? null,
+        isAdmin: this.isAdmin(),
+      },
     });
     dialogRef.afterClosed().subscribe((result) => {
       if (result) {
@@ -230,12 +240,18 @@ export class SamplingLocationListComponent implements OnInit {
     });
   }
 
-  openEditDialog(location: SamplingLocationDto): void {
-    if (!this.isAdmin()) return;
+  openViewOrEditDialog(location: SamplingLocationDto): void {
+    const readonly = !this.isAdmin();
     const dialogRef = this.dialog.open(SamplingLocationFormDialogComponent, {
       width: '550px',
       panelClass: 'responsive-dialog',
-      data: { mode: 'edit', locationId: location.id },
+      data: {
+        mode: 'edit',
+        locationId: location.id,
+        readonly,
+        userDistributorId: this.authService.currentUser()?.distributorId ?? null,
+        isAdmin: this.isAdmin(),
+      },
     });
     dialogRef.afterClosed().subscribe((result) => {
       if (result) {

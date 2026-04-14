@@ -11,6 +11,7 @@ export interface UserInfo {
   organization: string | null;
   tenantId: string;
   roles: string[];
+  distributorId: string | null;
 }
 
 export interface LoginResponse {

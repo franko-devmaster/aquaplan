@@ -76,7 +76,9 @@ internal class SamplingRoundService(
                 .Select(ud => ud.DistributorId)
                 .ToListAsync(cancellationToken);
 
-            query = query.Where(sr => distributorIds.Contains(sr.DistributorId) || sr.PreleveurId == userId);
+            query = query.Where(sr =>
+                distributorIds.Contains(sr.DistributorId) ||
+                (sr.PreleveurId == userId && sr.Status != SamplingRoundStatus.Draft));
         }
 
         if (filter.Status.HasValue)
@@ -225,37 +227,36 @@ internal class SamplingRoundService(
         return await GetByIdAsync(id, tenantId, cancellationToken);
     }
 
-    public async Task<SamplingRoundDetailDto?> ValidateAsync(
+    public async Task<SamplingRoundDetailDto?> RevertToDraftAsync(
         Guid id, string userId, Guid tenantId,
         CancellationToken cancellationToken = default)
     {
         var round = await dbContext.SamplingRounds
-            .Include(r => r.Preleveur)
-            .Include(r => r.Distributor)
-            .Include(r => r.CreatedBy)
-            .Include(r => r.Orders)
-                .ThenInclude(o => o.SamplingLocation)
-                    .ThenInclude(l => l!.Sector)
-            .Include(r => r.Orders)
-                .ThenInclude(o => o.OriginalSamplingLocation)
-            .Include(r => r.Orders)
-                .ThenInclude(o => o.OrderAnalysisProfiles)
-                    .ThenInclude(oap => oap.AnalysisProfile)
-            .FirstOrDefaultAsync(r => r.Id == id && r.TenantId == tenantId, cancellationToken);
+            .Include(sr => sr.Orders)
+            .Where(sr => sr.TenantId == tenantId && sr.Id == id)
+            .FirstOrDefaultAsync(cancellationToken);
 
         if (round is null) return null;
 
         if (round.Status != SamplingRoundStatus.Assigned)
         {
-            throw new InvalidOperationException("Only assigned rounds can be validated");
+            throw new InvalidOperationException("Only assigned rounds can be reverted to draft");
         }
 
-        round.Status = SamplingRoundStatus.Validated;
+        round.Status = SamplingRoundStatus.Draft;
+        round.PreleveurId = null;
         round.UpdatedAt = DateTime.UtcNow;
         round.UpdatedBy = userId;
 
+        foreach (var order in round.Orders)
+        {
+            order.PreleveurId = null;
+            order.UpdatedAt = DateTime.UtcNow;
+            order.UpdatedBy = userId;
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
-        return MapToDetailDto(round);
+        return await GetByIdAsync(id, tenantId, cancellationToken);
     }
 
     public async Task<SamplingRoundDetailDto?> CancelAsync(
@@ -466,7 +467,7 @@ internal class SamplingRoundService(
         order.UpdatedAt = DateTime.UtcNow;
         order.UpdatedBy = userId;
 
-        if (order.SamplingRound!.Status == SamplingRoundStatus.Validated)
+        if (order.SamplingRound!.Status == SamplingRoundStatus.Assigned)
         {
             order.SamplingRound.Status = SamplingRoundStatus.InProgress;
             order.SamplingRound.UpdatedAt = DateTime.UtcNow;

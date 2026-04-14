@@ -78,6 +78,10 @@ export class OrderApiService {
     return this.http.post<OrderDetailDto>(`${this.baseUrl}/${orderId}/assign`, dto);
   }
 
+  transition(orderId: string, newStatus: string): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/${orderId}/transition`, { newStatus });
+  }
+
   exportCsv(filter: OrderFilterDto): Observable<Blob> {
     let params = new HttpParams();
     if (filter.statuses && filter.statuses.length > 0) {

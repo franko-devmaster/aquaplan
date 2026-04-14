@@ -7,4 +7,5 @@ public record UserInfoDto(
     string LastName,
     string? Organization,
     Guid TenantId,
-    IList<string> Roles);
+    IList<string> Roles,
+    Guid? DistributorId);

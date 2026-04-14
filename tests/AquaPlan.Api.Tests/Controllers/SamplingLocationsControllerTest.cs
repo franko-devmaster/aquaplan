@@ -34,24 +34,30 @@ public class SamplingLocationsControllerTest
         };
     }
 
-    private static ClaimsPrincipal CreateUser(string userId = UserId, string tenantId = "00000000-0000-0000-0000-000000000001")
+    private static ClaimsPrincipal CreateUser(string userId = UserId, string tenantId = "00000000-0000-0000-0000-000000000001", bool isAdmin = false)
     {
-        return new ClaimsPrincipal(new ClaimsIdentity(
-        [
-            new Claim(ClaimTypes.NameIdentifier, userId),
-            new Claim("tenant_id", tenantId),
-        ], "test"));
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, userId),
+            new("tenant_id", tenantId),
+        };
+        if (isAdmin)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, "Administrator"));
+        }
+        return new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
     }
 
     private static SamplingLocationDto CreateLocationDto(
         Guid? id = null,
         string name = "Source A",
         string code = "LOC-001",
-        bool isActive = true)
+        bool isActive = true,
+        bool isValidated = true)
     {
         return new SamplingLocationDto(
             id ?? LocationId, name, code, 46.8, 7.15,
-            "A description", null, null, isActive, DistributorId, "Distributor A",
+            "A description", null, null, isActive, isValidated, DistributorId, "Distributor A",
             SectorId, "Secteur Nord", DateTime.UtcNow);
     }
 
@@ -181,13 +187,17 @@ public class SamplingLocationsControllerTest
     [Fact]
     public async Task Create_ShouldReturnCreatedAtAction_WhenCodeIsUnique()
     {
+        _sut.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = CreateUser(isAdmin: true) }
+        };
         var createDto = new SamplingLocationCreateDto("New Source", "LOC-003", 46.85, 7.1, "New location", null, null, DistributorId, SectorId);
         var created = CreateLocationDto(name: "New Source", code: "LOC-003");
         _samplingLocationServiceMock
             .Setup(x => x.IsLocationCodeUniqueAsync("LOC-003", DistributorId, null, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _samplingLocationServiceMock
-            .Setup(x => x.CreateAsync(createDto, TenantId, It.IsAny<CancellationToken>()))
+            .Setup(x => x.CreateAsync(createDto, TenantId, true, It.IsAny<CancellationToken>()))
             .ReturnsAsync(created);
 
         var result = await _sut.Create(createDto, CancellationToken.None);
@@ -195,6 +205,30 @@ public class SamplingLocationsControllerTest
         var createdResult = result.Result.Should().BeOfType<CreatedAtActionResult>().Subject;
         createdResult.ActionName.Should().Be(nameof(SamplingLocationsController.GetById));
         createdResult.Value.Should().Be(created);
+    }
+
+    [Fact]
+    public async Task Create_WhenNonAdmin_ShouldPassIsValidatedFalse()
+    {
+        _sut.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = CreateUser(isAdmin: false) }
+        };
+        var createDto = new SamplingLocationCreateDto("New Source", "LOC-003", 46.85, 7.1, "New location", null, null, DistributorId, SectorId);
+        var created = CreateLocationDto(name: "New Source", code: "LOC-003", isValidated: false);
+        _samplingLocationServiceMock
+            .Setup(x => x.IsLocationCodeUniqueAsync("LOC-003", DistributorId, null, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _samplingLocationServiceMock
+            .Setup(x => x.CreateAsync(createDto, TenantId, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(created);
+
+        var result = await _sut.Create(createDto, CancellationToken.None);
+
+        var createdResult = result.Result.Should().BeOfType<CreatedAtActionResult>().Subject;
+        createdResult.Value.Should().Be(created);
+        _samplingLocationServiceMock.Verify(
+            x => x.CreateAsync(createDto, TenantId, false, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -208,17 +242,16 @@ public class SamplingLocationsControllerTest
         var result = await _sut.Create(createDto, CancellationToken.None);
 
         result.Result.Should().BeOfType<ConflictObjectResult>();
-        _samplingLocationServiceMock.Verify(x => x.CreateAsync(It.IsAny<SamplingLocationCreateDto>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _samplingLocationServiceMock.Verify(x => x.CreateAsync(It.IsAny<SamplingLocationCreateDto>(), It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public void Create_ShouldHaveAdministratorRoleAttribute()
+    public void Create_ShouldNotHaveAdministratorRoleAttribute()
     {
         var method = typeof(SamplingLocationsController).GetMethod(nameof(SamplingLocationsController.Create));
-        var attributes = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true);
-        attributes.Should().NotBeEmpty();
-        var authorizeAttr = attributes.OfType<AuthorizeAttribute>().First();
-        authorizeAttr.Roles.Should().Be("Administrator");
+        var attributes = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true).OfType<AuthorizeAttribute>();
+        attributes.Should().NotContain(a => a.Roles == "Administrator",
+            "any authenticated user should be able to create a sampling location");
     }
 
     [Fact]
@@ -350,13 +383,12 @@ public class SamplingLocationsControllerTest
     }
 
     [Fact]
-    public void CheckCodeUnique_ShouldHaveAdministratorRoleAttribute()
+    public void CheckCodeUnique_ShouldNotHaveAdministratorRoleAttribute()
     {
         var method = typeof(SamplingLocationsController).GetMethod(nameof(SamplingLocationsController.CheckCodeUnique));
-        var attributes = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true);
-        attributes.Should().NotBeEmpty();
-        var authorizeAttr = attributes.OfType<AuthorizeAttribute>().First();
-        authorizeAttr.Roles.Should().Be("Administrator");
+        var attributes = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true).OfType<AuthorizeAttribute>();
+        attributes.Should().NotContain(a => a.Roles == "Administrator",
+            "any authenticated user should be able to check code uniqueness");
     }
 
     #endregion

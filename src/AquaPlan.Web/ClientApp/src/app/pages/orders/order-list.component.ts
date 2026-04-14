@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -16,7 +15,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { provideNativeDateAdapter } from '@angular/material/core';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSortModule, Sort } from '@angular/material/sort';
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgClass } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { OrderDatastore } from '../../datastore/order.datastore';
@@ -31,11 +30,11 @@ import { OrderCreateDialogComponent } from './order-create-dialog.component';
   selector: 'app-order-list',
   standalone: true,
   imports: [
-    FormsModule, MatTableModule, MatButtonModule, MatIconModule, MatChipsModule,
+    FormsModule, MatTableModule, MatButtonModule, MatIconModule,
     MatDialogModule, MatProgressSpinnerModule, MatTooltipModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule,
     MatDatepickerModule, MatPaginatorModule, MatSortModule,
-    DatePipe, TranslateModule,
+    DatePipe, NgClass, TranslateModule,
   ],
   providers: [provideNativeDateAdapter()],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -123,7 +122,7 @@ import { OrderCreateDialogComponent } from './order-create-dialog.component';
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef mat-sort-header="status">{{ 'orders.status.label' | translate }}</th>
             <td mat-cell *matCellDef="let order" [attr.data-label]="'orders.status.label' | translate">
-              <mat-chip class="status-chip">{{ getStatusLabel(order) | translate }}</mat-chip>
+              <span class="status-badge-order" [ngClass]="getStatusClass(order.status)">{{ getStatusLabel(order) | translate }}</span>
             </td>
           </ng-container>
 
@@ -226,6 +225,18 @@ export class OrderListComponent implements OnInit {
 
   getStatusLabel(order: OrderListDto): string {
     return OrderStatusLabels[order.status] ?? 'orders.status.new';
+  }
+
+  getStatusClass(status: string): string {
+    const map: Record<string, string> = {
+      'New': 'status-order-new',
+      'InProgress': 'status-order-inprogress',
+      'Completed': 'status-order-completed',
+      'Transmitted': 'status-order-transmitted',
+      'Done': 'status-order-done',
+      'Cancelled': 'status-order-cancelled',
+    };
+    return map[status] ?? 'status-order-new';
   }
 
   onSearchChange(value: string): void {

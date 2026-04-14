@@ -41,7 +41,7 @@ export const routes: Routes = [
       { path: 'results', component: ResultsComponent },
       { path: 'sampling-locations', component: SamplingLocationListComponent },
       { path: 'distributors', component: DistributorListComponent, canActivate: [featureGuard(['Administrator'])] },
-      { path: 'sectors', component: SectorListComponent, canActivate: [featureGuard(['Administrator'])] },
+      { path: 'sectors', component: SectorListComponent },
       { path: 'analysis-profiles', component: AnalysisProfilesComponent },
       { path: 'analysis-programs', component: AnalysisProgramsComponent },
       { path: 'admin/users', component: UserListComponent, canActivate: [featureGuard(['Administrator'])] },
