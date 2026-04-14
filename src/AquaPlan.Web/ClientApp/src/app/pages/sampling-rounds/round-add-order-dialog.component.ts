@@ -212,7 +212,7 @@ export class RoundAddOrderDialogComponent implements OnInit {
     this.sectors.set(allSectors);
 
     const locs = await firstValueFrom(this.locationApi.getByDistributor(this.data.distributorId));
-    const activeLocs = locs.filter(l => l.isActive);
+    const activeLocs = locs.filter(l => l.isActive && l.isValidated);
     this.locations.set(activeLocs);
     this.filteredLocations.set(activeLocs);
 

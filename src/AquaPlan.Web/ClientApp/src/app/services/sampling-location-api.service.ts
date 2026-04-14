@@ -62,6 +62,10 @@ export class SamplingLocationApiService {
     return this.http.put<ToggleStatusResultDto>(`${this.baseUrl}/${id}/toggle-status`, {});
   }
 
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
+
   validate(id: string): Observable<SamplingLocationDto> {
     return this.http.put<SamplingLocationDto>(`${this.baseUrl}/${id}/validate`, {});
   }

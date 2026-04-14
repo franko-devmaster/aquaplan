@@ -99,6 +99,19 @@ public class SamplingLocationsController(
         return Ok(result);
     }
 
+    [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Administrator")]
+    public async Task<ActionResult> Delete(Guid id, CancellationToken cancellationToken)
+    {
+        var tenantId = GetTenantId();
+        var deleted = await samplingLocationService.DeleteAsync(id, tenantId, cancellationToken);
+        if (!deleted)
+        {
+            return NotFound();
+        }
+        return NoContent();
+    }
+
     [HttpPut("{id:guid}/validate")]
     [Authorize(Roles = "Administrator")]
     public async Task<ActionResult<SamplingLocationDto>> Validate(Guid id, CancellationToken cancellationToken)

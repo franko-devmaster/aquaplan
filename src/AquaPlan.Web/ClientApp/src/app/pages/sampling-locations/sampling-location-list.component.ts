@@ -11,7 +11,9 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { DecimalPipe, NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { TranslateModule } from '@ngx-translate/core';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { firstValueFrom } from 'rxjs';
 import { SamplingLocationDatastore, DistributorOption } from '../../datastore/sampling-location.datastore';
 import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
 import { AuthService } from '../../services/auth.service';
@@ -24,8 +26,8 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
   imports: [
     MatTableModule, MatButtonModule, MatIconModule,
     MatProgressSpinnerModule, MatTooltipModule, MatFormFieldModule, MatInputModule,
-    MatSelectModule, MatPaginatorModule, MatDialogModule, DecimalPipe, NgClass, FormsModule,
-    TranslateModule,
+    MatSelectModule, MatPaginatorModule, MatDialogModule, MatSnackBarModule,
+    DecimalPipe, NgClass, FormsModule, TranslateModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -124,8 +126,20 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
             </td>
           </ng-container>
 
-          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns;"
+          @if (isAdmin()) {
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef></th>
+              <td mat-cell *matCellDef="let loc">
+                <button mat-icon-button color="warn" (click)="deleteLocation(loc, $event)"
+                        [matTooltip]="'common.delete' | translate">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </td>
+            </ng-container>
+          }
+
+          <tr mat-header-row *matHeaderRowDef="getDisplayedColumns()"></tr>
+          <tr mat-row *matRowDef="let row; columns: getDisplayedColumns();"
               class="clickable-row" [class.inactive-row]="!row.isActive"
               (click)="openViewOrEditDialog(row)"></tr>
         </table>
@@ -165,8 +179,10 @@ export class SamplingLocationListComponent implements OnInit {
   private readonly dialog = inject(MatDialog);
   private readonly apiService = inject(SamplingLocationApiService);
   private readonly authService = inject(AuthService);
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly translate = inject(TranslateService);
 
-  readonly displayedColumns = ['locationCode', 'name', 'distributor', 'sector', 'coordinates', 'status'];
+  private readonly baseColumns = ['locationCode', 'name', 'distributor', 'sector', 'coordinates', 'status'];
 
   searchText = '';
   selectedDistributorId = '';
@@ -180,6 +196,31 @@ export class SamplingLocationListComponent implements OnInit {
   isAdmin(): boolean {
     const user = this.authService.currentUser();
     return user?.roles.includes('Administrator') ?? false;
+  }
+
+  getDisplayedColumns(): string[] {
+    return this.isAdmin() ? [...this.baseColumns, 'actions'] : this.baseColumns;
+  }
+
+  async deleteLocation(location: SamplingLocationDto, event: Event): Promise<void> {
+    event.stopPropagation();
+    if (!confirm(this.translate.instant('samplingLocations.confirmDelete'))) return;
+    try {
+      await firstValueFrom(this.apiService.delete(location.id));
+      this.snackBar.open(
+        this.translate.instant('samplingLocations.deleteSuccess'),
+        this.translate.instant('common.close'),
+        { duration: 3000 }
+      );
+      this.store.loadAll().then(() => this.applyFilters());
+    } catch (err: unknown) {
+      const apiError = err as { error?: { message?: string } };
+      this.snackBar.open(
+        apiError?.error?.message ?? this.translate.instant('common.error'),
+        this.translate.instant('common.close'),
+        { duration: 5000 }
+      );
+    }
   }
 
   ngOnInit(): void {

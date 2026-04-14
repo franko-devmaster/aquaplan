@@ -214,7 +214,10 @@
     "allDistributors": "All distributors",
     "allStatuses": "All statuses",
     "searchPlaceholder": "Search by name or code",
-    "coordinates": "Coordinates"
+    "coordinates": "Coordinates",
+    "toValidate": "To validate",
+    "confirmDelete": "Are you sure you want to delete this sampling location? This action cannot be undone.",
+    "deleteSuccess": "Sampling location deleted successfully"
   },
   "sampling": {
     "weather3days": "Weather (3 days)",

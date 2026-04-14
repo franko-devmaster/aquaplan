@@ -355,6 +355,31 @@ internal class SamplingLocationService(
         return locations.Select(MapToDto).ToList();
     }
 
+    public async Task<bool> DeleteAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        var location = await dbContext.SamplingLocations
+            .Include(sl => sl.Distributor)
+            .Where(sl => sl.Distributor!.TenantId == tenantId && sl.Id == id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (location is null)
+        {
+            return false;
+        }
+
+        // Check if location is referenced by any orders
+        var hasOrders = await dbContext.Orders
+            .AnyAsync(o => o.SamplingLocationId == id, cancellationToken);
+        if (hasOrders)
+        {
+            throw new InvalidOperationException("Cannot delete a sampling location that is referenced by orders. Deactivate it instead.");
+        }
+
+        dbContext.SamplingLocations.Remove(location);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     private static SamplingLocationDto MapToDto(SamplingLocation sl)
     {
         return new SamplingLocationDto(

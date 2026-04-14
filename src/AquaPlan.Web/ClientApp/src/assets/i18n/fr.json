@@ -214,7 +214,9 @@
     "sector": "Secteur",
     "allSectors": "Tous les secteurs",
     "noSector": "Aucun",
-    "toValidate": "À valider"
+    "toValidate": "À valider",
+    "confirmDelete": "Êtes-vous sûr de vouloir supprimer ce lieu de prélèvement ? Cette action est irréversible.",
+    "deleteSuccess": "Lieu de prélèvement supprimé avec succès"
   },
   "changeRequests": {
     "title": "Validation des demandes de modification",
