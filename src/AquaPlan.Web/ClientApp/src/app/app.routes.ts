@@ -2,7 +2,6 @@ import { Routes } from '@angular/router';
 import { LayoutComponent } from './components/layout/layout.component';
 import { LoginComponent } from './pages/login/login.component';
 import { HomeComponent } from './pages/home/home.component';
-import { OrderListComponent } from './pages/orders/order-list.component';
 import { OrderDetailComponent } from './pages/orders/order-detail.component';
 import { SamplingLocationListComponent } from './pages/sampling-locations/sampling-location-list.component';
 import { DistributorListComponent } from './pages/distributors/distributor-list.component';
@@ -32,7 +31,6 @@ export const routes: Routes = [
     canActivate: [authorizeGuard],
     children: [
       { path: '', component: HomeComponent },
-      { path: 'orders', component: OrderListComponent },
       { path: 'orders/:id', component: OrderDetailComponent },
       { path: 'sampling-plans', component: SamplingPlanListComponent },
       { path: 'sampling-plans/:id', component: SamplingPlanDetailComponent },

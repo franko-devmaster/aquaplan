@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
-import { FormGroup, FormControl, ReactiveFormsModule } from '@angular/forms';
+import { FormGroup, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -48,15 +48,19 @@ export interface SamplingFormDialogData {
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="half-width">
-            <mat-label>{{ 'sampling.weather' | translate }}</mat-label>
+            <mat-label>{{ 'sampling.weather3days' | translate }}</mat-label>
             <mat-select formControlName="weather">
-              <mat-option [value]="null">-</mat-option>
               @for (option of weatherOptions; track option) {
                 <mat-option [value]="option">{{ 'sampling.weatherOptions.' + option | translate }}</mat-option>
               }
             </mat-select>
           </mat-form-field>
         </div>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>{{ 'sampling.sampleBarcode' | translate }}</mat-label>
+          <input matInput formControlName="sampleBarcode">
+        </mat-form-field>
 
         <div class="row">
           <mat-form-field appearance="outline" class="half-width">
@@ -119,8 +123,9 @@ export class SamplingFormDialogComponent implements OnInit {
 
   readonly form = new FormGroup({
     samplingDateTime: new FormControl<string>(''),
-    temperature: new FormControl<number | null>(null),
-    weather: new FormControl<string | null>(null),
+    temperature: new FormControl<number | null>(null, Validators.required),
+    weather: new FormControl<string | null>(null, Validators.required),
+    sampleBarcode: new FormControl<string>('', Validators.required),
     locationLat: new FormControl<number | null>(null),
     locationLng: new FormControl<number | null>(null),
     notes: new FormControl<string | null>(null),
@@ -136,6 +141,7 @@ export class SamplingFormDialogComponent implements OnInit {
         samplingDateTime: this.toDatetimeLocalValue(sampling.samplingDateTime),
         temperature: sampling.temperature,
         weather: sampling.weather,
+        sampleBarcode: sampling.sampleBarcode ?? '',
         locationLat: sampling.locationLat,
         locationLng: sampling.locationLng,
         notes: sampling.notes,
@@ -166,6 +172,7 @@ export class SamplingFormDialogComponent implements OnInit {
         notes: formValue.notes,
         hasWaterSoftener: formValue.hasWaterSoftener || null,
         isChlorinated: formValue.isChlorinated ?? false,
+        sampleBarcode: formValue.sampleBarcode || null,
       };
 
       let result: SamplingDto;

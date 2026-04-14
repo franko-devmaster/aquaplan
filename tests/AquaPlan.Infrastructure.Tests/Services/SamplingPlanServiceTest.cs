@@ -420,6 +420,7 @@ public class SamplingPlanServiceTest : IDisposable
             TenantId: TenantId,
             CreatedAt: DateTime.UtcNow,
             UpdatedAt: null,
-            Sampling: null);
+            Sampling: null,
+            SamplingRoundId: null);
     }
 }

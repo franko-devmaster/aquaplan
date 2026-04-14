@@ -356,6 +356,8 @@
     "confirmTransmitAll": "Transmettre tous les mandats effectués au LIMS ?",
     "transmittedAll": "Mandats transmis avec succès",
     "assigned": "Préleveur assigné avec succès",
+    "replaceLocation": "Remplacer le LDP",
+    "replacementReason": "Motif du remplacement",
     "locationReplaced": "Lieu de prélèvement remplacé",
     "editComment": "Commentaire du préleveur :"
   },
@@ -434,14 +436,12 @@
     "validatedSuccess": "Prélèvement validé avec succès",
     "hasWaterSoftener": "Adoucisseur installé",
     "isChlorinated": "Eau chlorée",
+    "weather3days": "Météo à 3 jours",
+    "sampleBarcode": "Code-barres récipient",
     "weatherOptions": {
-      "sunny": "Ensoleillé",
-      "cloudy": "Nuageux",
-      "rainy": "Pluvieux",
-      "stormy": "Orageux",
-      "snowy": "Neigeux",
-      "foggy": "Brumeux",
-      "windy": "Venteux"
+      "dry": "Sec",
+      "light_rain": "Faibles pluies",
+      "heavy_rain": "Fortes pluies"
     }
   }
 }

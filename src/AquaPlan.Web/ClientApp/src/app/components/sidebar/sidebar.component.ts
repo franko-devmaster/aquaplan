@@ -25,13 +25,6 @@ import { AuthService } from '../../services/auth.service';
               <mat-icon matListItemIcon>home</mat-icon>
               <span matListItemTitle>{{ 'nav.home' | translate }}</span>
             </a>
-            @if (!isPreleveur()) {
-              <a mat-list-item routerLink="/orders" routerLinkActive="active"
-                 (click)="navigated.emit()">
-                <mat-icon matListItemIcon>assignment</mat-icon>
-                <span matListItemTitle>{{ 'nav.orders' | translate }}</span>
-              </a>
-            }
             <a mat-list-item routerLink="/sampling-plans" routerLinkActive="active"
                (click)="navigated.emit()">
               <mat-icon matListItemIcon>calendar_month</mat-icon>

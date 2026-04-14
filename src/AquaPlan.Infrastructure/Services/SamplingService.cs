@@ -72,6 +72,7 @@ internal class SamplingService(
             Notes = dto.Notes,
             HasWaterSoftener = dto.HasWaterSoftener,
             IsChlorinated = dto.IsChlorinated,
+            SampleBarcode = dto.SampleBarcode,
             CreatedAt = DateTime.UtcNow,
         };
 
@@ -124,6 +125,7 @@ internal class SamplingService(
         sampling.Notes = dto.Notes;
         sampling.HasWaterSoftener = dto.HasWaterSoftener;
         sampling.IsChlorinated = dto.IsChlorinated;
+        sampling.SampleBarcode = dto.SampleBarcode;
         sampling.UpdatedAt = DateTime.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);

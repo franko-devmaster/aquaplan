@@ -27,6 +27,9 @@ export class SamplingLocationApiService {
     if (filter.search) {
       params = params.set('Search', filter.search);
     }
+    if (filter.sectorId) {
+      params = params.set('SectorId', filter.sectorId);
+    }
     if (filter.isActive !== undefined) {
       params = params.set('IsActive', filter.isActive.toString());
     }

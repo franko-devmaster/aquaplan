@@ -87,6 +87,26 @@ internal class OrderStatusService(
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
+        // Auto-complete round when all orders are transmitted/done
+        if (order.SamplingRoundId.HasValue)
+        {
+            var round = await dbContext.SamplingRounds
+                .Include(r => r.Orders)
+                .FirstOrDefaultAsync(r => r.Id == order.SamplingRoundId.Value, cancellationToken);
+
+            if (round is not null && round.Status == SamplingRoundStatus.InProgress)
+            {
+                if (round.Orders.All(o => o.Status is OrderStatus.Transmitted or OrderStatus.Done or OrderStatus.Cancelled))
+                {
+                    round.Status = SamplingRoundStatus.Completed;
+                    round.CompletedAt = DateTime.UtcNow;
+                    round.UpdatedAt = DateTime.UtcNow;
+                    round.UpdatedBy = userId;
+                    await dbContext.SaveChangesAsync(cancellationToken);
+                }
+            }
+        }
+
         await auditService.LogAsync(
             orderId,
             "StatusTransitioned",

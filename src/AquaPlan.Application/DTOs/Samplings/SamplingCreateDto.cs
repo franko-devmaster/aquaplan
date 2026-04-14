@@ -9,4 +9,5 @@ public record SamplingCreateDto(
     double? LocationLng,
     string? Notes,
     bool? HasWaterSoftener,
-    bool IsChlorinated = false);
+    bool IsChlorinated = false,
+    string? SampleBarcode = null);

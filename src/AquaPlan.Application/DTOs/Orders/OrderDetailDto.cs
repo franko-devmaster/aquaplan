@@ -24,7 +24,8 @@ public record OrderDetailDto(
     Guid TenantId,
     DateTime CreatedAt,
     DateTime? UpdatedAt,
-    SamplingDto? Sampling);
+    SamplingDto? Sampling,
+    Guid? SamplingRoundId);
 
 public record OrderAnalysisProfileDto(
     Guid AnalysisProfileId,

@@ -92,6 +92,7 @@ export interface OrderDetailDto {
   createdAt: string;
   updatedAt: string | null;
   sampling: SamplingDto | null;
+  samplingRoundId: string | null;
 }
 
 export interface OrderCreateDto {

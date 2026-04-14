@@ -312,7 +312,12 @@ export class OrderDetailComponent implements OnInit {
             this.translate.instant('common.close'),
             { duration: 3000 }
           );
-          this.router.navigate(['/orders']);
+          const o = this.order();
+          if (o?.samplingRoundId) {
+            this.router.navigate(['/sampling-rounds', o.samplingRoundId]);
+          } else {
+            this.router.navigate(['/sampling-rounds']);
+          }
         } catch {
           this.snackBar.open(
             this.translate.instant('orders.deleteError'),
@@ -325,6 +330,11 @@ export class OrderDetailComponent implements OnInit {
   }
 
   goBack(): void {
-    this.router.navigate(['/orders']);
+    const o = this.order();
+    if (o?.samplingRoundId) {
+      this.router.navigate(['/sampling-rounds', o.samplingRoundId]);
+    } else {
+      this.router.navigate(['/sampling-rounds']);
+    }
   }
 }

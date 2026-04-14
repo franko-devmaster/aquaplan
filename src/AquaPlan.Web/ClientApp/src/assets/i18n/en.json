@@ -206,5 +206,21 @@
     "allStatuses": "All statuses",
     "searchPlaceholder": "Search by name or code",
     "coordinates": "Coordinates"
+  },
+  "sampling": {
+    "weather3days": "Weather (3 days)",
+    "sampleBarcode": "Sample barcode",
+    "weatherOptions": {
+      "dry": "Dry",
+      "light_rain": "Light rain",
+      "heavy_rain": "Heavy rain"
+    }
+  },
+  "samplingRounds": {
+    "replaceLocation": "Replace sampling location",
+    "replacementReason": "Replacement reason",
+    "locationReplaced": "Sampling location replaced",
+    "sector": "Sector",
+    "location": "Sampling location"
   }
 }

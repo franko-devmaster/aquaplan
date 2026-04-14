@@ -484,7 +484,8 @@ internal class OrderService(
             order.Notes,
             order.IsDelegated,
             analysisProfiles,
-            order.TenantId, order.CreatedAt, order.UpdatedAt, samplingDto);
+            order.TenantId, order.CreatedAt, order.UpdatedAt, samplingDto,
+            order.SamplingRoundId);
     }
 
     private async Task<string> GenerateOrderNumberAsync(CancellationToken cancellationToken)

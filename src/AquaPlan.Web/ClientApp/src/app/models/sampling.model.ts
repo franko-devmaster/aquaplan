@@ -1,4 +1,4 @@
-export const WEATHER_OPTIONS = ['sunny', 'cloudy', 'rainy', 'stormy', 'snowy', 'foggy', 'windy'] as const;
+export const WEATHER_OPTIONS = ['dry', 'light_rain', 'heavy_rain'] as const;
 
 export type WeatherOption = typeof WEATHER_OPTIONS[number];
 
@@ -15,6 +15,7 @@ export interface SamplingDto {
   notes: string | null;
   hasWaterSoftener: boolean | null;
   isChlorinated: boolean;
+  sampleBarcode: string | null;
   isValidated: boolean;
   validatedAt: string | null;
   createdAt: string;
@@ -30,4 +31,5 @@ export interface SamplingCreateDto {
   notes: string | null;
   hasWaterSoftener: boolean | null;
   isChlorinated: boolean;
+  sampleBarcode: string | null;
 }

@@ -206,5 +206,21 @@
     "allStatuses": "Alle Status",
     "searchPlaceholder": "Nach Name oder Code suchen",
     "coordinates": "Koordinaten"
+  },
+  "sampling": {
+    "weather3days": "Wetter (3 Tage)",
+    "sampleBarcode": "Proben-Barcode",
+    "weatherOptions": {
+      "dry": "Trocken",
+      "light_rain": "Leichter Regen",
+      "heavy_rain": "Starker Regen"
+    }
+  },
+  "samplingRounds": {
+    "replaceLocation": "Probenahmeort ersetzen",
+    "replacementReason": "Ersetzungsgrund",
+    "locationReplaced": "Probenahmeort ersetzt",
+    "sector": "Sektor",
+    "location": "Probenahmeort"
   }
 }

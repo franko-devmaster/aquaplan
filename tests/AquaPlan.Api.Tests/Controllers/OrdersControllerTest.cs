@@ -52,7 +52,7 @@ public class OrdersControllerTest
             UserId, "John Doe", preleveurId, preleveurName,
             DistributorId, "Distributor A",
             null, null, null, null, false, [],
-            TenantId, DateTime.UtcNow, null, null);
+            TenantId, DateTime.UtcNow, null, null, null);
     }
 
     private static OrderListDto CreateOrderList(Guid? id = null, string orderNumber = "ORD-001")

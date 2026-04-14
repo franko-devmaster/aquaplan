@@ -30,6 +30,7 @@ import { SamplingDto } from '../../models/sampling.model';
 import { SamplingFormDialogComponent, SamplingFormDialogData } from './sampling-form-dialog.component';
 import { RoundAddOrderDialogComponent, RoundAddOrderDialogData } from './round-add-order-dialog.component';
 import { AssignSamplerDialogComponent, AssignSamplerDialogData } from './assign-sampler-dialog.component';
+import { ReplaceLocationDialogComponent, ReplaceLocationDialogData } from './replace-location-dialog.component';
 
 @Component({
   selector: 'app-sampling-round-detail',
@@ -220,6 +221,12 @@ import { AssignSamplerDialogComponent, AssignSamplerDialogData } from './assign-
                     <button mat-icon-button (click)="editOrder(order, $event)"
                             [matTooltip]="'common.edit' | translate">
                       <mat-icon>edit</mat-icon>
+                    </button>
+                  }
+                  @if ((isInProgress() || isAssigned()) && (order.status === 'New' || order.status === 'InProgress')) {
+                    <button mat-icon-button (click)="replaceLocation(order, $event)"
+                            [matTooltip]="'samplingRounds.replaceLocation' | translate">
+                      <mat-icon>swap_horiz</mat-icon>
                     </button>
                   }
                   @if (canSample() && order.status === 'InProgress' && !orderSamplings()[order.id]) {
@@ -444,6 +451,28 @@ export class SamplingRoundDetailComponent implements OnInit {
   editOrder(order: SamplingRoundOrderDto, event: Event): void {
     event.stopPropagation();
     this.router.navigate(['/orders', order.id]);
+  }
+
+  async replaceLocation(order: SamplingRoundOrderDto, event: Event): Promise<void> {
+    event.stopPropagation();
+    const r = this.round();
+    if (!r) return;
+
+    const dialogRef = this.dialog.open(ReplaceLocationDialogComponent, {
+      data: { orderId: order.id, distributorId: r.distributorId } as ReplaceLocationDialogData,
+      width: '500px',
+    });
+
+    const result = await firstValueFrom(dialogRef.afterClosed());
+    if (result) {
+      const refreshed = await firstValueFrom(this.roundApi.getById(r.id));
+      this.round.set(refreshed);
+      this.snackBar.open(
+        this.translate.instant('samplingRounds.locationReplaced'),
+        this.translate.instant('common.close'),
+        { duration: 3000 }
+      );
+    }
   }
 
   showNotes(order: SamplingRoundOrderDto, event: Event): void {
