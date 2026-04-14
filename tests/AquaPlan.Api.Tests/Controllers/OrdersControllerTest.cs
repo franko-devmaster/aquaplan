@@ -51,7 +51,7 @@ public class OrdersControllerTest
             null, null,
             UserId, "John Doe", preleveurId, preleveurName,
             DistributorId, "Distributor A",
-            null, null, null, null, false, [],
+            null, null, null, null, null, false, [],
             TenantId, DateTime.UtcNow, null, null, null);
     }
 

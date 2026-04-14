@@ -12,8 +12,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { TranslateModule } from '@ngx-translate/core';
 import { OrderDatastore } from '../../datastore/order.datastore';
 import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
+import { SectorApiService } from '../../services/sector-api.service';
 import { AnalysisProfileApiService } from '../../services/analysis-profile-api.service';
 import { SamplingLocationDto } from '../../models/sampling-location.model';
+import { SectorListDto } from '../../models/sector.model';
 import { AnalysisProfileListDto } from '../../models/analysis-profile.model';
 import { OrderDetailDto } from '../../models/order.model';
 import { OrderLinkRoundDialogComponent } from './order-link-round-dialog.component';
@@ -34,11 +36,21 @@ import { firstValueFrom } from 'rxjs';
     <mat-dialog-content>
       <form [formGroup]="form" class="form-container">
         <mat-form-field appearance="outline" class="full-width">
+          <mat-label>{{ 'orders.sector' | translate }}</mat-label>
+          <mat-select formControlName="sectorId" (selectionChange)="onSectorChange()">
+            <mat-option [value]="null">{{ 'common.all' | translate }}</mat-option>
+            @for (sector of sectors(); track sector.id) {
+              <mat-option [value]="sector.id">{{ sector.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
           <mat-label>{{ 'orders.samplingLocation' | translate }}</mat-label>
           <mat-select formControlName="samplingLocationId">
             <mat-option [value]="null">-</mat-option>
-            @for (loc of locations(); track loc.id) {
-              <mat-option [value]="loc.id">{{ loc.name }} ({{ loc.locationCode }})</mat-option>
+            @for (loc of filteredLocations(); track loc.id) {
+              <mat-option [value]="loc.id">{{ loc.locationCode }} — {{ loc.name }}</mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -100,11 +112,14 @@ export class OrderEditDialogComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly orderStore = inject(OrderDatastore);
   private readonly locationApi = inject(SamplingLocationApiService);
+  private readonly sectorApi = inject(SectorApiService);
   private readonly profileApi = inject(AnalysisProfileApiService);
 
   private readonly dialog = inject(MatDialog);
 
+  readonly sectors = signal<SectorListDto[]>([]);
   readonly locations = signal<SamplingLocationDto[]>([]);
+  readonly filteredLocations = signal<SamplingLocationDto[]>([]);
   readonly analysisProfiles = signal<AnalysisProfileListDto[]>([]);
   readonly saving = signal(false);
   readonly roundName = signal<string | null>(null);
@@ -112,6 +127,7 @@ export class OrderEditDialogComponent implements OnInit {
 
   constructor() {
     this.form = this.fb.group({
+      sectorId: [null],
       samplingLocationId: [null],
       preleveurId: [null],
       plannedDate: [null],
@@ -130,13 +146,43 @@ export class OrderEditDialogComponent implements OnInit {
       notes: this.data.notes ?? '',
     });
 
+    // Load sectors
+    const allSectors = await firstValueFrom(
+      this.sectorApi.getAll({ distributorId: this.data.distributorId, isActive: true })
+    );
+    this.sectors.set(allSectors);
+
     // Load locations for the order's distributor
     const locs = await firstValueFrom(this.locationApi.getByDistributor(this.data.distributorId));
-    this.locations.set(locs.filter(l => l.isActive));
+    const activeLocs = locs.filter(l => l.isActive);
+    this.locations.set(activeLocs);
+
+    // Set initial sector from the current location
+    if (this.data.samplingLocationId) {
+      const currentLoc = activeLocs.find(l => l.id === this.data.samplingLocationId);
+      if (currentLoc) {
+        this.form.patchValue({ sectorId: currentLoc.sectorId });
+        this.filteredLocations.set(activeLocs.filter(l => l.sectorId === currentLoc.sectorId));
+      } else {
+        this.filteredLocations.set(activeLocs);
+      }
+    } else {
+      this.filteredLocations.set(activeLocs);
+    }
 
     // Load analysis profiles (active only)
     const profiles = await firstValueFrom(this.profileApi.getAll({ isActive: true }));
     this.analysisProfiles.set(profiles);
+  }
+
+  onSectorChange(): void {
+    const sectorId = this.form.get('sectorId')!.value;
+    this.form.get('samplingLocationId')!.reset();
+    if (sectorId) {
+      this.filteredLocations.set(this.locations().filter(l => l.sectorId === sectorId));
+    } else {
+      this.filteredLocations.set(this.locations());
+    }
   }
 
   openLinkRoundDialog(): void {

@@ -394,7 +394,7 @@ internal class SamplingRoundService(
 
     public async Task<bool> ReplaceLocationAsync(
         Guid orderId, LocationReplacementDto dto, string userId, Guid tenantId,
-        CancellationToken cancellationToken = default)
+        bool isAdmin = false, CancellationToken cancellationToken = default)
     {
         var order = await dbContext.Orders
             .Include(o => o.SamplingRound)
@@ -403,9 +403,9 @@ internal class SamplingRoundService(
 
         if (order is null) return false;
 
-        if (order.SamplingRound?.PreleveurId != userId)
+        if (!isAdmin && order.SamplingRound?.PreleveurId != userId)
         {
-            throw new InvalidOperationException("Only the assigned préleveur can replace a sampling location");
+            throw new InvalidOperationException("Only the assigned préleveur or an administrator can replace a sampling location");
         }
 
         if (order.Status is not (OrderStatus.New or OrderStatus.InProgress))

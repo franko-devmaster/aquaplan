@@ -14,9 +14,11 @@ import { OrderApiService } from '../../services/order-api.service';
 import { OrderDatastore } from '../../datastore/order.datastore';
 import { SamplingRoundApiService } from '../../services/sampling-round-api.service';
 import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
+import { SectorApiService } from '../../services/sector-api.service';
 import { AnalysisProfileApiService } from '../../services/analysis-profile-api.service';
 import { OrderListDto, OrderStatus, UnplannedReason, UnplannedReasonLabels } from '../../models/order.model';
 import { SamplingLocationDto } from '../../models/sampling-location.model';
+import { SectorListDto } from '../../models/sector.model';
 import { AnalysisProfileListDto } from '../../models/analysis-profile.model';
 import { SamplingRoundDetailDto } from '../../models/sampling-round.model';
 
@@ -64,11 +66,21 @@ export interface RoundAddOrderDialogData {
       @if (mode() === 'create') {
         <form [formGroup]="form" class="form-container">
           <mat-form-field appearance="outline" class="full-width">
+            <mat-label>{{ 'samplingRounds.sector' | translate }}</mat-label>
+            <mat-select formControlName="sectorId" (selectionChange)="onSectorChange()">
+              <mat-option [value]="null">{{ 'common.all' | translate }}</mat-option>
+              @for (sector of sectors(); track sector.id) {
+                <mat-option [value]="sector.id">{{ sector.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
             <mat-label>{{ 'orders.samplingLocation' | translate }}</mat-label>
             <mat-select formControlName="samplingLocationId">
               <mat-option [value]="null">-</mat-option>
-              @for (loc of locations(); track loc.id) {
-                <mat-option [value]="loc.id">{{ loc.name }} ({{ loc.locationCode }})</mat-option>
+              @for (loc of filteredLocations(); track loc.id) {
+                <mat-option [value]="loc.id">{{ loc.locationCode }} — {{ loc.name }}</mat-option>
               }
             </mat-select>
           </mat-form-field>
@@ -137,11 +149,14 @@ export class RoundAddOrderDialogComponent implements OnInit {
   private readonly orderStore = inject(OrderDatastore);
   private readonly roundApi = inject(SamplingRoundApiService);
   private readonly locationApi = inject(SamplingLocationApiService);
+  private readonly sectorApi = inject(SectorApiService);
   private readonly profileApi = inject(AnalysisProfileApiService);
 
   readonly mode = signal<'link' | 'create'>('link');
   readonly unassignedOrders = signal<OrderListDto[]>([]);
+  readonly sectors = signal<SectorListDto[]>([]);
   readonly locations = signal<SamplingLocationDto[]>([]);
+  readonly filteredLocations = signal<SamplingLocationDto[]>([]);
   readonly analysisProfiles = signal<AnalysisProfileListDto[]>([]);
   readonly loadingOrders = signal(true);
   readonly saving = signal(false);
@@ -159,6 +174,7 @@ export class RoundAddOrderDialogComponent implements OnInit {
 
   constructor() {
     this.form = this.fb.group({
+      sectorId: [null],
       samplingLocationId: [null],
       analysisProfileIds: [[]],
       notes: [''],
@@ -189,12 +205,29 @@ export class RoundAddOrderDialogComponent implements OnInit {
       this.loadingOrders.set(false);
     }
 
-    // Load locations and profiles for create mode
+    // Load sectors, locations and profiles for create mode
+    const allSectors = await firstValueFrom(
+      this.sectorApi.getAll({ distributorId: this.data.distributorId, isActive: true })
+    );
+    this.sectors.set(allSectors);
+
     const locs = await firstValueFrom(this.locationApi.getByDistributor(this.data.distributorId));
-    this.locations.set(locs.filter(l => l.isActive));
+    const activeLocs = locs.filter(l => l.isActive);
+    this.locations.set(activeLocs);
+    this.filteredLocations.set(activeLocs);
 
     const profiles = await firstValueFrom(this.profileApi.getAll({ isActive: true }));
     this.analysisProfiles.set(profiles);
+  }
+
+  onSectorChange(): void {
+    const sectorId = this.form.get('sectorId')!.value;
+    this.form.get('samplingLocationId')!.reset();
+    if (sectorId) {
+      this.filteredLocations.set(this.locations().filter(l => l.sectorId === sectorId));
+    } else {
+      this.filteredLocations.set(this.locations());
+    }
   }
 
   async onSubmit(): Promise<void> {

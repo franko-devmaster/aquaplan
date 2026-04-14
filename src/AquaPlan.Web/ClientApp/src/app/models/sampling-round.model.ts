@@ -16,7 +16,7 @@ export const SamplingRoundStatusLabels: Record<SamplingRoundStatus, string> = {
 
 export const SamplingRoundStatusColors: Record<SamplingRoundStatus, string> = {
   [SamplingRoundStatus.Draft]: '#455A64',
-  [SamplingRoundStatus.Assigned]: '#00695C',
+  [SamplingRoundStatus.Assigned]: '#0277BD',
   [SamplingRoundStatus.InProgress]: '#1565C0',
   [SamplingRoundStatus.Completed]: '#2E7D32',
   [SamplingRoundStatus.Cancelled]: '#C62828',

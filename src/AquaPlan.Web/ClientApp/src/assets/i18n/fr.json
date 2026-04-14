@@ -60,7 +60,8 @@
     "activate": "Activer",
     "deactivate": "Désactiver",
     "createdBy": "Créé par",
-    "createdAt": "Créé le"
+    "createdAt": "Créé le",
+    "error": "Erreur"
   },
   "users": {
     "title": "Gestion des utilisateurs",
@@ -119,6 +120,7 @@
       "urgency": "Urgence",
       "complementaryControl": "Contrôle complémentaire"
     },
+    "sector": "Secteur",
     "samplingLocation": "Lieu de prélèvement",
     "plannedDate": "Date planifiée",
     "notes": "Notes",

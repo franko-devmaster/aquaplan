@@ -413,6 +413,7 @@ public class SamplingPlanServiceTest : IDisposable
             DistributorName: "Test Distributor",
             SamplingLocationId: dto.SamplingLocationId,
             SamplingLocationName: "Source A",
+            SectorName: null,
             PlannedDate: dto.PlannedDate,
             Notes: dto.Notes,
             IsDelegated: false,

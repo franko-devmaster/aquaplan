@@ -142,6 +142,7 @@ internal class OrderService(
             .Include(o => o.Preleveur)
             .Include(o => o.Distributor)
             .Include(o => o.SamplingLocation)
+                .ThenInclude(sl => sl!.Sector)
             .Include(o => o.OrderAnalysisProfiles)
                 .ThenInclude(oap => oap.AnalysisProfile)
             .Include(o => o.Sampling)
@@ -480,6 +481,7 @@ internal class OrderService(
             order.Distributor is not null ? order.Distributor.Name : string.Empty,
             order.SamplingLocationId,
             order.SamplingLocation is not null ? order.SamplingLocation.Name : null,
+            order.SamplingLocation?.Sector?.Name,
             order.PlannedDate,
             order.Notes,
             order.IsDelegated,

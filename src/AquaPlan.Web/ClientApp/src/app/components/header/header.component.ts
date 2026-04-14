@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -35,13 +35,17 @@ import { LocaleService } from '../../services/locale.service';
       </mat-menu>
 
       @if (authService.isAuthenticated()) {
-        <button mat-icon-button [matMenuTriggerFor]="userMenu" aria-label="User menu">
-          <mat-icon>person</mat-icon>
+        <button mat-button [matMenuTriggerFor]="userMenu" class="user-chip" aria-label="User menu">
+          <span class="user-avatar">{{ userInitial() }}</span>
+          @if (!isMobile()) {
+            <span class="user-name">{{ userDisplayName() }}</span>
+          }
+          <mat-icon>arrow_drop_down</mat-icon>
         </button>
         <mat-menu #userMenu="matMenu">
           @if (isMobile()) {
             <button mat-menu-item disabled>
-              {{ authService.currentUser()?.firstName }}
+              {{ userDisplayName() }}
             </button>
             <mat-divider></mat-divider>
             @for (lang of localeService.getSupportedLanguages(); track lang) {
@@ -67,6 +71,29 @@ import { LocaleService } from '../../services/locale.service';
     .header { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; }
     .logo { margin-left: 8px; font-weight: 500; }
     .spacer { flex: 1 1 auto; }
+    .user-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 20px;
+      padding: 4px 8px 4px 4px;
+      color: white;
+    }
+    .user-avatar {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.25);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .user-name {
+      font-size: 14px;
+      font-weight: 400;
+    }
     @media (max-width: 767px) {
       .logo { font-size: 16px; }
     }
@@ -77,4 +104,16 @@ export class HeaderComponent {
   readonly localeService = inject(LocaleService);
   readonly isMobile = input(false);
   readonly menuToggle = output();
+
+  readonly userInitial = computed(() => {
+    const user = this.authService.currentUser();
+    return user?.firstName?.charAt(0).toUpperCase() ?? '';
+  });
+
+  readonly userDisplayName = computed(() => {
+    const user = this.authService.currentUser();
+    if (!user) return '';
+    const initial = user.firstName?.charAt(0).toUpperCase() ?? '';
+    return `${initial}. ${user.lastName}`;
+  });
 }

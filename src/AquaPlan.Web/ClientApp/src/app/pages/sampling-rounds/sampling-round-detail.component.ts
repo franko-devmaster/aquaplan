@@ -217,7 +217,7 @@ import { ReplaceLocationDialogComponent, ReplaceLocationDialogData } from './rep
                       <mat-icon>remove_circle_outline</mat-icon>
                     </button>
                   }
-                  @if (isDraft() || isAssigned()) {
+                  @if (isDraft()) {
                     <button mat-icon-button (click)="editOrder(order, $event)"
                             [matTooltip]="'common.edit' | translate">
                       <mat-icon>edit</mat-icon>

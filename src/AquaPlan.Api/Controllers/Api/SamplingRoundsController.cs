@@ -157,7 +157,8 @@ public class SamplingRoundsController(
     {
         var userId = GetUserId();
         var tenantId = GetTenantId();
-        var result = await samplingRoundService.ReplaceLocationAsync(orderId, dto, userId, tenantId, cancellationToken);
+        var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        var result = await samplingRoundService.ReplaceLocationAsync(orderId, dto, userId, tenantId, isAdmin, cancellationToken);
         if (!result) return NotFound();
         return Ok();
     }

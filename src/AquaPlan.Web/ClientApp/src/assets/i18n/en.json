@@ -44,7 +44,9 @@
     "active": "Active",
     "inactive": "Inactive",
     "back": "Back",
-    "close": "Close"
+    "close": "Close",
+    "all": "All",
+    "error": "Error"
   },
   "users": {
     "title": "User management",
@@ -105,6 +107,7 @@
       "urgency": "Urgency",
       "complementaryControl": "Complementary control"
     },
+    "sector": "Sector",
     "samplingLocation": "Sampling location",
     "plannedDate": "Planned date",
     "notes": "Notes",

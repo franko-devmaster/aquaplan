@@ -6,7 +6,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { TranslateModule } from '@ngx-translate/core';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { SamplingRoundApiService } from '../../services/sampling-round-api.service';
 import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
@@ -25,7 +26,7 @@ export interface ReplaceLocationDialogData {
   imports: [
     ReactiveFormsModule, MatButtonModule, MatDialogModule,
     MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatProgressSpinnerModule, TranslateModule,
+    MatProgressSpinnerModule, MatSnackBarModule, TranslateModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -78,6 +79,8 @@ export class ReplaceLocationDialogComponent implements OnInit {
   private readonly roundApi = inject(SamplingRoundApiService);
   private readonly locationApi = inject(SamplingLocationApiService);
   private readonly sectorApi = inject(SectorApiService);
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly translate = inject(TranslateService);
 
   readonly saving = signal(false);
   readonly sectors = signal<SectorListDto[]>([]);
@@ -122,7 +125,13 @@ export class ReplaceLocationDialogComponent implements OnInit {
         reason: this.form.value.reason!,
       }));
       this.dialogRef.close(true);
-    } catch {
+    } catch (err: unknown) {
+      const apiError = err as { error?: { error?: string } };
+      this.snackBar.open(
+        apiError?.error?.error ?? this.translate.instant('common.error'),
+        this.translate.instant('common.close'),
+        { duration: 5000 }
+      );
       this.saving.set(false);
     }
   }

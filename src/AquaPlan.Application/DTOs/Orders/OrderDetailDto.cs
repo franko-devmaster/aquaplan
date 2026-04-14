@@ -17,6 +17,7 @@ public record OrderDetailDto(
     string DistributorName,
     Guid? SamplingLocationId,
     string? SamplingLocationName,
+    string? SectorName,
     DateTime? PlannedDate,
     string? Notes,
     bool IsDelegated,

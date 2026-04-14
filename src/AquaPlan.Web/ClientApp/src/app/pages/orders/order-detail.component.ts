@@ -81,6 +81,10 @@ import { SamplingRoundDetailDto } from '../../models/sampling-round.model';
               <span>{{ order()!.distributorName }}</span>
             </div>
             <div class="detail-item">
+              <label>{{ 'orders.sector' | translate }}</label>
+              <span>{{ order()!.sectorName ?? '-' }}</span>
+            </div>
+            <div class="detail-item">
               <label>{{ 'orders.samplingLocation' | translate }}</label>
               <span>{{ order()!.samplingLocationName ?? '-' }}</span>
             </div>

@@ -14,7 +14,7 @@ public interface ISamplingRoundService
     Task<SamplingRoundDetailDto?> AddOrderAsync(Guid roundId, Guid orderId, Guid tenantId, CancellationToken cancellationToken = default);
     Task<bool> RemoveOrderAsync(Guid roundId, Guid orderId, Guid tenantId, CancellationToken cancellationToken = default);
     Task<SamplingRoundDetailDto?> ReorderAsync(Guid roundId, SamplingRoundReorderDto dto, Guid tenantId, CancellationToken cancellationToken = default);
-    Task<bool> ReplaceLocationAsync(Guid orderId, LocationReplacementDto dto, string userId, Guid tenantId, CancellationToken cancellationToken = default);
+    Task<bool> ReplaceLocationAsync(Guid orderId, LocationReplacementDto dto, string userId, Guid tenantId, bool isAdmin = false, CancellationToken cancellationToken = default);
     Task<bool> StartOrderAsync(Guid orderId, string userId, Guid tenantId, CancellationToken cancellationToken = default);
     Task<bool> UpdateSamplerCommentAsync(Guid orderId, SamplerCommentDto dto, string userId, Guid tenantId, CancellationToken cancellationToken = default);
     Task<SamplingRoundDetailDto?> RevertToDraftAsync(Guid id, string userId, Guid tenantId, CancellationToken cancellationToken = default);

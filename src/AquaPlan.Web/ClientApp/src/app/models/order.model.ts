@@ -84,6 +84,7 @@ export interface OrderDetailDto {
   distributorName: string;
   samplingLocationId: string | null;
   samplingLocationName: string | null;
+  sectorName: string | null;
   plannedDate: string | null;
   notes: string | null;
   isDelegated: boolean;
