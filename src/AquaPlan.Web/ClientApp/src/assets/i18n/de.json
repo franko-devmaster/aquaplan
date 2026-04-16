@@ -15,8 +15,16 @@
     "roles": "Rollen",
     "orderStatus": "Auftragsstatus",
     "validationQueue": "Validierung PNO",
+    "analysisCatalog": "Analysekatalog",
+    "analysisProfiles": "Analyseprofile",
+    "analysisPrograms": "Analyseprogramme",
+    "analysisContainers": "Behälter",
     "delegations": "Delegationen",
-    "settings": "Einstellungen"
+    "settings": "Einstellungen",
+    "groupPrincipal": "Hauptmenü",
+    "groupReseau": "Netzwerk",
+    "groupCatalog": "Analysekatalog",
+    "groupAdmin": "Administration"
   },
   "auth": {
     "login": "Anmelden",
@@ -44,7 +52,55 @@
     "active": "Aktiv",
     "inactive": "Inaktiv",
     "back": "Zurück",
-    "close": "Schliessen"
+    "close": "Schliessen",
+    "status": "Status",
+    "all": "Alle",
+    "activate": "Aktivieren",
+    "deactivate": "Deaktivieren",
+    "toggleStatus": "Aktivieren / Deaktivieren",
+    "error": "Fehler"
+  },
+  "analysisCatalog": {
+    "categories": {
+      "Bacteriology": "Bakteriologie",
+      "Chemistry": "Chemie",
+      "Physical": "Physikalisch",
+      "Other": "Sonstige"
+    },
+    "profiles": {
+      "title": "Analyseprofile",
+      "code": "Code",
+      "name": "Name",
+      "description": "Beschreibung",
+      "category": "Kategorie",
+      "container": "Behälter",
+      "create": "Profil erstellen",
+      "edit": "Profil bearbeiten",
+      "view": "Profildetails"
+    },
+    "programs": {
+      "title": "Analyseprogramme",
+      "code": "Code",
+      "name": "Name",
+      "description": "Beschreibung",
+      "profileCount": "Anzahl Profile",
+      "create": "Programm erstellen",
+      "edit": "Programm bearbeiten",
+      "manageProfiles": "Profile verwalten",
+      "assignedProfiles": "Zugewiesene Profile",
+      "addProfile": "Profile hinzufügen"
+    },
+    "containers": {
+      "title": "Analysebehälter",
+      "code": "Code",
+      "name": "Name",
+      "material": "Material",
+      "volume": "Volumen",
+      "color": "Farbe",
+      "create": "Behälter erstellen",
+      "edit": "Behälter bearbeiten",
+      "view": "Behälterdetails"
+    }
   },
   "users": {
     "title": "Benutzerverwaltung",

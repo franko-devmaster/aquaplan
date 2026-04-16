@@ -1,10 +1,10 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -12,6 +12,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
 import { AnalysisProfileDatastore } from '../../datastore/analysis-profile.datastore';
+import { ContainerDatastore } from '../../datastore/container.datastore';
 import { AnalysisProfileAddDto, AnalysisProfileUpdateDto, AnalysisCategory } from '../../models/analysis-profile.model';
 import { AuthService } from '../../services/auth.service';
 
@@ -77,6 +78,11 @@ import { AuthService } from '../../services/auth.service';
           </td>
         </ng-container>
 
+        <ng-container matColumnDef="container">
+          <th mat-header-cell *matHeaderCellDef>{{ 'analysisCatalog.profiles.container' | translate }}</th>
+          <td mat-cell *matCellDef="let p">{{ p.containerCode }}</td>
+        </ng-container>
+
         <ng-container matColumnDef="status">
           <th mat-header-cell *matHeaderCellDef>{{ 'common.status' | translate }}</th>
           <td mat-cell *matCellDef="let p">
@@ -120,10 +126,18 @@ import { AuthService } from '../../services/auth.service';
               }
             </mat-select>
           </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>{{ 'analysisCatalog.profiles.container' | translate }}</mat-label>
+            <mat-select [(ngModel)]="formContainerId" [disabled]="formReadonly()" required>
+              @for (c of activeContainers(); track c.id) {
+                <mat-option [value]="c.id">{{ c.code }} — {{ c.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
           <div class="form-actions">
             <button mat-button (click)="closeForm()">{{ (formReadonly() ? 'common.close' : 'common.cancel') | translate }}</button>
             @if (!formReadonly()) {
-              <button mat-raised-button color="primary" (click)="saveProfile()">{{ 'common.save' | translate }}</button>
+              <button mat-raised-button color="primary" (click)="saveProfile()" [disabled]="!canSave()">{{ 'common.save' | translate }}</button>
             }
           </div>
         </div>
@@ -152,9 +166,10 @@ import { AuthService } from '../../services/auth.service';
 })
 export class AnalysisProfilesComponent implements OnInit {
   readonly store = inject(AnalysisProfileDatastore);
+  readonly containerStore = inject(ContainerDatastore);
   private readonly authService = inject(AuthService);
 
-  readonly displayedColumns = ['code', 'name', 'category', 'status'];
+  readonly displayedColumns = ['code', 'name', 'category', 'container', 'status'];
   readonly categories: AnalysisCategory[] = ['Bacteriology', 'Chemistry', 'Physical', 'Other'];
 
   searchText = '';
@@ -163,18 +178,26 @@ export class AnalysisProfilesComponent implements OnInit {
   readonly showForm = signal(false);
   readonly editingId = signal<string | null>(null);
   readonly formReadonly = signal(false);
+  readonly activeContainers = computed(() => this.containerStore.containers().filter(c => c.isActive));
+
   formCode = '';
   formName = '';
   formDescription = '';
   formCategory: AnalysisCategory = 'Other';
+  formContainerId = '';
 
   ngOnInit(): void {
     this.store.loadAll();
+    this.containerStore.loadAll();
   }
 
   isAdmin(): boolean {
     const user = this.authService.currentUser();
     return user?.roles.includes('Administrator') ?? false;
+  }
+
+  canSave(): boolean {
+    return !!this.formCode && !!this.formName && !!this.formContainerId;
   }
 
   applyFilter(): void {
@@ -190,16 +213,18 @@ export class AnalysisProfilesComponent implements OnInit {
     this.formName = '';
     this.formDescription = '';
     this.formCategory = 'Other';
+    this.formContainerId = '';
     this.formReadonly.set(false);
     this.showForm.set(true);
   }
 
-  openViewForm(profile: { id: string; code: string; name: string; description?: string; category: AnalysisCategory }): void {
+  openViewForm(profile: { id: string; code: string; name: string; description?: string; category: AnalysisCategory; containerId: string }): void {
     this.editingId.set(profile.id);
     this.formCode = profile.code;
     this.formName = profile.name;
     this.formDescription = profile.description ?? '';
     this.formCategory = profile.category;
+    this.formContainerId = profile.containerId;
     this.formReadonly.set(!this.isAdmin());
     this.showForm.set(true);
   }
@@ -216,6 +241,7 @@ export class AnalysisProfilesComponent implements OnInit {
         description: this.formDescription || null,
         category: this.formCategory,
         isActive: true,
+        containerId: this.formContainerId,
       };
       await this.store.update(this.editingId()!, dto);
     } else {
@@ -224,6 +250,7 @@ export class AnalysisProfilesComponent implements OnInit {
         name: this.formName,
         description: this.formDescription || null,
         category: this.formCategory,
+        containerId: this.formContainerId,
       };
       await this.store.create(dto);
     }

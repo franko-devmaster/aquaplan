@@ -70,15 +70,20 @@ import { AuthService } from '../../services/auth.service';
             <mat-panel-title>{{ 'nav.groupCatalog' | translate }}</mat-panel-title>
           </mat-expansion-panel-header>
           <mat-nav-list>
+            <a mat-list-item routerLink="/analysis-programs" routerLinkActive="active"
+               (click)="navigated.emit()">
+              <mat-icon matListItemIcon>playlist_add_check</mat-icon>
+              <span matListItemTitle>{{ 'nav.analysisPrograms' | translate }}</span>
+            </a>
             <a mat-list-item routerLink="/analysis-profiles" routerLinkActive="active"
                (click)="navigated.emit()">
               <mat-icon matListItemIcon>science</mat-icon>
               <span matListItemTitle>{{ 'nav.analysisProfiles' | translate }}</span>
             </a>
-            <a mat-list-item routerLink="/analysis-programs" routerLinkActive="active"
+            <a mat-list-item routerLink="/analysis-containers" routerLinkActive="active"
                (click)="navigated.emit()">
-              <mat-icon matListItemIcon>playlist_add_check</mat-icon>
-              <span matListItemTitle>{{ 'nav.analysisPrograms' | translate }}</span>
+              <mat-icon matListItemIcon>category</mat-icon>
+              <span matListItemTitle>{{ 'nav.analysisContainers' | translate }}</span>
             </a>
           </mat-nav-list>
         </mat-expansion-panel>

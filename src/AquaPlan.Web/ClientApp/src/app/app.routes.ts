@@ -13,6 +13,7 @@ import { ValidationQueueComponent } from './pages/admin/validation-queue/validat
 import { AuthCallbackComponent } from './pages/auth-callback/auth-callback.component';
 import { AnalysisProfilesComponent } from './pages/analysis-catalog/analysis-profiles.component';
 import { AnalysisProgramsComponent } from './pages/analysis-catalog/analysis-programs.component';
+import { AnalysisContainersComponent } from './pages/analysis-catalog/analysis-containers.component';
 import { DelegationListComponent } from './pages/admin/delegations/delegation-list.component';
 import { SamplingPlanListComponent } from './pages/sampling-plans/sampling-plan-list.component';
 import { SamplingPlanDetailComponent } from './pages/sampling-plans/sampling-plan-detail.component';
@@ -42,6 +43,7 @@ export const routes: Routes = [
       { path: 'sectors', component: SectorListComponent },
       { path: 'analysis-profiles', component: AnalysisProfilesComponent },
       { path: 'analysis-programs', component: AnalysisProgramsComponent },
+      { path: 'analysis-containers', component: AnalysisContainersComponent },
       { path: 'admin/users', component: UserListComponent, canActivate: [featureGuard(['Administrator'])] },
       { path: 'admin/roles', component: RoleListComponent, canActivate: [featureGuard(['Administrator'])] },
       { path: 'admin/order-status', component: OrderStatusComponent, canActivate: [featureGuard(['Administrator'])] },

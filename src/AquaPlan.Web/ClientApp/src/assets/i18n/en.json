@@ -15,8 +15,16 @@
     "roles": "Roles",
     "orderStatus": "Order statuses",
     "validationQueue": "SL Validation",
+    "analysisCatalog": "Analysis catalog",
+    "analysisProfiles": "Analysis profiles",
+    "analysisPrograms": "Analysis programs",
+    "analysisContainers": "Containers",
     "delegations": "Delegations",
-    "settings": "Settings"
+    "settings": "Settings",
+    "groupPrincipal": "Main",
+    "groupReseau": "Network",
+    "groupCatalog": "Analysis catalog",
+    "groupAdmin": "Administration"
   },
   "auth": {
     "login": "Sign in",
@@ -46,7 +54,53 @@
     "back": "Back",
     "close": "Close",
     "all": "All",
+    "status": "Status",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "toggleStatus": "Toggle status",
     "error": "Error"
+  },
+  "analysisCatalog": {
+    "categories": {
+      "Bacteriology": "Bacteriology",
+      "Chemistry": "Chemistry",
+      "Physical": "Physical",
+      "Other": "Other"
+    },
+    "profiles": {
+      "title": "Analysis profiles",
+      "code": "Code",
+      "name": "Name",
+      "description": "Description",
+      "category": "Category",
+      "container": "Container",
+      "create": "Create profile",
+      "edit": "Edit profile",
+      "view": "Profile details"
+    },
+    "programs": {
+      "title": "Analysis programs",
+      "code": "Code",
+      "name": "Name",
+      "description": "Description",
+      "profileCount": "Profiles",
+      "create": "Create program",
+      "edit": "Edit program",
+      "manageProfiles": "Manage profiles",
+      "assignedProfiles": "Assigned profiles",
+      "addProfile": "Add profiles"
+    },
+    "containers": {
+      "title": "Analysis containers",
+      "code": "Code",
+      "name": "Name",
+      "material": "Material",
+      "volume": "Volume",
+      "color": "Color",
+      "create": "Create container",
+      "edit": "Edit container",
+      "view": "Container details"
+    }
   },
   "users": {
     "title": "User management",

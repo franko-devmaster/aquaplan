@@ -7,6 +7,9 @@ export interface AnalysisProfileDto {
   description: string | null;
   category: AnalysisCategory;
   isActive: boolean;
+  containerId: string;
+  containerCode: string;
+  containerName: string;
   createdAt: string;
 }
 
@@ -16,6 +19,8 @@ export interface AnalysisProfileListDto {
   name: string;
   category: AnalysisCategory;
   isActive: boolean;
+  containerId: string;
+  containerCode: string;
 }
 
 export interface AnalysisProfileAddDto {
@@ -23,6 +28,7 @@ export interface AnalysisProfileAddDto {
   name: string;
   description: string | null;
   category: AnalysisCategory;
+  containerId: string;
 }
 
 export interface AnalysisProfileUpdateDto {
@@ -31,6 +37,7 @@ export interface AnalysisProfileUpdateDto {
   description: string | null;
   category: AnalysisCategory;
   isActive: boolean;
+  containerId: string;
 }
 
 export interface AnalysisProfileFilteringInputDto {

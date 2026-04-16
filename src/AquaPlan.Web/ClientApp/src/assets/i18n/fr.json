@@ -18,6 +18,7 @@
     "analysisCatalog": "Catalogue d'analyses",
     "analysisProfiles": "Profils d'analyse",
     "analysisPrograms": "Programmes d'analyse",
+    "analysisContainers": "Contenants",
     "delegations": "Délégations",
     "samplingPlans": "Plans de prélèvement",
     "samplingRounds": "Tournées",
@@ -59,6 +60,7 @@
     "all": "Tous",
     "activate": "Activer",
     "deactivate": "Désactiver",
+    "toggleStatus": "Activer / désactiver",
     "createdBy": "Créé par",
     "createdAt": "Créé le",
     "error": "Erreur"
@@ -259,6 +261,7 @@
       "name": "Nom",
       "description": "Description",
       "category": "Catégorie",
+      "container": "Contenant",
       "create": "Créer un profil",
       "edit": "Modifier le profil",
       "view": "Détails du profil"
@@ -274,6 +277,17 @@
       "manageProfiles": "Gérer les profils",
       "assignedProfiles": "Profils assignés",
       "addProfile": "Ajouter des profils"
+    },
+    "containers": {
+      "title": "Contenants d'analyse",
+      "code": "Code",
+      "name": "Nom",
+      "material": "Matériau",
+      "volume": "Volume",
+      "color": "Couleur",
+      "create": "Créer un contenant",
+      "edit": "Modifier le contenant",
+      "view": "Détails du contenant"
     }
   },
   "samplingPlans": {
