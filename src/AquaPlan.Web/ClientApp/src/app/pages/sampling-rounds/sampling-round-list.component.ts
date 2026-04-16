@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -156,6 +156,7 @@ import { SamplingRoundCreateDialogComponent } from './sampling-round-create-dial
 export class SamplingRoundListComponent implements OnInit {
   readonly store = inject(SamplingRoundDatastore);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly dialog = inject(MatDialog);
   private readonly distributorApi = inject(DistributorApiService);
 
@@ -174,9 +175,26 @@ export class SamplingRoundListComponent implements OnInit {
   ];
 
   async ngOnInit(): Promise<void> {
+    this.applyStatusFromQueryParams();
     const allDistributors = await firstValueFrom(this.distributorApi.getAll());
     this.distributors.set(allDistributors);
     this.store.loadFiltered();
+  }
+
+  private applyStatusFromQueryParams(): void {
+    const raw = this.route.snapshot.queryParamMap.get('status');
+    if (!raw) {
+      return;
+    }
+    const validValues = new Set<string>(Object.values(SamplingRoundStatus));
+    const parsed = raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => validValues.has(s)) as SamplingRoundStatus[];
+    if (parsed.length > 0) {
+      this.store.statusFilter.set(parsed);
+      this.store.currentPage.set(1);
+    }
   }
 
   getStatusLabel(round: SamplingRoundListDto): string {

@@ -280,5 +280,19 @@
     "locationReplaced": "Probenahmeort ersetzt",
     "sector": "Sektor",
     "location": "Probenahmeort"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "ordersToFinalize": "Abzuschliessende Aufträge",
+    "plannedRounds": "Geplante Touren",
+    "nonConformities": "Nichtkonformitäten",
+    "upcomingRounds": "Nächste Touren",
+    "noUpcomingRounds": "Keine geplanten Touren",
+    "recentResults": "Aktuelle Ergebnisse (7 Tage)",
+    "resultsPlaceholder": "Die LIMS-Ergebnisse werden nach der Limsophy-Integration verfügbar sein (v0.8)",
+    "pendingActions": "Ausstehende Aktionen",
+    "ldpToValidate": "Zu validierende Probenahmeorte",
+    "ordersWithComments": "Aufträge mit Kommentaren",
+    "viewAll": "Alle anzeigen"
   }
 }

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
@@ -190,6 +190,7 @@ export class OrderListComponent implements OnInit {
   readonly store = inject(OrderDatastore);
   private readonly dialog = inject(MatDialog);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly authService = inject(AuthService);
   private readonly distributorApi = inject(DistributorApiService);
   private readonly orderApi = inject(OrderApiService);
@@ -216,10 +217,27 @@ export class OrderListComponent implements OnInit {
   ];
 
   async ngOnInit(): Promise<void> {
+    this.applyStatusesFromQueryParams();
     this.store.loadFiltered();
     if (this.isAdmin()) {
       const dists = await firstValueFrom(this.distributorApi.getAll({ isActive: true }));
       this.distributors.set(dists);
+    }
+  }
+
+  private applyStatusesFromQueryParams(): void {
+    const raw = this.route.snapshot.queryParamMap.get('statuses');
+    if (!raw) {
+      return;
+    }
+    const validValues = new Set<string>(Object.values(OrderStatus));
+    const parsed = raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => validValues.has(s)) as OrderStatus[];
+    if (parsed.length > 0) {
+      this.store.statusFilter.set(parsed);
+      this.store.currentPage.set(1);
     }
   }
 

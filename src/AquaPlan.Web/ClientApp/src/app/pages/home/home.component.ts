@@ -10,6 +10,7 @@ import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { OrderApiService } from '../../services/order-api.service';
 import { SamplingRoundApiService } from '../../services/sampling-round-api.service';
+import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
 import { OrderStatus } from '../../models/order.model';
 import {
     SamplingRoundStatus,
@@ -34,19 +35,19 @@ import {
 
             <!-- Stats Cards -->
             <div class="stats-grid">
-                <mat-card class="stat-card">
+                <mat-card class="stat-card clickable" (click)="openOrdersToFinalize()">
                     <mat-card-content>
                         <div class="stat-icon primary">
                             <mat-icon>assignment</mat-icon>
                         </div>
                         <div class="stat-info">
-                            <span class="stat-value">{{ ordersInProgressCount() }}</span>
-                            <span class="stat-label">{{ 'dashboard.ordersInProgress' | translate }}</span>
+                            <span class="stat-value">{{ ordersToFinalizeCount() }}</span>
+                            <span class="stat-label">{{ 'dashboard.ordersToFinalize' | translate }}</span>
                         </div>
                     </mat-card-content>
                 </mat-card>
 
-                <mat-card class="stat-card">
+                <mat-card class="stat-card clickable" (click)="openPlannedRounds()">
                     <mat-card-content>
                         <div class="stat-icon accent">
                             <mat-icon>event</mat-icon>
@@ -58,7 +59,7 @@ import {
                     </mat-card-content>
                 </mat-card>
 
-                <mat-card class="stat-card">
+                <mat-card class="stat-card stub">
                     <mat-card-content>
                         <div class="stat-icon danger">
                             <mat-icon>warning</mat-icon>
@@ -66,18 +67,6 @@ import {
                         <div class="stat-info">
                             <span class="stat-value">{{ nonConformitiesCount() }}</span>
                             <span class="stat-label">{{ 'dashboard.nonConformities' | translate }}</span>
-                        </div>
-                    </mat-card-content>
-                </mat-card>
-
-                <mat-card class="stat-card">
-                    <mat-card-content>
-                        <div class="stat-icon success">
-                            <mat-icon>check_circle</mat-icon>
-                        </div>
-                        <div class="stat-info">
-                            <span class="stat-value">{{ completedOrdersCount() }}</span>
-                            <span class="stat-label">{{ 'dashboard.completedOrders' | translate }}</span>
                         </div>
                     </mat-card-content>
                 </mat-card>
@@ -148,7 +137,7 @@ import {
                                     <span class="admin-count">{{ ldpToValidateCount() }}</span>
                                     <span class="admin-label">{{ 'dashboard.ldpToValidate' | translate }}</span>
                                 </div>
-                                <div class="admin-item">
+                                <div class="admin-item stub">
                                     <mat-icon color="primary">comment</mat-icon>
                                     <span class="admin-count">0</span>
                                     <span class="admin-label">{{ 'dashboard.ordersWithComments' | translate }}</span>
@@ -202,6 +191,20 @@ import {
             align-items: center;
             gap: 16px;
             padding: 16px !important;
+        }
+
+        .stat-card.clickable {
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .stat-card.clickable:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        }
+
+        .stat-card.stub {
+            cursor: default;
         }
 
         .stat-icon {
@@ -346,6 +349,14 @@ import {
             background-color: rgba(0, 0, 0, 0.04);
         }
 
+        .admin-item.stub {
+            cursor: default;
+        }
+
+        .admin-item.stub:hover {
+            background-color: transparent;
+        }
+
         .admin-count {
             font-size: 20px;
             font-weight: 600;
@@ -382,12 +393,12 @@ export class HomeComponent implements OnInit {
     private readonly authService = inject(AuthService);
     private readonly orderApi = inject(OrderApiService);
     private readonly roundApi = inject(SamplingRoundApiService);
+    private readonly samplingLocationApi = inject(SamplingLocationApiService);
     private readonly router = inject(Router);
 
-    readonly ordersInProgressCount = signal(0);
+    readonly ordersToFinalizeCount = signal(0);
     readonly plannedRoundsCount = signal(0);
     readonly nonConformitiesCount = signal(0);
-    readonly completedOrdersCount = signal(0);
     readonly upcomingRounds = signal<SamplingRoundListDto[]>([]);
     readonly ldpToValidateCount = signal(0);
 
@@ -411,6 +422,18 @@ export class HomeComponent implements OnInit {
         this.router.navigate([path]);
     }
 
+    openOrdersToFinalize(): void {
+        this.router.navigate(['/orders'], {
+            queryParams: { statuses: `${OrderStatus.InProgress},${OrderStatus.Completed}` },
+        });
+    }
+
+    openPlannedRounds(): void {
+        this.router.navigate(['/sampling-rounds'], {
+            queryParams: { status: SamplingRoundStatus.Assigned },
+        });
+    }
+
     getRoundStatusColor(status: SamplingRoundStatus): string {
         return this.roundStatusColors[status] ?? '#9E9E9E';
     }
@@ -431,40 +454,28 @@ export class HomeComponent implements OnInit {
     }
 
     private async loadDashboardData(): Promise<void> {
-        await Promise.all([
-            this.loadOrdersInProgress(),
-            this.loadCompletedOrders(),
+        const tasks: Promise<void>[] = [
+            this.loadOrdersToFinalize(),
             this.loadUpcomingRounds(),
-        ]);
+        ];
+        if (this.isAdmin()) {
+            tasks.push(this.loadLdpToValidate());
+        }
+        await Promise.all(tasks);
     }
 
-    private async loadOrdersInProgress(): Promise<void> {
+    private async loadOrdersToFinalize(): Promise<void> {
         try {
             const result = await firstValueFrom(
                 this.orderApi.getFiltered({
-                    statuses: [OrderStatus.InProgress],
+                    statuses: [OrderStatus.InProgress, OrderStatus.Completed],
                     page: 1,
                     pageSize: 1,
                 })
             );
-            this.ordersInProgressCount.set(result.totalCount);
+            this.ordersToFinalizeCount.set(result.totalCount);
         } catch {
             // Silently handle error — dashboard shows 0
-        }
-    }
-
-    private async loadCompletedOrders(): Promise<void> {
-        try {
-            const result = await firstValueFrom(
-                this.orderApi.getFiltered({
-                    statuses: [OrderStatus.Completed],
-                    page: 1,
-                    pageSize: 1,
-                })
-            );
-            this.completedOrdersCount.set(result.totalCount);
-        } catch {
-            // Silently handle error
         }
     }
 
@@ -487,6 +498,15 @@ export class HomeComponent implements OnInit {
             this.plannedRoundsCount.set(result.totalCount);
         } catch {
             // Silently handle error
+        }
+    }
+
+    private async loadLdpToValidate(): Promise<void> {
+        try {
+            const result = await firstValueFrom(this.samplingLocationApi.getUnvalidated());
+            this.ldpToValidateCount.set(result.length);
+        } catch {
+            // Silently handle error — fallback 0
         }
     }
 }

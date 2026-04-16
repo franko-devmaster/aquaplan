@@ -290,5 +290,19 @@
     "locationReplaced": "Sampling location replaced",
     "sector": "Sector",
     "location": "Sampling location"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "ordersToFinalize": "Orders to finalize",
+    "plannedRounds": "Planned rounds",
+    "nonConformities": "Non-conformities",
+    "upcomingRounds": "Upcoming rounds",
+    "noUpcomingRounds": "No upcoming rounds",
+    "recentResults": "Recent results (7 days)",
+    "resultsPlaceholder": "LIMS results will be available after Limsophy integration (v0.8)",
+    "pendingActions": "Pending actions",
+    "ldpToValidate": "Sampling locations to validate",
+    "ordersWithComments": "Orders with comments",
+    "viewAll": "View all"
   }
 }

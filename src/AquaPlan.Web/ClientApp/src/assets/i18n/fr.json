@@ -406,10 +406,9 @@
   },
   "dashboard": {
     "title": "Tableau de bord",
-    "ordersInProgress": "Mandats en cours",
+    "ordersToFinalize": "Mandats à finaliser",
     "plannedRounds": "Tournées planifiées",
     "nonConformities": "Non-conformités",
-    "completedOrders": "Mandats terminés",
     "upcomingRounds": "Prochaines tournées",
     "noUpcomingRounds": "Aucune tournée planifiée",
     "recentResults": "Résultats récents (7 jours)",
