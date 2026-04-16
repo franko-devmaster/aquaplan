@@ -75,7 +75,7 @@ import { LocaleService } from '../../services/locale.service';
       border-radius: 20px;
       padding: 4px 12px;
       color: white;
-      border: 1px solid rgba(255, 255, 255, 0.5);
+      border: 1px solid rgba(0, 0, 0, 0.2);
     }
     .user-name {
       font-size: 14px;
