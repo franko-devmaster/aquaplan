@@ -417,7 +417,7 @@ public class SamplingPlanServiceTest : IDisposable
             PlannedDate: dto.PlannedDate,
             Notes: dto.Notes,
             IsDelegated: false,
-            AnalysisProfiles: [],
+            AnalysisPrograms: [],
             TenantId: TenantId,
             CreatedAt: DateTime.UtcNow,
             UpdatedAt: null,

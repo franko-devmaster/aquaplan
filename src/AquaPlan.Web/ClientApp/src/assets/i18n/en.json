@@ -88,7 +88,9 @@
       "edit": "Edit program",
       "manageProfiles": "Manage profiles",
       "assignedProfiles": "Assigned profiles",
-      "addProfile": "Add profiles"
+      "addProfile": "Add profiles",
+      "requiredContainers": "Required containers",
+      "noContainers": "No containers required"
     },
     "containers": {
       "title": "Analysis containers",

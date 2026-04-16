@@ -372,6 +372,98 @@ public class AnalysisProgramServiceTest : IDisposable
         result.Should().BeFalse();
     }
 
+    // --- RequiredContainers deduplication (AQ-308) ---
+
+    [Fact]
+    public async Task GetByIdAsync_WithMultipleProfilesSharingContainer_ShouldDeduplicateContainers()
+    {
+        var container = new Container { Id = Guid.NewGuid(), Code = "BACT-V250", Name = "Bouteille verre", Material = "Verre", VolumeMl = 250, Color = "Transparent", IsActive = true, TenantId = TenantId };
+        _dbContext.Containers.Add(container);
+
+        var profile1 = new AnalysisProfile { Id = Guid.NewGuid(), Code = "BACT-01", Name = "Bact 1", Category = AnalysisCategory.Bacteriology, IsActive = true, TenantId = TenantId, ContainerId = container.Id };
+        var profile2 = new AnalysisProfile { Id = Guid.NewGuid(), Code = "BACT-02", Name = "Bact 2", Category = AnalysisCategory.Bacteriology, IsActive = true, TenantId = TenantId, ContainerId = container.Id };
+        _dbContext.AnalysisProfiles.AddRange(profile1, profile2);
+
+        var program = new AnalysisProgram
+        {
+            Id = Guid.NewGuid(),
+            Code = "EP-01",
+            Name = "Eau Potable",
+            IsActive = true,
+            TenantId = TenantId,
+            AnalysisProgramProfiles = new List<AnalysisProgramProfile>
+            {
+                new() { AnalysisProfileId = profile1.Id },
+                new() { AnalysisProfileId = profile2.Id },
+            },
+        };
+        _dbContext.AnalysisPrograms.Add(program);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetByIdAsync(program.Id, TenantId);
+
+        result.Should().NotBeNull();
+        result!.RequiredContainers.Should().HaveCount(1);
+        result.RequiredContainers[0].ContainerId.Should().Be(container.Id);
+        result.RequiredContainers[0].Code.Should().Be("BACT-V250");
+        result.RequiredContainers[0].ProfileCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_WithProfilesDifferentContainers_ShouldReturnAllContainers()
+    {
+        var bactContainer = new Container { Id = Guid.NewGuid(), Code = "BACT-V250", Name = "Bact", Material = "Verre", VolumeMl = 250, Color = "T", IsActive = true, TenantId = TenantId };
+        var chemContainer = new Container { Id = Guid.NewGuid(), Code = "CHEM-PET500", Name = "Chem", Material = "PET", VolumeMl = 500, Color = "T", IsActive = true, TenantId = TenantId };
+        _dbContext.Containers.AddRange(bactContainer, chemContainer);
+
+        var profile1 = new AnalysisProfile { Id = Guid.NewGuid(), Code = "BACT-01", Name = "Bact 1", Category = AnalysisCategory.Bacteriology, IsActive = true, TenantId = TenantId, ContainerId = bactContainer.Id };
+        var profile2 = new AnalysisProfile { Id = Guid.NewGuid(), Code = "CHIM-01", Name = "Chim 1", Category = AnalysisCategory.Chemistry, IsActive = true, TenantId = TenantId, ContainerId = chemContainer.Id };
+        _dbContext.AnalysisProfiles.AddRange(profile1, profile2);
+
+        var program = new AnalysisProgram
+        {
+            Id = Guid.NewGuid(),
+            Code = "EP-02",
+            Name = "Mixte",
+            IsActive = true,
+            TenantId = TenantId,
+            AnalysisProgramProfiles = new List<AnalysisProgramProfile>
+            {
+                new() { AnalysisProfileId = profile1.Id },
+                new() { AnalysisProfileId = profile2.Id },
+            },
+        };
+        _dbContext.AnalysisPrograms.Add(program);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetByIdAsync(program.Id, TenantId);
+
+        result.Should().NotBeNull();
+        result!.RequiredContainers.Should().HaveCount(2);
+        result.RequiredContainers.Select(c => c.Code).Should().BeEquivalentTo(new[] { "BACT-V250", "CHEM-PET500" });
+        result.RequiredContainers.Should().AllSatisfy(c => c.ProfileCount.Should().Be(1));
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_WithNoProfiles_ShouldReturnEmptyRequiredContainers()
+    {
+        var program = new AnalysisProgram
+        {
+            Id = Guid.NewGuid(),
+            Code = "EMPTY",
+            Name = "Empty",
+            IsActive = true,
+            TenantId = TenantId,
+        };
+        _dbContext.AnalysisPrograms.Add(program);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetByIdAsync(program.Id, TenantId);
+
+        result.Should().NotBeNull();
+        result!.RequiredContainers.Should().BeEmpty();
+    }
+
     private async Task<List<AnalysisProgram>> SeedPrograms()
     {
         var programs = new List<AnalysisProgram>

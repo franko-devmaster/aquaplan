@@ -141,12 +141,12 @@ import { SamplingRoundDetailDto } from '../../models/sampling-round.model';
             </div>
           }
 
-          @if (order()!.analysisProfiles.length > 0) {
+          @if (order()!.analysisPrograms.length > 0) {
             <div class="profiles-section">
-              <label>{{ 'orders.analysisProfiles' | translate }}</label>
+              <label>{{ 'orders.analysisPrograms' | translate }}</label>
               <div class="profiles-list">
-                @for (profile of order()!.analysisProfiles; track profile.analysisProfileId) {
-                  <mat-chip>{{ profile.code }} — {{ profile.name }}</mat-chip>
+                @for (program of order()!.analysisPrograms; track program.analysisProgramId) {
+                  <mat-chip>{{ program.code }} — {{ program.name }}</mat-chip>
                 }
               </div>
             </div>

@@ -20,7 +20,7 @@ public class AquaPlanDbContext(DbContextOptions<AquaPlanDbContext> options)
     public DbSet<AnalysisProgramProfile> AnalysisProgramProfiles => Set<AnalysisProgramProfile>();
     public DbSet<Container> Containers => Set<Container>();
     public DbSet<SamplingLocationChangeRequest> SamplingLocationChangeRequests => Set<SamplingLocationChangeRequest>();
-    public DbSet<OrderAnalysisProfile> OrderAnalysisProfiles => Set<OrderAnalysisProfile>();
+    public DbSet<OrderAnalysisProgram> OrderAnalysisPrograms => Set<OrderAnalysisProgram>();
     public DbSet<DistributorDelegation> DistributorDelegations => Set<DistributorDelegation>();
     public DbSet<SamplingPlan> SamplingPlans => Set<SamplingPlan>();
     public DbSet<SamplingPlanItem> SamplingPlanItems => Set<SamplingPlanItem>();

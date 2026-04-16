@@ -57,7 +57,8 @@ public class AnalysisProgramsControllerTest
             new List<AnalysisProfileListDto>
             {
                 new(ProfileId, "BAC-01", "Bactériologie de base", AnalysisCategory.Bacteriology, true, ContainerId, "BACT-V250"),
-            });
+            },
+            new List<ProgramContainerDto>());
     }
 
     [Fact]

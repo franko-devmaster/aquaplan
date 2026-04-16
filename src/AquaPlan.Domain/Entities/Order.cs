@@ -36,5 +36,5 @@ public class Order
     public string? StatusChangedBy { get; set; }
 
     public Sampling? Sampling { get; set; }
-    public ICollection<OrderAnalysisProfile> OrderAnalysisProfiles { get; set; } = new List<OrderAnalysisProfile>();
+    public ICollection<OrderAnalysisProgram> OrderAnalysisPrograms { get; set; } = new List<OrderAnalysisProgram>();
 }

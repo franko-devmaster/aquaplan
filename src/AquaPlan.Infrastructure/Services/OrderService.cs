@@ -143,8 +143,8 @@ internal class OrderService(
             .Include(o => o.Distributor)
             .Include(o => o.SamplingLocation)
                 .ThenInclude(sl => sl!.Sector)
-            .Include(o => o.OrderAnalysisProfiles)
-                .ThenInclude(oap => oap.AnalysisProfile)
+            .Include(o => o.OrderAnalysisPrograms)
+                .ThenInclude(oap => oap.AnalysisProgram)
             .Include(o => o.Sampling)
                 .ThenInclude(s => s!.Preleveur)
             .FirstOrDefaultAsync(o => o.Id == orderId && o.TenantId == tenantId, cancellationToken);
@@ -200,15 +200,15 @@ internal class OrderService(
 
         dbContext.Orders.Add(order);
 
-        // Add analysis profiles
-        if (dto.AnalysisProfileIds is { Count: > 0 })
+        // Add analysis programs
+        if (dto.AnalysisProgramIds is { Count: > 0 })
         {
-            foreach (var profileId in dto.AnalysisProfileIds)
+            foreach (var programId in dto.AnalysisProgramIds)
             {
-                dbContext.OrderAnalysisProfiles.Add(new OrderAnalysisProfile
+                dbContext.OrderAnalysisPrograms.Add(new OrderAnalysisProgram
                 {
                     OrderId = order.Id,
-                    AnalysisProfileId = profileId,
+                    AnalysisProgramId = programId,
                 });
             }
         }
@@ -223,7 +223,7 @@ internal class OrderService(
     public async Task<OrderDetailDto?> UpdateOrderAsync(Guid orderId, OrderUpdateDto dto, string updatedBy, Guid tenantId, bool isAdmin = false, CancellationToken cancellationToken = default)
     {
         var order = await dbContext.Orders
-            .Include(o => o.OrderAnalysisProfiles)
+            .Include(o => o.OrderAnalysisPrograms)
             .FirstOrDefaultAsync(o => o.Id == orderId && o.TenantId == tenantId, cancellationToken);
 
         if (order is null)
@@ -259,16 +259,16 @@ internal class OrderService(
             order.PreleveurId = dto.PreleveurId;
         }
 
-        // Replace analysis profiles
-        if (dto.AnalysisProfileIds is not null)
+        // Replace analysis programs
+        if (dto.AnalysisProgramIds is not null)
         {
-            dbContext.OrderAnalysisProfiles.RemoveRange(order.OrderAnalysisProfiles);
-            foreach (var profileId in dto.AnalysisProfileIds)
+            dbContext.OrderAnalysisPrograms.RemoveRange(order.OrderAnalysisPrograms);
+            foreach (var programId in dto.AnalysisProgramIds)
             {
-                dbContext.OrderAnalysisProfiles.Add(new OrderAnalysisProfile
+                dbContext.OrderAnalysisPrograms.Add(new OrderAnalysisProgram
                 {
                     OrderId = orderId,
-                    AnalysisProfileId = profileId,
+                    AnalysisProgramId = programId,
                 });
             }
         }
@@ -462,12 +462,12 @@ internal class OrderService(
                 s.IsValidated, s.ValidatedAt, s.CreatedAt);
         }
 
-        var analysisProfiles = order.OrderAnalysisProfiles
-            .Where(oap => oap.AnalysisProfile is not null)
-            .Select(oap => new OrderAnalysisProfileDto(
-                oap.AnalysisProfileId,
-                oap.AnalysisProfile!.Code,
-                oap.AnalysisProfile.Name))
+        var analysisPrograms = order.OrderAnalysisPrograms
+            .Where(oap => oap.AnalysisProgram is not null)
+            .Select(oap => new OrderAnalysisProgramDto(
+                oap.AnalysisProgramId,
+                oap.AnalysisProgram!.Code,
+                oap.AnalysisProgram.Name))
             .ToList();
 
         return new OrderDetailDto(
@@ -485,7 +485,7 @@ internal class OrderService(
             order.PlannedDate,
             order.Notes,
             order.IsDelegated,
-            analysisProfiles,
+            analysisPrograms,
             order.TenantId, order.CreatedAt, order.UpdatedAt, samplingDto,
             order.SamplingRoundId);
     }

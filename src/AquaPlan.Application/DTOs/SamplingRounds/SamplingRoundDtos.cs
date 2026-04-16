@@ -85,7 +85,7 @@ public record SamplingRoundOrderDto(
     string? LocationReplacementReason,
     string? SamplerComment,
     string? Notes,
-    List<string> AnalysisProfileNames);
+    List<string> AnalysisProgramNames);
 
 public record SamplingRoundFilterDto(
     SamplingRoundStatus? Status = null,

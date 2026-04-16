@@ -13,10 +13,10 @@ import { TranslateModule } from '@ngx-translate/core';
 import { OrderDatastore } from '../../datastore/order.datastore';
 import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
 import { SectorApiService } from '../../services/sector-api.service';
-import { AnalysisProfileApiService } from '../../services/analysis-profile-api.service';
+import { AnalysisProgramApiService } from '../../services/analysis-program-api.service';
 import { SamplingLocationDto } from '../../models/sampling-location.model';
 import { SectorListDto } from '../../models/sector.model';
-import { AnalysisProfileListDto } from '../../models/analysis-profile.model';
+import { AnalysisProgramListDto } from '../../models/analysis-program.model';
 import { OrderDetailDto } from '../../models/order.model';
 import { OrderLinkRoundDialogComponent } from './order-link-round-dialog.component';
 import { firstValueFrom } from 'rxjs';
@@ -56,10 +56,10 @@ import { firstValueFrom } from 'rxjs';
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>{{ 'orders.analysisProfiles' | translate }}</mat-label>
-          <mat-select formControlName="analysisProfileIds" multiple>
-            @for (profile of analysisProfiles(); track profile.id) {
-              <mat-option [value]="profile.id">{{ profile.code }} — {{ profile.name }}</mat-option>
+          <mat-label>{{ 'orders.analysisPrograms' | translate }}</mat-label>
+          <mat-select formControlName="analysisProgramIds" multiple>
+            @for (program of analysisPrograms(); track program.id) {
+              <mat-option [value]="program.id">{{ program.code }} — {{ program.name }}</mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -69,7 +69,6 @@ import { firstValueFrom } from 'rxjs';
           <textarea matInput formControlName="notes" rows="3"></textarea>
         </mat-form-field>
 
-        <!-- Round section -->
         <div class="round-section">
           <label class="section-label">{{ 'orders.round' | translate }}</label>
           @if (roundName()) {
@@ -113,14 +112,14 @@ export class OrderEditDialogComponent implements OnInit {
   private readonly orderStore = inject(OrderDatastore);
   private readonly locationApi = inject(SamplingLocationApiService);
   private readonly sectorApi = inject(SectorApiService);
-  private readonly profileApi = inject(AnalysisProfileApiService);
+  private readonly programApi = inject(AnalysisProgramApiService);
 
   private readonly dialog = inject(MatDialog);
 
   readonly sectors = signal<SectorListDto[]>([]);
   readonly locations = signal<SamplingLocationDto[]>([]);
   readonly filteredLocations = signal<SamplingLocationDto[]>([]);
-  readonly analysisProfiles = signal<AnalysisProfileListDto[]>([]);
+  readonly analysisPrograms = signal<AnalysisProgramListDto[]>([]);
   readonly saving = signal(false);
   readonly roundName = signal<string | null>(null);
   readonly form: FormGroup;
@@ -131,33 +130,32 @@ export class OrderEditDialogComponent implements OnInit {
       samplingLocationId: [null],
       preleveurId: [null],
       plannedDate: [null],
-      analysisProfileIds: [[]],
+      analysisProgramIds: [[]],
       notes: [''],
     });
   }
 
   async ngOnInit(): Promise<void> {
-    // Pre-fill form with current order data
     this.form.patchValue({
       samplingLocationId: this.data.samplingLocationId,
       preleveurId: this.data.preleveurId,
       plannedDate: this.data.plannedDate ? new Date(this.data.plannedDate) : null,
-      analysisProfileIds: this.data.analysisProfiles.map(p => p.analysisProfileId),
+      analysisProgramIds: this.data.analysisPrograms.map(p => p.analysisProgramId),
       notes: this.data.notes ?? '',
     });
 
-    // Load sectors
-    const allSectors = await firstValueFrom(
-      this.sectorApi.getAll({ distributorId: this.data.distributorId, isActive: true })
-    );
-    this.sectors.set(allSectors);
+    const [allSectors, locs, programs] = await Promise.all([
+      firstValueFrom(this.sectorApi.getAll({ distributorId: this.data.distributorId, isActive: true })),
+      firstValueFrom(this.locationApi.getByDistributor(this.data.distributorId)),
+      firstValueFrom(this.programApi.getAll({ isActive: true })),
+    ]);
 
-    // Load locations for the order's distributor
-    const locs = await firstValueFrom(this.locationApi.getByDistributor(this.data.distributorId));
+    this.sectors.set(allSectors);
+    this.analysisPrograms.set(programs);
+
     const activeLocs = locs.filter(l => l.isActive && l.isValidated);
     this.locations.set(activeLocs);
 
-    // Set initial sector from the current location
     if (this.data.samplingLocationId) {
       const currentLoc = activeLocs.find(l => l.id === this.data.samplingLocationId);
       if (currentLoc) {
@@ -169,10 +167,6 @@ export class OrderEditDialogComponent implements OnInit {
     } else {
       this.filteredLocations.set(activeLocs);
     }
-
-    // Load analysis profiles (active only)
-    const profiles = await firstValueFrom(this.profileApi.getAll({ isActive: true }));
-    this.analysisProfiles.set(profiles);
   }
 
   onSectorChange(): void {
@@ -208,7 +202,7 @@ export class OrderEditDialogComponent implements OnInit {
         samplingLocationId: formValue.samplingLocationId || null,
         preleveurId: formValue.preleveurId || null,
         plannedDate: formValue.plannedDate ? new Date(formValue.plannedDate).toISOString() : null,
-        analysisProfileIds: formValue.analysisProfileIds?.length > 0 ? formValue.analysisProfileIds : null,
+        analysisProgramIds: formValue.analysisProgramIds?.length > 0 ? formValue.analysisProgramIds : null,
         notes: formValue.notes || null,
       });
       this.dialogRef.close(true);

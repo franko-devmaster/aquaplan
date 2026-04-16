@@ -44,8 +44,8 @@ export interface SamplingDto {
   createdAt: string;
 }
 
-export interface OrderAnalysisProfileDto {
-  analysisProfileId: string;
+export interface OrderAnalysisProgramDto {
+  analysisProgramId: string;
   code: string;
   name: string;
 }
@@ -88,7 +88,7 @@ export interface OrderDetailDto {
   plannedDate: string | null;
   notes: string | null;
   isDelegated: boolean;
-  analysisProfiles: OrderAnalysisProfileDto[];
+  analysisPrograms: OrderAnalysisProgramDto[];
   tenantId: string;
   createdAt: string;
   updatedAt: string | null;
@@ -101,7 +101,7 @@ export interface OrderCreateDto {
   samplingLocationId: string | null;
   preleveurId: string | null;
   plannedDate: string | null;
-  analysisProfileIds: string[] | null;
+  analysisProgramIds: string[] | null;
   notes: string | null;
   isUnplanned: boolean;
   unplannedReason?: UnplannedReason | null;
@@ -112,7 +112,7 @@ export interface OrderUpdateDto {
   samplingLocationId: string | null;
   preleveurId: string | null;
   plannedDate: string | null;
-  analysisProfileIds: string[] | null;
+  analysisProgramIds: string[] | null;
   notes: string | null;
 }
 

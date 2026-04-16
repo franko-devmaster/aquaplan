@@ -9,4 +9,13 @@ public record AnalysisProgramDto(
     string? Description,
     bool IsActive,
     DateTime CreatedAt,
-    IList<AnalysisProfileListDto> Profiles);
+    IList<AnalysisProfileListDto> Profiles,
+    IList<ProgramContainerDto> RequiredContainers);
+
+public record ProgramContainerDto(
+    Guid ContainerId,
+    string Code,
+    string Name,
+    string Material,
+    int VolumeMl,
+    int ProfileCount);

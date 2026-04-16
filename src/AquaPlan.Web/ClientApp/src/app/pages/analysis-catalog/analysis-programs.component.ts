@@ -134,6 +134,24 @@ import { AuthService } from '../../services/auth.service';
               }
             </div>
 
+            <div class="required-containers">
+              <h5>{{ 'analysisCatalog.programs.requiredContainers' | translate }}</h5>
+              @if (program.requiredContainers.length === 0) {
+                <p class="no-data">{{ 'analysisCatalog.programs.noContainers' | translate }}</p>
+              } @else {
+                <mat-chip-set>
+                  @for (container of program.requiredContainers; track container.containerId) {
+                    <mat-chip>
+                      {{ container.code }} — {{ container.name }} ({{ container.volumeMl }} ml)
+                      @if (container.profileCount > 1) {
+                        <span class="profile-count">× {{ container.profileCount }} profils</span>
+                      }
+                    </mat-chip>
+                  }
+                </mat-chip-set>
+              }
+            </div>
+
             @if (isAdmin()) {
               <div class="add-profile-section">
                 <h5>{{ 'analysisCatalog.programs.addProfile' | translate }}</h5>
@@ -178,6 +196,9 @@ import { AuthService } from '../../services/auth.service';
     .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
     .profile-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; }
     .profile-list { margin-bottom: 16px; }
+    .required-containers { border-top: 1px solid #e0e0e0; padding-top: 16px; margin-bottom: 16px; }
+    .required-containers mat-chip-set { margin-top: 8px; }
+    .profile-count { margin-left: 6px; font-size: 11px; opacity: 0.75; font-style: italic; }
     .add-profile-section { border-top: 1px solid #e0e0e0; padding-top: 16px; }
     h5 { margin: 8px 0; color: #666; }
   `],

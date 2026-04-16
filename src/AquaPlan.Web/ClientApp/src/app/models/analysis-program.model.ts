@@ -1,5 +1,14 @@
 import { AnalysisProfileListDto } from './analysis-profile.model';
 
+export interface ProgramContainerDto {
+  containerId: string;
+  code: string;
+  name: string;
+  material: string;
+  volumeMl: number;
+  profileCount: number;
+}
+
 export interface AnalysisProgramDto {
   id: string;
   code: string;
@@ -8,6 +17,7 @@ export interface AnalysisProgramDto {
   isActive: boolean;
   createdAt: string;
   profiles: AnalysisProfileListDto[];
+  requiredContainers: ProgramContainerDto[];
 }
 
 export interface AnalysisProgramListDto {

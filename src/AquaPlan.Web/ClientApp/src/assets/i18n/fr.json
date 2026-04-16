@@ -276,7 +276,9 @@
       "edit": "Modifier le programme",
       "manageProfiles": "Gérer les profils",
       "assignedProfiles": "Profils assignés",
-      "addProfile": "Ajouter des profils"
+      "addProfile": "Ajouter des profils",
+      "requiredContainers": "Contenants requis",
+      "noContainers": "Aucun contenant requis"
     },
     "containers": {
       "title": "Contenants d'analyse",
@@ -335,6 +337,7 @@
     "orders": "Mandats",
     "location": "Lieu de prélèvement",
     "profiles": "Profils",
+    "programs": "Programmes",
     "indicators": "Indicateurs",
     "sector": "Secteur",
     "remarks": "Remarques",

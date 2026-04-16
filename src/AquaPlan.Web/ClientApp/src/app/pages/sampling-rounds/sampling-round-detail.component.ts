@@ -161,9 +161,9 @@ import { ReplaceLocationDialogComponent, ReplaceLocationDialogData } from './rep
             </ng-container>
 
             <ng-container matColumnDef="profiles">
-              <th mat-header-cell *matHeaderCellDef>{{ 'samplingRounds.profiles' | translate }}</th>
+              <th mat-header-cell *matHeaderCellDef>{{ 'samplingRounds.programs' | translate }}</th>
               <td mat-cell *matCellDef="let order">
-                {{ order.analysisProfileNames.join(', ') }}
+                {{ order.analysisProgramNames.join(', ') }}
               </td>
             </ng-container>
 

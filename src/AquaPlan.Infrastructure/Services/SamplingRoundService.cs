@@ -49,8 +49,8 @@ internal class SamplingRoundService(
             .Include(sr => sr.Orders)
                 .ThenInclude(o => o.OriginalSamplingLocation)
             .Include(sr => sr.Orders)
-                .ThenInclude(o => o.OrderAnalysisProfiles)
-                    .ThenInclude(oap => oap.AnalysisProfile)
+                .ThenInclude(o => o.OrderAnalysisPrograms)
+                    .ThenInclude(oap => oap.AnalysisProgram)
             .Where(sr => sr.TenantId == tenantId && sr.Id == id)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -516,8 +516,8 @@ internal class SamplingRoundService(
             .Include(r => r.Orders)
                 .ThenInclude(o => o.OriginalSamplingLocation)
             .Include(r => r.Orders)
-                .ThenInclude(o => o.OrderAnalysisProfiles)
-                    .ThenInclude(oap => oap.AnalysisProfile)
+                .ThenInclude(o => o.OrderAnalysisPrograms)
+                    .ThenInclude(oap => oap.AnalysisProgram)
             .FirstOrDefaultAsync(r => r.Id == id && r.TenantId == tenantId, cancellationToken);
 
         if (round is null) return null;
@@ -582,7 +582,7 @@ internal class SamplingRoundService(
                 o.LocationReplacementReason,
                 o.SamplerComment,
                 o.Notes,
-                o.OrderAnalysisProfiles.Select(oap => oap.AnalysisProfile?.Name ?? string.Empty).ToList()
+                o.OrderAnalysisPrograms.Select(oap => oap.AnalysisProgram?.Name ?? string.Empty).ToList()
             )).ToList());
     }
 }

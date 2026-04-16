@@ -4,5 +4,5 @@ public record OrderUpdateDto(
     Guid? SamplingLocationId,
     string? PreleveurId,
     DateTime? PlannedDate,
-    List<Guid>? AnalysisProfileIds,
+    List<Guid>? AnalysisProgramIds,
     string? Notes);

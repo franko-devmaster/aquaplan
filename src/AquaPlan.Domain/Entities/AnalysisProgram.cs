@@ -12,4 +12,5 @@ public class AnalysisProgram
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<AnalysisProgramProfile> AnalysisProgramProfiles { get; set; } = new List<AnalysisProgramProfile>();
+    public ICollection<OrderAnalysisProgram> OrderAnalysisPrograms { get; set; } = new List<OrderAnalysisProgram>();
 }

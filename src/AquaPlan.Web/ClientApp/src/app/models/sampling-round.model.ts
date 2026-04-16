@@ -45,7 +45,7 @@ export interface SamplingRoundOrderDto {
   samplingLocationName: string;
   samplingLocationCode: string;
   sectorName: string | null;
-  analysisProfileNames: string[];
+  analysisProgramNames: string[];
   status: string;
   hasLocationReplacement: boolean;
   locationReplacementReason: string | null;

@@ -383,6 +383,18 @@ internal class SamplingPlanService(
             ? await dbContext.Database.BeginTransactionAsync(cancellationToken)
             : null;
 
+        // Map each profile to its parent programs (a profile may be in several programs).
+        // After the BackfillOrdersToAnalysisPrograms migration, every profile is always in at least one program
+        // (orphans are wrapped in PROG-{code} auto-programs).
+        var profileIds = plan.Items.Select(i => i.AnalysisProfileId).Distinct().ToList();
+        var profileProgramPairs = await dbContext.AnalysisProgramProfiles
+            .Where(app => profileIds.Contains(app.AnalysisProfileId))
+            .Select(app => new { app.AnalysisProfileId, app.AnalysisProgramId })
+            .ToListAsync(cancellationToken);
+        var profileToPrograms = profileProgramPairs
+            .GroupBy(p => p.AnalysisProfileId)
+            .ToDictionary(g => g.Key, g => g.Select(p => p.AnalysisProgramId).Distinct().ToList());
+
         try
         {
             foreach (var item in plan.Items)
@@ -391,12 +403,14 @@ internal class SamplingPlanService(
                 {
                     var plannedDate = new DateTime(plan.Year, month, 1, 0, 0, 0, DateTimeKind.Utc);
 
+                    var programIds = profileToPrograms.TryGetValue(item.AnalysisProfileId, out var ids) ? ids : null;
+
                     var createDto = new OrderCreateDto(
                         DistributorId: plan.DistributorId,
                         SamplingLocationId: item.SamplingLocationId,
                         PreleveurId: null,
                         PlannedDate: plannedDate,
-                        AnalysisProfileIds: [item.AnalysisProfileId],
+                        AnalysisProgramIds: programIds,
                         Notes: $"Généré depuis le plan {plan.Year} — {item.SamplingLocation?.Name}",
                         IsUnplanned: false);
 

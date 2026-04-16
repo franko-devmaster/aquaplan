@@ -43,7 +43,7 @@ public class OrderServiceTest : IDisposable
             SamplingLocationId: null,
             PreleveurId: null,
             PlannedDate: null,
-            AnalysisProfileIds: null,
+            AnalysisProgramIds: null,
             Notes: null,
             IsUnplanned: true,
             UnplannedReason: UnplannedReason.Pollution,
@@ -65,7 +65,7 @@ public class OrderServiceTest : IDisposable
             SamplingLocationId: null,
             PreleveurId: null,
             PlannedDate: null,
-            AnalysisProfileIds: null,
+            AnalysisProgramIds: null,
             Notes: null,
             IsUnplanned: true,
             UnplannedReason: null,
@@ -84,7 +84,7 @@ public class OrderServiceTest : IDisposable
             SamplingLocationId: null,
             PreleveurId: null,
             PlannedDate: DateTime.UtcNow.AddDays(7),
-            AnalysisProfileIds: null,
+            AnalysisProgramIds: null,
             Notes: null,
             IsUnplanned: false,
             UnplannedReason: UnplannedReason.Urgency,
@@ -109,7 +109,7 @@ public class OrderServiceTest : IDisposable
             SamplingLocationId: null,
             PreleveurId: null,
             PlannedDate: null,
-            AnalysisProfileIds: null,
+            AnalysisProgramIds: null,
             Notes: null,
             IsUnplanned: true,
             UnplannedReason: reason,
@@ -268,6 +268,71 @@ public class OrderServiceTest : IDisposable
         result.Items.Should().Contain(o => o.OrderNumber == "ORD-DEL-01");
     }
 
+    // --- Analysis programs attachment (AQ-307) ---
+
+    [Fact]
+    public async Task CreateOrderAsync_WithAnalysisProgramIds_ShouldAttachPrograms()
+    {
+        var programA = new AnalysisProgram { Id = Guid.NewGuid(), Code = "EP-01", Name = "Eau potable", TenantId = TenantId };
+        var programB = new AnalysisProgram { Id = Guid.NewGuid(), Code = "BAIG-01", Name = "Baignade", TenantId = TenantId };
+        _dbContext.AnalysisPrograms.AddRange(programA, programB);
+        await _dbContext.SaveChangesAsync();
+
+        var dto = new OrderCreateDto(
+            DistributorId: DistributorId,
+            SamplingLocationId: null,
+            PreleveurId: null,
+            PlannedDate: DateTime.UtcNow.AddDays(5),
+            AnalysisProgramIds: [programA.Id, programB.Id],
+            Notes: null,
+            IsUnplanned: false);
+
+        var result = await _sut.CreateOrderAsync(dto, UserId, TenantId);
+
+        result.AnalysisPrograms.Should().HaveCount(2);
+        result.AnalysisPrograms.Select(p => p.Code).Should().BeEquivalentTo(new[] { "EP-01", "BAIG-01" });
+        result.AnalysisPrograms.Select(p => p.Name).Should().BeEquivalentTo(new[] { "Eau potable", "Baignade" });
+    }
+
+    [Fact]
+    public async Task UpdateOrderAsync_WithNewProgramIds_ShouldReplaceExistingPrograms()
+    {
+        var oldProgram = new AnalysisProgram { Id = Guid.NewGuid(), Code = "OLD", Name = "Old program", TenantId = TenantId };
+        var newProgram = new AnalysisProgram { Id = Guid.NewGuid(), Code = "NEW", Name = "New program", TenantId = TenantId };
+        _dbContext.AnalysisPrograms.AddRange(oldProgram, newProgram);
+        await _dbContext.SaveChangesAsync();
+
+        var order = await CreateSeedOrder(OrderStatus.New);
+        _dbContext.OrderAnalysisPrograms.Add(new OrderAnalysisProgram { OrderId = order.Id, AnalysisProgramId = oldProgram.Id });
+        await _dbContext.SaveChangesAsync();
+
+        var dto = new OrderUpdateDto(null, null, null, [newProgram.Id], null);
+
+        var result = await _sut.UpdateOrderAsync(order.Id, dto, UserId, TenantId, isAdmin: false);
+
+        result.Should().NotBeNull();
+        result!.AnalysisPrograms.Should().HaveCount(1);
+        result.AnalysisPrograms[0].Code.Should().Be("NEW");
+    }
+
+    [Fact]
+    public async Task GetOrderByIdAsync_ShouldIncludeAnalysisPrograms()
+    {
+        var program = new AnalysisProgram { Id = Guid.NewGuid(), Code = "EP-42", Name = "Full programme", TenantId = TenantId };
+        _dbContext.AnalysisPrograms.Add(program);
+        var order = await CreateSeedOrder(OrderStatus.New);
+        _dbContext.OrderAnalysisPrograms.Add(new OrderAnalysisProgram { OrderId = order.Id, AnalysisProgramId = program.Id });
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetOrderByIdAsync(order.Id, TenantId);
+
+        result.Should().NotBeNull();
+        result!.AnalysisPrograms.Should().HaveCount(1);
+        result.AnalysisPrograms[0].AnalysisProgramId.Should().Be(program.Id);
+        result.AnalysisPrograms[0].Code.Should().Be("EP-42");
+        result.AnalysisPrograms[0].Name.Should().Be("Full programme");
+    }
+
     [Fact]
     public async Task CreateOrderAsync_ShouldSetIsDelegated_WhenDistributorNotOwn()
     {
@@ -289,7 +354,7 @@ public class OrderServiceTest : IDisposable
             SamplingLocationId: null,
             PreleveurId: null,
             PlannedDate: DateTime.UtcNow.AddDays(7),
-            AnalysisProfileIds: null,
+            AnalysisProgramIds: null,
             Notes: null,
             IsUnplanned: false);
 

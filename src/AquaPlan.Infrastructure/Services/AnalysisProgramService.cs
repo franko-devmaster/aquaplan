@@ -53,19 +53,46 @@ internal class AnalysisProgramService(
             return null;
         }
 
+        return MapToDto(program);
+    }
+
+    private static AnalysisProgramDto MapToDto(AnalysisProgram program)
+    {
+        var profiles = program.AnalysisProgramProfiles
+            .Where(pp => pp.AnalysisProfile is not null)
+            .Select(pp => new AnalysisProfileListDto(
+                pp.AnalysisProfile!.Id,
+                pp.AnalysisProfile.Code,
+                pp.AnalysisProfile.Name,
+                pp.AnalysisProfile.Category,
+                pp.AnalysisProfile.IsActive,
+                pp.AnalysisProfile.ContainerId,
+                pp.AnalysisProfile.Container?.Code ?? string.Empty))
+            .OrderBy(pp => pp.Code)
+            .ToList();
+
+        // Group profiles by ContainerId to compute unique containers with their profile count.
+        var requiredContainers = program.AnalysisProgramProfiles
+            .Where(pp => pp.AnalysisProfile?.Container is not null)
+            .GroupBy(pp => pp.AnalysisProfile!.ContainerId)
+            .Select(g =>
+            {
+                var container = g.First().AnalysisProfile!.Container!;
+                return new ProgramContainerDto(
+                    container.Id,
+                    container.Code,
+                    container.Name,
+                    container.Material,
+                    container.VolumeMl,
+                    g.Count());
+            })
+            .OrderBy(c => c.Code)
+            .ToList();
+
         return new AnalysisProgramDto(
             program.Id, program.Code, program.Name, program.Description, program.IsActive, program.CreatedAt,
-            program.AnalysisProgramProfiles
-                .Select(pp => new AnalysisProfileListDto(
-                    pp.AnalysisProfile!.Id,
-                    pp.AnalysisProfile.Code,
-                    pp.AnalysisProfile.Name,
-                    pp.AnalysisProfile.Category,
-                    pp.AnalysisProfile.IsActive,
-                    pp.AnalysisProfile.ContainerId,
-                    pp.AnalysisProfile.Container?.Code ?? string.Empty))
-                .OrderBy(pp => pp.Code)
-                .ToList());
+            profiles,
+            requiredContainers);
     }
 
     public async Task<AnalysisProgramDto> CreateAsync(AnalysisProgramAddDto dto, Guid tenantId, CancellationToken cancellationToken = default)

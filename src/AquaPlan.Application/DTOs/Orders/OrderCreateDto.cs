@@ -7,7 +7,7 @@ public record OrderCreateDto(
     Guid? SamplingLocationId,
     string? PreleveurId,
     DateTime? PlannedDate,
-    List<Guid>? AnalysisProfileIds,
+    List<Guid>? AnalysisProgramIds,
     string? Notes,
     bool IsUnplanned,
     UnplannedReason? UnplannedReason = null,

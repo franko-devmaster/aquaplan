@@ -88,7 +88,9 @@
       "edit": "Programm bearbeiten",
       "manageProfiles": "Profile verwalten",
       "assignedProfiles": "Zugewiesene Profile",
-      "addProfile": "Profile hinzufügen"
+      "addProfile": "Profile hinzufügen",
+      "requiredContainers": "Benötigte Behälter",
+      "noContainers": "Keine Behälter erforderlich"
     },
     "containers": {
       "title": "Analysebehälter",

@@ -13,11 +13,11 @@ import { OrderDatastore } from '../../datastore/order.datastore';
 import { SamplingRoundApiService } from '../../services/sampling-round-api.service';
 import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
 import { SectorApiService } from '../../services/sector-api.service';
-import { AnalysisProfileApiService } from '../../services/analysis-profile-api.service';
+import { AnalysisProgramApiService } from '../../services/analysis-program-api.service';
 import { UnplannedReason, UnplannedReasonLabels } from '../../models/order.model';
 import { SamplingLocationDto } from '../../models/sampling-location.model';
 import { SectorListDto } from '../../models/sector.model';
-import { AnalysisProfileListDto } from '../../models/analysis-profile.model';
+import { AnalysisProgramListDto } from '../../models/analysis-program.model';
 import { SamplingRoundDetailDto } from '../../models/sampling-round.model';
 
 export interface RoundAddOrderDialogData {
@@ -60,10 +60,10 @@ export interface RoundAddOrderDialogData {
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>{{ 'orders.analysisProfiles' | translate }}</mat-label>
-          <mat-select formControlName="analysisProfileIds" multiple>
-            @for (profile of analysisProfiles(); track profile.id) {
-              <mat-option [value]="profile.id">{{ profile.code }} — {{ profile.name }}</mat-option>
+          <mat-label>{{ 'orders.analysisPrograms' | translate }}</mat-label>
+          <mat-select formControlName="analysisProgramIds" multiple>
+            @for (program of analysisPrograms(); track program.id) {
+              <mat-option [value]="program.id">{{ program.code }} — {{ program.name }}</mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -119,12 +119,12 @@ export class RoundAddOrderDialogComponent implements OnInit {
   private readonly roundApi = inject(SamplingRoundApiService);
   private readonly locationApi = inject(SamplingLocationApiService);
   private readonly sectorApi = inject(SectorApiService);
-  private readonly profileApi = inject(AnalysisProfileApiService);
+  private readonly programApi = inject(AnalysisProgramApiService);
 
   readonly sectors = signal<SectorListDto[]>([]);
   readonly locations = signal<SamplingLocationDto[]>([]);
   readonly filteredLocations = signal<SamplingLocationDto[]>([]);
-  readonly analysisProfiles = signal<AnalysisProfileListDto[]>([]);
+  readonly analysisPrograms = signal<AnalysisProgramListDto[]>([]);
   readonly saving = signal(false);
   readonly error = signal('');
 
@@ -140,7 +140,7 @@ export class RoundAddOrderDialogComponent implements OnInit {
     this.form = this.fb.group({
       sectorId: [null],
       samplingLocationId: [null],
-      analysisProfileIds: [[]],
+      analysisProgramIds: [[]],
       notes: [''],
       isUnplanned: [false],
       unplannedReason: [null],
@@ -148,14 +148,14 @@ export class RoundAddOrderDialogComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    const [allSectors, locs, profiles] = await Promise.all([
+    const [allSectors, locs, programs] = await Promise.all([
       firstValueFrom(this.sectorApi.getAll({ distributorId: this.data.distributorId, isActive: true })),
       firstValueFrom(this.locationApi.getByDistributor(this.data.distributorId)),
-      firstValueFrom(this.profileApi.getAll({ isActive: true })),
+      firstValueFrom(this.programApi.getAll({ isActive: true })),
     ]);
 
     this.sectors.set(allSectors);
-    this.analysisProfiles.set(profiles);
+    this.analysisPrograms.set(programs);
 
     const activeLocs = locs.filter(l => l.isActive && l.isValidated);
     this.locations.set(activeLocs);
@@ -183,7 +183,7 @@ export class RoundAddOrderDialogComponent implements OnInit {
         samplingLocationId: val.samplingLocationId || null,
         preleveurId: null,
         plannedDate: null,
-        analysisProfileIds: val.analysisProfileIds?.length > 0 ? val.analysisProfileIds : null,
+        analysisProgramIds: val.analysisProgramIds?.length > 0 ? val.analysisProgramIds : null,
         notes: val.notes || null,
         isUnplanned: val.isUnplanned,
         unplannedReason: val.isUnplanned ? val.unplannedReason : null,

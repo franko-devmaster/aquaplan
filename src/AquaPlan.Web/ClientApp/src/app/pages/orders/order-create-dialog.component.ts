@@ -12,10 +12,10 @@ import { TranslateModule } from '@ngx-translate/core';
 import { UnplannedReason, UnplannedReasonLabels } from '../../models/order.model';
 import { OrderDatastore } from '../../datastore/order.datastore';
 import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
-import { AnalysisProfileApiService } from '../../services/analysis-profile-api.service';
+import { AnalysisProgramApiService } from '../../services/analysis-program-api.service';
 import { SamplingRoundApiService } from '../../services/sampling-round-api.service';
 import { SamplingLocationDto } from '../../models/sampling-location.model';
-import { AnalysisProfileListDto } from '../../models/analysis-profile.model';
+import { AnalysisProgramListDto } from '../../models/analysis-program.model';
 import { SamplingRoundListDto, SamplingRoundStatus } from '../../models/sampling-round.model';
 import { firstValueFrom } from 'rxjs';
 
@@ -56,7 +56,6 @@ interface DistributorOption {
           </mat-select>
         </mat-form-field>
 
-        <!-- Round section -->
         <div class="round-section">
           <label class="section-label">{{ 'orders.round' | translate }}</label>
           <mat-radio-group formControlName="roundMode" class="round-mode-group">
@@ -92,10 +91,10 @@ interface DistributorOption {
         </div>
 
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>{{ 'orders.analysisProfiles' | translate }}</mat-label>
-          <mat-select formControlName="analysisProfileIds" multiple>
-            @for (profile of analysisProfiles(); track profile.id) {
-              <mat-option [value]="profile.id">{{ profile.code }} — {{ profile.name }}</mat-option>
+          <mat-label>{{ 'orders.analysisPrograms' | translate }}</mat-label>
+          <mat-select formControlName="analysisProgramIds" multiple>
+            @for (program of analysisPrograms(); track program.id) {
+              <mat-option [value]="program.id">{{ program.code }} — {{ program.name }}</mat-option>
             }
           </mat-select>
         </mat-form-field>
@@ -152,12 +151,12 @@ export class OrderCreateDialogComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly orderStore = inject(OrderDatastore);
   private readonly locationApi = inject(SamplingLocationApiService);
-  private readonly profileApi = inject(AnalysisProfileApiService);
+  private readonly programApi = inject(AnalysisProgramApiService);
   private readonly roundApi = inject(SamplingRoundApiService);
 
   readonly distributors = signal<DistributorOption[]>([]);
   readonly locations = signal<SamplingLocationDto[]>([]);
-  readonly analysisProfiles = signal<AnalysisProfileListDto[]>([]);
+  readonly analysisPrograms = signal<AnalysisProgramListDto[]>([]);
   readonly availableRounds = signal<SamplingRoundListDto[]>([]);
   readonly saving = signal(false);
   readonly form: FormGroup;
@@ -175,7 +174,7 @@ export class OrderCreateDialogComponent implements OnInit {
       roundId: [null],
       newRoundName: [''],
       newRoundDeadline: [''],
-      analysisProfileIds: [[], Validators.required],
+      analysisProgramIds: [[], Validators.required],
       notes: [''],
       isUnplanned: [false],
       unplannedReason: [null],
@@ -195,8 +194,8 @@ export class OrderCreateDialogComponent implements OnInit {
       Array.from(uniqueDistributors, ([id, name]) => ({ id, name }))
     );
 
-    const profiles = await firstValueFrom(this.profileApi.getAll({ isActive: true }));
-    this.analysisProfiles.set(profiles);
+    const programs = await firstValueFrom(this.programApi.getAll({ isActive: true }));
+    this.analysisPrograms.set(programs);
   }
 
   async onDistributorChange(): Promise<void> {
@@ -206,7 +205,6 @@ export class OrderCreateDialogComponent implements OnInit {
       const locs = await firstValueFrom(this.locationApi.getByDistributor(distributorId));
       this.locations.set(locs.filter(l => l.isActive));
 
-      // Load available rounds for this distributor
       const result = await firstValueFrom(this.roundApi.getFiltered({
         statuses: [SamplingRoundStatus.Draft, SamplingRoundStatus.Assigned],
         pageSize: 100,
@@ -225,20 +223,18 @@ export class OrderCreateDialogComponent implements OnInit {
     try {
       const val = this.form.value;
 
-      // Create the order (no plannedDate — comes from round)
       const order = await this.orderStore.create({
         distributorId: val.distributorId,
         samplingLocationId: val.samplingLocationId || null,
         preleveurId: null,
         plannedDate: null,
-        analysisProfileIds: val.analysisProfileIds,
+        analysisProgramIds: val.analysisProgramIds,
         notes: val.notes || null,
         isUnplanned: val.isUnplanned,
         unplannedReason: val.isUnplanned ? val.unplannedReason : null,
         unplannedReasonDetails: val.isUnplanned ? (val.unplannedReasonDetails || null) : null,
       });
 
-      // Link to round if requested
       if (val.roundMode === 'existing' && val.roundId) {
         await firstValueFrom(this.roundApi.addOrder(val.roundId, order.id));
       } else if (val.roundMode === 'new' && val.newRoundName) {

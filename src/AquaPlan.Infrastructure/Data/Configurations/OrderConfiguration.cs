@@ -49,20 +49,22 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
     }
 }
 
-public class OrderAnalysisProfileConfiguration : IEntityTypeConfiguration<OrderAnalysisProfile>
+public class OrderAnalysisProgramConfiguration : IEntityTypeConfiguration<OrderAnalysisProgram>
 {
-    public void Configure(EntityTypeBuilder<OrderAnalysisProfile> builder)
+    public void Configure(EntityTypeBuilder<OrderAnalysisProgram> builder)
     {
-        builder.HasKey(oap => new { oap.OrderId, oap.AnalysisProfileId });
+        builder.ToTable("order_analysis_programs");
+
+        builder.HasKey(oap => new { oap.OrderId, oap.AnalysisProgramId });
 
         builder.HasOne(oap => oap.Order)
-            .WithMany(o => o.OrderAnalysisProfiles)
+            .WithMany(o => o.OrderAnalysisPrograms)
             .HasForeignKey(oap => oap.OrderId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasOne(oap => oap.AnalysisProfile)
-            .WithMany()
-            .HasForeignKey(oap => oap.AnalysisProfileId)
-            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(oap => oap.AnalysisProgram)
+            .WithMany(p => p.OrderAnalysisPrograms)
+            .HasForeignKey(oap => oap.AnalysisProgramId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

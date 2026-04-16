@@ -21,14 +21,14 @@ public record OrderDetailDto(
     DateTime? PlannedDate,
     string? Notes,
     bool IsDelegated,
-    List<OrderAnalysisProfileDto> AnalysisProfiles,
+    List<OrderAnalysisProgramDto> AnalysisPrograms,
     Guid TenantId,
     DateTime CreatedAt,
     DateTime? UpdatedAt,
     SamplingDto? Sampling,
     Guid? SamplingRoundId);
 
-public record OrderAnalysisProfileDto(
-    Guid AnalysisProfileId,
+public record OrderAnalysisProgramDto(
+    Guid AnalysisProgramId,
     string Code,
     string Name);
