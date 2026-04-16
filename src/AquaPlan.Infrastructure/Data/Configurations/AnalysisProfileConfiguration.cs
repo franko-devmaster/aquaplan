@@ -19,5 +19,10 @@ public class AnalysisProfileConfiguration : IEntityTypeConfiguration<AnalysisPro
             .WithMany()
             .HasForeignKey(p => p.TenantId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(p => p.Container)
+            .WithMany()
+            .HasForeignKey(p => p.ContainerId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

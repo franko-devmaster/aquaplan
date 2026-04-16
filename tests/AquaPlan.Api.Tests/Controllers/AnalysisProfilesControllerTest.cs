@@ -18,6 +18,7 @@ public class AnalysisProfilesControllerTest
 
     private static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly Guid ProfileId = Guid.Parse("00000000-0000-0000-0000-000000000030");
+    private static readonly Guid ContainerId = Guid.Parse("00000000-0000-0000-0000-000000000100");
 
     public AnalysisProfilesControllerTest()
     {
@@ -44,7 +45,7 @@ public class AnalysisProfilesControllerTest
     {
         var profiles = new List<AnalysisProfileListDto>
         {
-            new(ProfileId, "BAC-01", "Bactériologie de base", AnalysisCategory.Bacteriology, true),
+            new(ProfileId, "BAC-01", "Bactériologie de base", AnalysisCategory.Bacteriology, true, ContainerId, "BACT-V250"),
         };
         _analysisProfileServiceMock
             .Setup(x => x.GetAllAsync(TenantId, It.IsAny<AnalysisProfileFilteringInputDto?>(), It.IsAny<CancellationToken>()))
@@ -59,7 +60,7 @@ public class AnalysisProfilesControllerTest
     [Fact]
     public async Task GetById_ShouldReturnOkWithProfile()
     {
-        var profile = new AnalysisProfileDto(ProfileId, "BAC-01", "Bactériologie de base", null, AnalysisCategory.Bacteriology, true, DateTime.UtcNow);
+        var profile = new AnalysisProfileDto(ProfileId, "BAC-01", "Bactériologie de base", null, AnalysisCategory.Bacteriology, true, ContainerId, "BACT-V250", "Bouteille verre stérile microbiologie", DateTime.UtcNow);
         _analysisProfileServiceMock
             .Setup(x => x.GetByIdAsync(ProfileId, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(profile);
@@ -85,8 +86,8 @@ public class AnalysisProfilesControllerTest
     [Fact]
     public async Task Create_ShouldReturnCreatedAtAction()
     {
-        var addDto = new AnalysisProfileAddDto("BAC-01", "Bactériologie de base", null, AnalysisCategory.Bacteriology);
-        var created = new AnalysisProfileDto(ProfileId, "BAC-01", "Bactériologie de base", null, AnalysisCategory.Bacteriology, true, DateTime.UtcNow);
+        var addDto = new AnalysisProfileAddDto("BAC-01", "Bactériologie de base", null, AnalysisCategory.Bacteriology, ContainerId);
+        var created = new AnalysisProfileDto(ProfileId, "BAC-01", "Bactériologie de base", null, AnalysisCategory.Bacteriology, true, ContainerId, "BACT-V250", "Bouteille verre stérile microbiologie", DateTime.UtcNow);
         _analysisProfileServiceMock
             .Setup(x => x.CreateAsync(addDto, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(created);
@@ -101,8 +102,8 @@ public class AnalysisProfilesControllerTest
     [Fact]
     public async Task Update_ShouldReturnOkWithUpdatedProfile()
     {
-        var updateDto = new AnalysisProfileUpdateDto("BAC-01", "Bactériologie avancée", null, AnalysisCategory.Bacteriology, true);
-        var updated = new AnalysisProfileDto(ProfileId, "BAC-01", "Bactériologie avancée", null, AnalysisCategory.Bacteriology, true, DateTime.UtcNow);
+        var updateDto = new AnalysisProfileUpdateDto("BAC-01", "Bactériologie avancée", null, AnalysisCategory.Bacteriology, true, ContainerId);
+        var updated = new AnalysisProfileDto(ProfileId, "BAC-01", "Bactériologie avancée", null, AnalysisCategory.Bacteriology, true, ContainerId, "BACT-V250", "Bouteille verre stérile microbiologie", DateTime.UtcNow);
         _analysisProfileServiceMock
             .Setup(x => x.UpdateAsync(ProfileId, updateDto, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(updated);
@@ -116,7 +117,7 @@ public class AnalysisProfilesControllerTest
     [Fact]
     public async Task Update_WhenNotFound_ShouldReturnNotFound()
     {
-        var updateDto = new AnalysisProfileUpdateDto("BAC-01", "Bactériologie avancée", null, AnalysisCategory.Bacteriology, true);
+        var updateDto = new AnalysisProfileUpdateDto("BAC-01", "Bactériologie avancée", null, AnalysisCategory.Bacteriology, true, ContainerId);
         _analysisProfileServiceMock
             .Setup(x => x.UpdateAsync(ProfileId, updateDto, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((AnalysisProfileDto?)null);
@@ -129,7 +130,7 @@ public class AnalysisProfilesControllerTest
     [Fact]
     public async Task ToggleStatus_ShouldReturnOkWithUpdatedProfile()
     {
-        var toggled = new AnalysisProfileDto(ProfileId, "BAC-01", "Bactériologie de base", null, AnalysisCategory.Bacteriology, false, DateTime.UtcNow);
+        var toggled = new AnalysisProfileDto(ProfileId, "BAC-01", "Bactériologie de base", null, AnalysisCategory.Bacteriology, false, ContainerId, "BACT-V250", "Bouteille verre stérile microbiologie", DateTime.UtcNow);
         _analysisProfileServiceMock
             .Setup(x => x.ToggleStatusAsync(ProfileId, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(toggled);

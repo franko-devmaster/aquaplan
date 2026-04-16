@@ -14,6 +14,7 @@ internal class AnalysisProfileService(
     public async Task<IList<AnalysisProfileListDto>> GetAllAsync(Guid tenantId, AnalysisProfileFilteringInputDto? filter, CancellationToken cancellationToken = default)
     {
         var query = dbContext.AnalysisProfiles
+            .Include(p => p.Container)
             .Where(p => p.TenantId == tenantId);
 
         if (filter is not null)
@@ -38,21 +39,25 @@ internal class AnalysisProfileService(
         return await query
             .OrderBy(p => p.Code)
             .Select(p => new AnalysisProfileListDto(
-                p.Id, p.Code, p.Name, p.Category, p.IsActive))
+                p.Id, p.Code, p.Name, p.Category, p.IsActive, p.ContainerId, p.Container!.Code))
             .ToListAsync(cancellationToken);
     }
 
     public async Task<AnalysisProfileDto?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default)
     {
         return await dbContext.AnalysisProfiles
+            .Include(p => p.Container)
             .Where(p => p.Id == id && p.TenantId == tenantId)
             .Select(p => new AnalysisProfileDto(
-                p.Id, p.Code, p.Name, p.Description, p.Category, p.IsActive, p.CreatedAt))
+                p.Id, p.Code, p.Name, p.Description, p.Category, p.IsActive,
+                p.ContainerId, p.Container!.Code, p.Container!.Name, p.CreatedAt))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
     public async Task<AnalysisProfileDto> CreateAsync(AnalysisProfileAddDto dto, Guid tenantId, CancellationToken cancellationToken = default)
     {
+        await EnsureContainerExistsAndActiveAsync(dto.ContainerId, tenantId, cancellationToken);
+
         var profile = new AnalysisProfile
         {
             Id = Guid.NewGuid(),
@@ -61,6 +66,7 @@ internal class AnalysisProfileService(
             Description = dto.Description,
             Category = dto.Category,
             TenantId = tenantId,
+            ContainerId = dto.ContainerId,
         };
 
         dbContext.AnalysisProfiles.Add(profile);
@@ -82,11 +88,17 @@ internal class AnalysisProfileService(
             return null;
         }
 
+        if (profile.ContainerId != dto.ContainerId)
+        {
+            await EnsureContainerExistsAndActiveAsync(dto.ContainerId, tenantId, cancellationToken);
+        }
+
         profile.Code = dto.Code;
         profile.Name = dto.Name;
         profile.Description = dto.Description;
         profile.Category = dto.Category;
         profile.IsActive = dto.IsActive;
+        profile.ContainerId = dto.ContainerId;
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -112,5 +124,23 @@ internal class AnalysisProfileService(
         logger.LogInformation("Analysis profile {Id} status toggled to {IsActive}", id, profile.IsActive);
 
         return await GetByIdAsync(id, tenantId, cancellationToken);
+    }
+
+    private async Task EnsureContainerExistsAndActiveAsync(Guid containerId, Guid tenantId, CancellationToken cancellationToken)
+    {
+        var container = await dbContext.Containers
+            .Where(c => c.Id == containerId && c.TenantId == tenantId)
+            .Select(c => new { c.Id, c.IsActive })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (container is null)
+        {
+            throw new InvalidOperationException($"Container '{containerId}' does not exist for this tenant.");
+        }
+
+        if (!container.IsActive)
+        {
+            throw new InvalidOperationException("Cannot assign an inactive container to an analysis profile.");
+        }
     }
 }

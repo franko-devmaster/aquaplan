@@ -145,6 +145,9 @@ using (var scope = app.Services.CreateScope())
 // Seed roles, permissions, and default admin user
 await RoleAndPermissionSeeder.SeedAsync(app.Services);
 
+// Seed analysis catalog (containers)
+await AnalysisCatalogSeeder.SeedAsync(app.Services);
+
 app.Run();
 
 // Make Program accessible for integration tests

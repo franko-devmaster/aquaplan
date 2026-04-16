@@ -43,7 +43,8 @@ internal class AnalysisProgramService(
     {
         var program = await dbContext.AnalysisPrograms
             .Include(p => p.AnalysisProgramProfiles)
-                .ThenInclude(pp => pp.AnalysisProfile)
+                .ThenInclude(pp => pp.AnalysisProfile!)
+                .ThenInclude(p => p.Container)
             .Where(p => p.Id == id && p.TenantId == tenantId)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -60,7 +61,9 @@ internal class AnalysisProgramService(
                     pp.AnalysisProfile.Code,
                     pp.AnalysisProfile.Name,
                     pp.AnalysisProfile.Category,
-                    pp.AnalysisProfile.IsActive))
+                    pp.AnalysisProfile.IsActive,
+                    pp.AnalysisProfile.ContainerId,
+                    pp.AnalysisProfile.Container?.Code ?? string.Empty))
                 .OrderBy(pp => pp.Code)
                 .ToList());
     }

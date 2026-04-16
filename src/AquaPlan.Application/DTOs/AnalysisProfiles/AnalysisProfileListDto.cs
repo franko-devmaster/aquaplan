@@ -7,4 +7,6 @@ public record AnalysisProfileListDto(
     string Code,
     string Name,
     AnalysisCategory Category,
-    bool IsActive);
+    bool IsActive,
+    Guid ContainerId,
+    string ContainerCode);

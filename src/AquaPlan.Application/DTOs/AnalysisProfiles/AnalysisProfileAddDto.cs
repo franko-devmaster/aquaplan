@@ -7,4 +7,5 @@ public record AnalysisProfileAddDto(
     [Required] [MaxLength(50)] string Code,
     [Required] [MaxLength(200)] string Name,
     [MaxLength(1000)] string? Description,
-    AnalysisCategory Category);
+    AnalysisCategory Category,
+    [Required] Guid ContainerId);

@@ -18,6 +18,7 @@ public class AquaPlanDbContext(DbContextOptions<AquaPlanDbContext> options)
     public DbSet<AnalysisProfile> AnalysisProfiles => Set<AnalysisProfile>();
     public DbSet<AnalysisProgram> AnalysisPrograms => Set<AnalysisProgram>();
     public DbSet<AnalysisProgramProfile> AnalysisProgramProfiles => Set<AnalysisProgramProfile>();
+    public DbSet<Container> Containers => Set<Container>();
     public DbSet<SamplingLocationChangeRequest> SamplingLocationChangeRequests => Set<SamplingLocationChangeRequest>();
     public DbSet<OrderAnalysisProfile> OrderAnalysisProfiles => Set<OrderAnalysisProfile>();
     public DbSet<DistributorDelegation> DistributorDelegations => Set<DistributorDelegation>();

@@ -16,6 +16,9 @@ public class AnalysisProfileServiceTest : IDisposable
 
     private static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly Guid OtherTenantId = Guid.Parse("00000000-0000-0000-0000-000000000002");
+    private static readonly Guid ContainerIdTenantA = Guid.Parse("00000000-0000-0000-0000-000000000101");
+    private static readonly Guid ContainerIdTenantB = Guid.Parse("00000000-0000-0000-0000-000000000102");
+    private static readonly Guid InactiveContainerIdTenantA = Guid.Parse("00000000-0000-0000-0000-000000000103");
 
     public AnalysisProfileServiceTest()
     {
@@ -112,6 +115,8 @@ public class AnalysisProfileServiceTest : IDisposable
         result.Name.Should().Be("Analyse Bactériologique");
         result.Category.Should().Be(AnalysisCategory.Bacteriology);
         result.IsActive.Should().BeTrue();
+        result.ContainerId.Should().Be(ContainerIdTenantA);
+        result.ContainerCode.Should().Be("BACT-V250");
     }
 
     [Fact]
@@ -136,7 +141,8 @@ public class AnalysisProfileServiceTest : IDisposable
     [Fact]
     public async Task CreateAsync_ShouldAddAndReturnProfile()
     {
-        var dto = new AnalysisProfileAddDto("PHYS-01", "Analyse Physique", "Description physique", AnalysisCategory.Physical);
+        await SeedContainers();
+        var dto = new AnalysisProfileAddDto("PHYS-01", "Analyse Physique", "Description physique", AnalysisCategory.Physical, ContainerIdTenantA);
 
         var result = await _sut.CreateAsync(dto, TenantId);
 
@@ -146,18 +152,51 @@ public class AnalysisProfileServiceTest : IDisposable
         result.Description.Should().Be("Description physique");
         result.Category.Should().Be(AnalysisCategory.Physical);
         result.IsActive.Should().BeTrue();
+        result.ContainerId.Should().Be(ContainerIdTenantA);
     }
 
     [Fact]
     public async Task CreateAsync_ShouldPersistProfile()
     {
-        var dto = new AnalysisProfileAddDto("PHYS-01", "Analyse Physique", null, AnalysisCategory.Physical);
+        await SeedContainers();
+        var dto = new AnalysisProfileAddDto("PHYS-01", "Analyse Physique", null, AnalysisCategory.Physical, ContainerIdTenantA);
 
         var result = await _sut.CreateAsync(dto, TenantId);
 
         var persisted = await _dbContext.AnalysisProfiles.FindAsync(result.Id);
         persisted.Should().NotBeNull();
         persisted!.TenantId.Should().Be(TenantId);
+        persisted.ContainerId.Should().Be(ContainerIdTenantA);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenContainerDoesNotExist_ShouldThrow()
+    {
+        await SeedContainers();
+        var dto = new AnalysisProfileAddDto("PHYS-01", "Analyse Physique", null, AnalysisCategory.Physical, Guid.NewGuid());
+
+        await _sut.Awaiting(s => s.CreateAsync(dto, TenantId))
+            .Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenContainerIsInactive_ShouldThrow()
+    {
+        await SeedContainers();
+        var dto = new AnalysisProfileAddDto("PHYS-01", "Analyse Physique", null, AnalysisCategory.Physical, InactiveContainerIdTenantA);
+
+        await _sut.Awaiting(s => s.CreateAsync(dto, TenantId))
+            .Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenContainerBelongsToOtherTenant_ShouldThrow()
+    {
+        await SeedContainers();
+        var dto = new AnalysisProfileAddDto("PHYS-01", "Analyse Physique", null, AnalysisCategory.Physical, ContainerIdTenantB);
+
+        await _sut.Awaiting(s => s.CreateAsync(dto, TenantId))
+            .Should().ThrowAsync<InvalidOperationException>();
     }
 
     [Fact]
@@ -165,7 +204,7 @@ public class AnalysisProfileServiceTest : IDisposable
     {
         var profiles = await SeedProfiles();
         var profileId = profiles[0].Id;
-        var dto = new AnalysisProfileUpdateDto("BACT-UPD", "Nom Modifié", "Nouvelle description", AnalysisCategory.Chemistry, false);
+        var dto = new AnalysisProfileUpdateDto("BACT-UPD", "Nom Modifié", "Nouvelle description", AnalysisCategory.Chemistry, false, ContainerIdTenantA);
 
         var result = await _sut.UpdateAsync(profileId, dto, TenantId);
 
@@ -180,7 +219,7 @@ public class AnalysisProfileServiceTest : IDisposable
     [Fact]
     public async Task UpdateAsync_WhenNotFound_ShouldReturnNull()
     {
-        var dto = new AnalysisProfileUpdateDto("CODE", "Name", null, AnalysisCategory.Other, true);
+        var dto = new AnalysisProfileUpdateDto("CODE", "Name", null, AnalysisCategory.Other, true, ContainerIdTenantA);
 
         var result = await _sut.UpdateAsync(Guid.NewGuid(), dto, TenantId);
 
@@ -192,7 +231,7 @@ public class AnalysisProfileServiceTest : IDisposable
     {
         var profiles = await SeedProfiles();
         var profileId = profiles[0].Id;
-        var dto = new AnalysisProfileUpdateDto("CODE", "Name", null, AnalysisCategory.Other, true);
+        var dto = new AnalysisProfileUpdateDto("CODE", "Name", null, AnalysisCategory.Other, true, ContainerIdTenantA);
 
         var result = await _sut.UpdateAsync(profileId, dto, OtherTenantId);
 
@@ -214,6 +253,7 @@ public class AnalysisProfileServiceTest : IDisposable
     [Fact]
     public async Task ToggleStatusAsync_ShouldActivateInactiveProfile()
     {
+        await SeedContainers();
         var profile = new AnalysisProfile
         {
             Id = Guid.NewGuid(),
@@ -222,6 +262,7 @@ public class AnalysisProfileServiceTest : IDisposable
             Category = AnalysisCategory.Other,
             IsActive = false,
             TenantId = TenantId,
+            ContainerId = ContainerIdTenantA,
         };
         _dbContext.AnalysisProfiles.Add(profile);
         await _dbContext.SaveChangesAsync();
@@ -251,8 +292,48 @@ public class AnalysisProfileServiceTest : IDisposable
         result.Should().BeNull();
     }
 
+    private async Task SeedContainers()
+    {
+        _dbContext.Containers.AddRange(
+            new Container
+            {
+                Id = ContainerIdTenantA,
+                Code = "BACT-V250",
+                Name = "Bouteille verre stérile microbiologie",
+                Material = "Verre borosilicaté",
+                VolumeMl = 250,
+                Color = "Transparent",
+                IsActive = true,
+                TenantId = TenantId,
+            },
+            new Container
+            {
+                Id = InactiveContainerIdTenantA,
+                Code = "INACT-C",
+                Name = "Flacon désactivé",
+                Material = "Verre",
+                VolumeMl = 250,
+                Color = "Transparent",
+                IsActive = false,
+                TenantId = TenantId,
+            },
+            new Container
+            {
+                Id = ContainerIdTenantB,
+                Code = "BACT-V250",
+                Name = "Bouteille verre stérile microbiologie",
+                Material = "Verre borosilicaté",
+                VolumeMl = 250,
+                Color = "Transparent",
+                IsActive = true,
+                TenantId = OtherTenantId,
+            });
+        await _dbContext.SaveChangesAsync();
+    }
+
     private async Task<List<AnalysisProfile>> SeedProfiles()
     {
+        await SeedContainers();
         var profiles = new List<AnalysisProfile>
         {
             new()
@@ -264,6 +345,7 @@ public class AnalysisProfileServiceTest : IDisposable
                 Category = AnalysisCategory.Bacteriology,
                 IsActive = true,
                 TenantId = TenantId,
+                ContainerId = ContainerIdTenantA,
             },
             new()
             {
@@ -274,6 +356,7 @@ public class AnalysisProfileServiceTest : IDisposable
                 Category = AnalysisCategory.Chemistry,
                 IsActive = true,
                 TenantId = TenantId,
+                ContainerId = ContainerIdTenantA,
             },
             new()
             {
@@ -284,6 +367,7 @@ public class AnalysisProfileServiceTest : IDisposable
                 Category = AnalysisCategory.Other,
                 IsActive = true,
                 TenantId = OtherTenantId,
+                ContainerId = ContainerIdTenantB,
             },
         };
 

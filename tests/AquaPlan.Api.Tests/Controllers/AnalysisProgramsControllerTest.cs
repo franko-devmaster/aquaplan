@@ -20,6 +20,7 @@ public class AnalysisProgramsControllerTest
     private static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly Guid ProgramId = Guid.Parse("00000000-0000-0000-0000-000000000040");
     private static readonly Guid ProfileId = Guid.Parse("00000000-0000-0000-0000-000000000030");
+    private static readonly Guid ContainerId = Guid.Parse("00000000-0000-0000-0000-000000000100");
 
     public AnalysisProgramsControllerTest()
     {
@@ -55,7 +56,7 @@ public class AnalysisProgramsControllerTest
             DateTime.UtcNow,
             new List<AnalysisProfileListDto>
             {
-                new(ProfileId, "BAC-01", "Bactériologie de base", AnalysisCategory.Bacteriology, true),
+                new(ProfileId, "BAC-01", "Bactériologie de base", AnalysisCategory.Bacteriology, true, ContainerId, "BACT-V250"),
             });
     }
 

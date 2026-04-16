@@ -9,4 +9,7 @@ public record AnalysisProfileDto(
     string? Description,
     AnalysisCategory Category,
     bool IsActive,
+    Guid ContainerId,
+    string ContainerCode,
+    string ContainerName,
     DateTime CreatedAt);

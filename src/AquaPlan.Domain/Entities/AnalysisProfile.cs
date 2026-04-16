@@ -12,6 +12,8 @@ public class AnalysisProfile
     public bool IsActive { get; set; } = true;
     public Guid TenantId { get; set; }
     public Tenant? Tenant { get; set; }
+    public Guid ContainerId { get; set; }
+    public Container? Container { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<AnalysisProgramProfile> AnalysisProgramProfiles { get; set; } = new List<AnalysisProgramProfile>();
