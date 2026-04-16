@@ -5,8 +5,6 @@ namespace AquaPlan.Application.DTOs.SamplingLocations;
 public record SamplingLocationCreateDto(
     [Required][StringLength(200)] string Name,
     [Required][StringLength(50)] string LocationCode,
-    double? Latitude,
-    double? Longitude,
     [StringLength(1000)] string? Description,
     [StringLength(500)] string? Address,
     [StringLength(1000)] string? AccessDescription,

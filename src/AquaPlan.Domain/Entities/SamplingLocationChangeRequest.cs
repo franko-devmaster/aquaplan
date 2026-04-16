@@ -16,8 +16,6 @@ public class SamplingLocationChangeRequest
 
     public string? ProposedName { get; set; }
     public string? ProposedLocationCode { get; set; }
-    public double? ProposedLatitude { get; set; }
-    public double? ProposedLongitude { get; set; }
     public string? ProposedDescription { get; set; }
 
     public string RequestedById { get; set; } = string.Empty;

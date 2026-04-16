@@ -14,7 +14,6 @@
     "users": "Users",
     "roles": "Roles",
     "orderStatus": "Order statuses",
-    "validationQueue": "SL Validation",
     "analysisCatalog": "Analysis catalog",
     "analysisProfiles": "Analysis profiles",
     "analysisPrograms": "Analysis programs",
@@ -168,6 +167,7 @@
     "plannedDate": "Planned date",
     "notes": "Notes",
     "analysisProfiles": "Analysis profiles",
+    "analysisPrograms": "Analysis programs",
     "createOrder": "Create order",
     "editOrder": "Edit order",
     "assignPreleveur": "Assign sampler",
@@ -257,8 +257,6 @@
     "title": "Sampling locations",
     "name": "Name",
     "locationCode": "Code",
-    "latitude": "Latitude",
-    "longitude": "Longitude",
     "description": "Description",
     "distributor": "Distributor",
     "status": "Status",
@@ -270,10 +268,23 @@
     "allDistributors": "All distributors",
     "allStatuses": "All statuses",
     "searchPlaceholder": "Search by name or code",
-    "coordinates": "Coordinates",
     "toValidate": "To validate",
     "confirmDelete": "Are you sure you want to delete this sampling location? This action cannot be undone.",
-    "deleteSuccess": "Sampling location deleted successfully"
+    "deleteSuccess": "Sampling location deleted successfully",
+    "validateSuccess": "Sampling location validated successfully",
+    "actions": {
+      "edit": "Edit",
+      "validate": "Validate",
+      "delete": "Delete"
+    },
+    "form": {
+      "actions": {
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "validate": "Validate",
+        "save": "Save"
+      }
+    }
   },
   "sampling": {
     "weather3days": "Weather (3 days)",

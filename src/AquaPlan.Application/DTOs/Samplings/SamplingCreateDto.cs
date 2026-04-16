@@ -5,8 +5,6 @@ public record SamplingCreateDto(
     DateTime SamplingDateTime,
     double? Temperature,
     string? Weather,
-    double? LocationLat,
-    double? LocationLng,
     string? Notes,
     bool? HasWaterSoftener,
     bool IsChlorinated = false,

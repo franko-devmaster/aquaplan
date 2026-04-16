@@ -8,8 +8,6 @@ public record SamplingDto(
     DateTime SamplingDateTime,
     double? Temperature,
     string? Weather,
-    double? LocationLat,
-    double? LocationLng,
     string? Notes,
     bool? HasWaterSoftener,
     bool IsChlorinated,

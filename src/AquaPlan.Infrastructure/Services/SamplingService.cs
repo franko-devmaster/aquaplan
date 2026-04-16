@@ -67,8 +67,6 @@ internal class SamplingService(
             SamplingDateTime = DateTime.SpecifyKind(dto.SamplingDateTime, DateTimeKind.Utc),
             Temperature = dto.Temperature,
             Weather = dto.Weather,
-            LocationLat = dto.LocationLat,
-            LocationLng = dto.LocationLng,
             Notes = dto.Notes,
             HasWaterSoftener = dto.HasWaterSoftener,
             IsChlorinated = dto.IsChlorinated,
@@ -120,8 +118,6 @@ internal class SamplingService(
         sampling.SamplingDateTime = DateTime.SpecifyKind(dto.SamplingDateTime, DateTimeKind.Utc);
         sampling.Temperature = dto.Temperature;
         sampling.Weather = dto.Weather;
-        sampling.LocationLat = dto.LocationLat;
-        sampling.LocationLng = dto.LocationLng;
         sampling.Notes = dto.Notes;
         sampling.HasWaterSoftener = dto.HasWaterSoftener;
         sampling.IsChlorinated = dto.IsChlorinated;
@@ -307,8 +303,6 @@ internal class SamplingService(
             sampling.SamplingDateTime,
             sampling.Temperature,
             sampling.Weather,
-            sampling.LocationLat,
-            sampling.LocationLng,
             sampling.Notes,
             sampling.HasWaterSoftener,
             sampling.IsChlorinated,

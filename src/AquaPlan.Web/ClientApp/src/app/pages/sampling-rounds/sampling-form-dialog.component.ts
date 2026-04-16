@@ -62,18 +62,6 @@ export interface SamplingFormDialogData {
           <input matInput formControlName="sampleBarcode">
         </mat-form-field>
 
-        <div class="row">
-          <mat-form-field appearance="outline" class="half-width">
-            <mat-label>{{ 'sampling.gpsLat' | translate }}</mat-label>
-            <input matInput type="number" formControlName="locationLat" step="0.000001">
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="half-width">
-            <mat-label>{{ 'sampling.gpsLng' | translate }}</mat-label>
-            <input matInput type="number" formControlName="locationLng" step="0.000001">
-          </mat-form-field>
-        </div>
-
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>{{ 'sampling.notes' | translate }}</mat-label>
           <textarea matInput formControlName="notes" rows="3"></textarea>
@@ -126,8 +114,6 @@ export class SamplingFormDialogComponent implements OnInit {
     temperature: new FormControl<number | null>(null, Validators.required),
     weather: new FormControl<string | null>(null, Validators.required),
     sampleBarcode: new FormControl<string>('', Validators.required),
-    locationLat: new FormControl<number | null>(null),
-    locationLng: new FormControl<number | null>(null),
     notes: new FormControl<string | null>(null),
     hasWaterSoftener: new FormControl<boolean>(false),
     isChlorinated: new FormControl<boolean>(false),
@@ -142,8 +128,6 @@ export class SamplingFormDialogComponent implements OnInit {
         temperature: sampling.temperature,
         weather: sampling.weather,
         sampleBarcode: sampling.sampleBarcode ?? '',
-        locationLat: sampling.locationLat,
-        locationLng: sampling.locationLng,
         notes: sampling.notes,
         hasWaterSoftener: sampling.hasWaterSoftener ?? false,
         isChlorinated: sampling.isChlorinated,
@@ -167,8 +151,6 @@ export class SamplingFormDialogComponent implements OnInit {
           : new Date().toISOString(),
         temperature: formValue.temperature,
         weather: formValue.weather,
-        locationLat: formValue.locationLat,
-        locationLng: formValue.locationLng,
         notes: formValue.notes,
         hasWaterSoftener: formValue.hasWaterSoftener || null,
         isChlorinated: formValue.isChlorinated ?? false,

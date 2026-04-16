@@ -10,8 +10,6 @@ export interface SamplingDto {
   samplingDateTime: string;
   temperature: number | null;
   weather: string | null;
-  locationLat: number | null;
-  locationLng: number | null;
   notes: string | null;
   hasWaterSoftener: boolean | null;
   isChlorinated: boolean;
@@ -26,8 +24,6 @@ export interface SamplingCreateDto {
   samplingDateTime: string;
   temperature: number | null;
   weather: string | null;
-  locationLat: number | null;
-  locationLng: number | null;
   notes: string | null;
   hasWaterSoftener: boolean | null;
   isChlorinated: boolean;

@@ -4,8 +4,6 @@ public record SamplingLocationDto(
     Guid Id,
     string Name,
     string LocationCode,
-    double? Latitude,
-    double? Longitude,
     string? Description,
     string? Address,
     string? AccessDescription,
@@ -15,4 +13,5 @@ public record SamplingLocationDto(
     string? DistributorName,
     Guid SectorId,
     string? SectorName,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    bool CanDelete = false);

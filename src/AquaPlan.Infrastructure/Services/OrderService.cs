@@ -456,7 +456,7 @@ internal class OrderService(
                 s.Id, s.OrderId, s.PreleveurId,
                 s.Preleveur is not null ? s.Preleveur.FirstName + " " + s.Preleveur.LastName : null,
                 s.SamplingDateTime, s.Temperature, s.Weather,
-                s.LocationLat, s.LocationLng, s.Notes,
+                s.Notes,
                 s.HasWaterSoftener, s.IsChlorinated,
                 s.SampleBarcode, s.BarcodeScannedAt,
                 s.IsValidated, s.ValidatedAt, s.CreatedAt);

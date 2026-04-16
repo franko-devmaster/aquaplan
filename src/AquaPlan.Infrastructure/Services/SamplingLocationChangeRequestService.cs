@@ -24,8 +24,6 @@ internal class SamplingLocationChangeRequestService(
             DistributorId = dto.DistributorId,
             ProposedName = dto.Name,
             ProposedLocationCode = dto.LocationCode,
-            ProposedLatitude = dto.Latitude,
-            ProposedLongitude = dto.Longitude,
             ProposedDescription = dto.Description,
             RequestedById = userId,
             TenantId = tenantId,
@@ -57,8 +55,6 @@ internal class SamplingLocationChangeRequestService(
             DistributorId = location.DistributorId,
             ProposedName = dto.Name,
             ProposedLocationCode = dto.LocationCode,
-            ProposedLatitude = dto.Latitude,
-            ProposedLongitude = dto.Longitude,
             ProposedDescription = dto.Description,
             RequestedById = userId,
             TenantId = tenantId,
@@ -153,8 +149,6 @@ internal class SamplingLocationChangeRequestService(
                     Id = Guid.NewGuid(),
                     Name = request.ProposedName!,
                     LocationCode = request.ProposedLocationCode!,
-                    Latitude = request.ProposedLatitude,
-                    Longitude = request.ProposedLongitude,
                     Description = request.ProposedDescription,
                     DistributorId = request.DistributorId,
                     IsActive = true,
@@ -170,8 +164,6 @@ internal class SamplingLocationChangeRequestService(
                 {
                     locationToUpdate.Name = request.ProposedName!;
                     locationToUpdate.LocationCode = request.ProposedLocationCode!;
-                    locationToUpdate.Latitude = request.ProposedLatitude;
-                    locationToUpdate.Longitude = request.ProposedLongitude;
                     locationToUpdate.Description = request.ProposedDescription;
                 }
                 break;
@@ -248,8 +240,6 @@ internal class SamplingLocationChangeRequestService(
             cr.Distributor?.Name,
             cr.ProposedName,
             cr.ProposedLocationCode,
-            cr.ProposedLatitude,
-            cr.ProposedLongitude,
             cr.ProposedDescription,
             cr.RequestedById,
             cr.RequestedBy != null ? $"{cr.RequestedBy.FirstName} {cr.RequestedBy.LastName}" : null,

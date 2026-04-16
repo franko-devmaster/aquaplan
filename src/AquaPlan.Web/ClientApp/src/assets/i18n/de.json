@@ -14,7 +14,6 @@
     "users": "Benutzer",
     "roles": "Rollen",
     "orderStatus": "Auftragsstatus",
-    "validationQueue": "Validierung PNO",
     "analysisCatalog": "Analysekatalog",
     "analysisProfiles": "Analyseprofile",
     "analysisPrograms": "Analyseprogramme",
@@ -167,6 +166,7 @@
     "plannedDate": "Geplantes Datum",
     "notes": "Notizen",
     "analysisProfiles": "Analyseprofile",
+    "analysisPrograms": "Analyseprogramme",
     "createOrder": "Auftrag erstellen",
     "editOrder": "Auftrag bearbeiten",
     "assignPreleveur": "Probenehmer zuweisen",
@@ -250,8 +250,6 @@
     "title": "Probenahmeorte",
     "name": "Name",
     "locationCode": "Code",
-    "latitude": "Breitengrad",
-    "longitude": "Längengrad",
     "description": "Beschreibung",
     "distributor": "Verteiler",
     "status": "Status",
@@ -263,7 +261,23 @@
     "allDistributors": "Alle Verteiler",
     "allStatuses": "Alle Status",
     "searchPlaceholder": "Nach Name oder Code suchen",
-    "coordinates": "Koordinaten"
+    "toValidate": "Zu validieren",
+    "confirmDelete": "Möchten Sie diesen Probenahmeort wirklich löschen? Diese Aktion ist unwiderruflich.",
+    "deleteSuccess": "Probenahmeort erfolgreich gelöscht",
+    "validateSuccess": "Probenahmeort erfolgreich validiert",
+    "actions": {
+      "edit": "Bearbeiten",
+      "validate": "Validieren",
+      "delete": "Löschen"
+    },
+    "form": {
+      "actions": {
+        "cancel": "Abbrechen",
+        "delete": "Löschen",
+        "validate": "Validieren",
+        "save": "Speichern"
+      }
+    }
   },
   "sampling": {
     "weather3days": "Wetter (3 Tage)",

@@ -42,7 +42,7 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
     public async Task SubmitCreateRequestAsync_ShouldCreatePendingRequest()
     {
         await SeedDistributorWithUserAccess();
-        var dto = new ChangeRequestCreateDto("Source Neuve", "SN-001", 46.8, 7.15, "Description", DistributorId);
+        var dto = new ChangeRequestCreateDto("Source Neuve", "SN-001", "Description", DistributorId);
 
         var result = await _sut.SubmitCreateRequestAsync(dto, UserId, TenantId);
 
@@ -51,8 +51,6 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
         result.Status.Should().Be(ChangeRequestStatus.Pending);
         result.ProposedName.Should().Be("Source Neuve");
         result.ProposedLocationCode.Should().Be("SN-001");
-        result.ProposedLatitude.Should().Be(46.8);
-        result.ProposedLongitude.Should().Be(7.15);
         result.ProposedDescription.Should().Be("Description");
         result.DistributorId.Should().Be(DistributorId);
         result.RequestedById.Should().Be(UserId);
@@ -62,7 +60,7 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
     public async Task SubmitCreateRequestAsync_ShouldPersistRequest()
     {
         await SeedDistributorWithUserAccess();
-        var dto = new ChangeRequestCreateDto("Source Neuve", "SN-001", null, null, null, DistributorId);
+        var dto = new ChangeRequestCreateDto("Source Neuve", "SN-001", null, DistributorId);
 
         var result = await _sut.SubmitCreateRequestAsync(dto, UserId, TenantId);
 
@@ -78,7 +76,7 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
     {
         await SeedDistributor();
 
-        var dto = new ChangeRequestCreateDto("Source Neuve", "SN-001", null, null, null, DistributorId);
+        var dto = new ChangeRequestCreateDto("Source Neuve", "SN-001", null, DistributorId);
 
         await _sut.Invoking(x => x.SubmitCreateRequestAsync(dto, UserId, TenantId))
             .Should().ThrowAsync<UnauthorizedAccessException>()
@@ -93,7 +91,7 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
     public async Task SubmitUpdateRequestAsync_ShouldCreatePendingUpdateRequest()
     {
         var location = await SeedSamplingLocation();
-        var dto = new ChangeRequestUpdateDto("Nom Modifie", "NM-001", 46.9, 7.2, "Nouvelle description");
+        var dto = new ChangeRequestUpdateDto("Nom Modifie", "NM-001", "Nouvelle description");
 
         var result = await _sut.SubmitUpdateRequestAsync(location.Id, dto, UserId, TenantId);
 
@@ -103,8 +101,6 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
         result.SamplingLocationId.Should().Be(location.Id);
         result.ProposedName.Should().Be("Nom Modifie");
         result.ProposedLocationCode.Should().Be("NM-001");
-        result.ProposedLatitude.Should().Be(46.9);
-        result.ProposedLongitude.Should().Be(7.2);
         result.ProposedDescription.Should().Be("Nouvelle description");
     }
 
@@ -112,7 +108,7 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
     public async Task SubmitUpdateRequestAsync_WhenLocationNotFound_ShouldThrowKeyNotFoundException()
     {
         await SeedDistributorWithUserAccess();
-        var dto = new ChangeRequestUpdateDto("Nom", "CODE", null, null, null);
+        var dto = new ChangeRequestUpdateDto("Nom", "CODE", null);
 
         await _sut.Invoking(x => x.SubmitUpdateRequestAsync(Guid.NewGuid(), dto, UserId, TenantId))
             .Should().ThrowAsync<KeyNotFoundException>();
@@ -123,7 +119,7 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
     {
         await SeedDistributor();
         var location = await SeedSamplingLocationEntity();
-        var dto = new ChangeRequestUpdateDto("Nom", "CODE", null, null, null);
+        var dto = new ChangeRequestUpdateDto("Nom", "CODE", null);
 
         await _sut.Invoking(x => x.SubmitUpdateRequestAsync(location.Id, dto, UserId, TenantId))
             .Should().ThrowAsync<UnauthorizedAccessException>();
@@ -286,7 +282,7 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
     public async Task ApproveAsync_WhenCreateRequest_ShouldCreateNewSamplingLocation()
     {
         await SeedDistributorWithUserAccess();
-        var dto = new ChangeRequestCreateDto("Source Neuve", "SN-001", 46.8, 7.15, "Description source", DistributorId);
+        var dto = new ChangeRequestCreateDto("Source Neuve", "SN-001", "Description source", DistributorId);
         var submitted = await _sut.SubmitCreateRequestAsync(dto, UserId, TenantId);
 
         var result = await _sut.ApproveAsync(submitted.Id, "Approuve", ReviewerId, TenantId);
@@ -302,8 +298,6 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
         location.Should().NotBeNull();
         location!.Name.Should().Be("Source Neuve");
         location.LocationCode.Should().Be("SN-001");
-        location.Latitude.Should().Be(46.8);
-        location.Longitude.Should().Be(7.15);
         location.Description.Should().Be("Description source");
         location.DistributorId.Should().Be(DistributorId);
         location.IsActive.Should().BeTrue();
@@ -313,7 +307,7 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
     public async Task ApproveAsync_WhenUpdateRequest_ShouldUpdateExistingSamplingLocation()
     {
         var location = await SeedSamplingLocation();
-        var dto = new ChangeRequestUpdateDto("Nom Modifie", "NM-001", 46.9, 7.2, "Nouvelle description");
+        var dto = new ChangeRequestUpdateDto("Nom Modifie", "NM-001", "Nouvelle description");
         var submitted = await _sut.SubmitUpdateRequestAsync(location.Id, dto, UserId, TenantId);
 
         var result = await _sut.ApproveAsync(submitted.Id, "OK", ReviewerId, TenantId);
@@ -325,8 +319,6 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
         updatedLocation.Should().NotBeNull();
         updatedLocation!.Name.Should().Be("Nom Modifie");
         updatedLocation.LocationCode.Should().Be("NM-001");
-        updatedLocation.Latitude.Should().Be(46.9);
-        updatedLocation.Longitude.Should().Be(7.2);
         updatedLocation.Description.Should().Be("Nouvelle description");
     }
 
@@ -358,7 +350,7 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
     public async Task ApproveAsync_WhenRequestAlreadyApproved_ShouldReturnNull()
     {
         await SeedDistributorWithUserAccess();
-        var dto = new ChangeRequestCreateDto("Source", "S-001", null, null, null, DistributorId);
+        var dto = new ChangeRequestCreateDto("Source", "S-001", null, DistributorId);
         var submitted = await _sut.SubmitCreateRequestAsync(dto, UserId, TenantId);
         await _sut.ApproveAsync(submitted.Id, null, ReviewerId, TenantId);
 
@@ -371,7 +363,7 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
     public async Task ApproveAsync_WhenRequestAlreadyRejected_ShouldReturnNull()
     {
         await SeedDistributorWithUserAccess();
-        var dto = new ChangeRequestCreateDto("Source", "S-001", null, null, null, DistributorId);
+        var dto = new ChangeRequestCreateDto("Source", "S-001", null, DistributorId);
         var submitted = await _sut.SubmitCreateRequestAsync(dto, UserId, TenantId);
         await _sut.RejectAsync(submitted.Id, "Refuse", ReviewerId, TenantId);
 
@@ -384,7 +376,7 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
     public async Task ApproveAsync_WhenDifferentTenant_ShouldReturnNull()
     {
         await SeedDistributorWithUserAccess();
-        var dto = new ChangeRequestCreateDto("Source", "S-001", null, null, null, DistributorId);
+        var dto = new ChangeRequestCreateDto("Source", "S-001", null, DistributorId);
         var submitted = await _sut.SubmitCreateRequestAsync(dto, UserId, TenantId);
 
         var result = await _sut.ApproveAsync(submitted.Id, null, ReviewerId, OtherTenantId);
@@ -400,7 +392,7 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
     public async Task RejectAsync_ShouldSetStatusToRejectedWithComment()
     {
         await SeedDistributorWithUserAccess();
-        var dto = new ChangeRequestCreateDto("Source", "S-001", null, null, null, DistributorId);
+        var dto = new ChangeRequestCreateDto("Source", "S-001", null, DistributorId);
         var submitted = await _sut.SubmitCreateRequestAsync(dto, UserId, TenantId);
 
         var result = await _sut.RejectAsync(submitted.Id, "Localisation incorrecte", ReviewerId, TenantId);
@@ -416,7 +408,7 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
     public async Task RejectAsync_ShouldNotAffectSamplingLocation()
     {
         var location = await SeedSamplingLocation();
-        var dto = new ChangeRequestUpdateDto("Nom Modifie", "NM-001", 46.9, 7.2, "Nouvelle description");
+        var dto = new ChangeRequestUpdateDto("Nom Modifie", "NM-001", "Nouvelle description");
         var submitted = await _sut.SubmitUpdateRequestAsync(location.Id, dto, UserId, TenantId);
 
         await _sut.RejectAsync(submitted.Id, "Refuse", ReviewerId, TenantId);
@@ -439,7 +431,7 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
     public async Task RejectAsync_WhenRequestAlreadyApproved_ShouldReturnNull()
     {
         await SeedDistributorWithUserAccess();
-        var dto = new ChangeRequestCreateDto("Source", "S-001", null, null, null, DistributorId);
+        var dto = new ChangeRequestCreateDto("Source", "S-001", null, DistributorId);
         var submitted = await _sut.SubmitCreateRequestAsync(dto, UserId, TenantId);
         await _sut.ApproveAsync(submitted.Id, null, ReviewerId, TenantId);
 
@@ -452,7 +444,7 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
     public async Task RejectAsync_WhenDifferentTenant_ShouldReturnNull()
     {
         await SeedDistributorWithUserAccess();
-        var dto = new ChangeRequestCreateDto("Source", "S-001", null, null, null, DistributorId);
+        var dto = new ChangeRequestCreateDto("Source", "S-001", null, DistributorId);
         var submitted = await _sut.SubmitCreateRequestAsync(dto, UserId, TenantId);
 
         var result = await _sut.RejectAsync(submitted.Id, "Refuse", ReviewerId, OtherTenantId);
@@ -552,8 +544,6 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
             Id = Guid.NewGuid(),
             Name = "Source Existante",
             LocationCode = "SE-001",
-            Latitude = 46.8,
-            Longitude = 7.15,
             Description = "Description existante",
             DistributorId = DistributorId,
             IsActive = true,
@@ -577,8 +567,6 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
             Id = Guid.NewGuid(),
             Name = "Source Existante",
             LocationCode = "SE-001",
-            Latitude = 46.8,
-            Longitude = 7.15,
             Description = "Description existante",
             DistributorId = DistributorId,
             IsActive = true,

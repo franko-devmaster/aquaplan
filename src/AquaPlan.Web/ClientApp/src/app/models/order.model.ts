@@ -36,8 +36,6 @@ export interface SamplingDto {
   samplingDateTime: string;
   temperature: number | null;
   weather: string | null;
-  locationLat: number | null;
-  locationLng: number | null;
   notes: string | null;
   isValidated: boolean;
   validatedAt: string | null;

@@ -56,8 +56,6 @@ public class SamplingLocationChangeRequestsControllerTest
             "Eau de Fribourg",
             "Source des Mosses",
             "SRC-001",
-            46.8,
-            7.15,
             "Description",
             UserId,
             "Jean Dupont",
@@ -73,7 +71,7 @@ public class SamplingLocationChangeRequestsControllerTest
     [Fact]
     public async Task SubmitCreateRequest_ShouldReturnCreatedAtAction()
     {
-        var createDto = new ChangeRequestCreateDto("Source des Mosses", "SRC-001", 46.8, 7.15, "Description", DistributorId);
+        var createDto = new ChangeRequestCreateDto("Source des Mosses", "SRC-001", "Description", DistributorId);
         var created = CreateChangeRequestDto();
         _changeRequestServiceMock
             .Setup(x => x.SubmitCreateRequestAsync(createDto, UserId, TenantId, It.IsAny<CancellationToken>()))
@@ -89,7 +87,7 @@ public class SamplingLocationChangeRequestsControllerTest
     [Fact]
     public async Task SubmitCreateRequest_WhenUnauthorized_ShouldReturnForbid()
     {
-        var createDto = new ChangeRequestCreateDto("Source des Mosses", "SRC-001", 46.8, 7.15, "Description", DistributorId);
+        var createDto = new ChangeRequestCreateDto("Source des Mosses", "SRC-001", "Description", DistributorId);
         _changeRequestServiceMock
             .Setup(x => x.SubmitCreateRequestAsync(createDto, UserId, TenantId, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new UnauthorizedAccessException());
@@ -104,7 +102,7 @@ public class SamplingLocationChangeRequestsControllerTest
     [Fact]
     public async Task SubmitUpdateRequest_ShouldReturnCreatedAtAction()
     {
-        var updateDto = new ChangeRequestUpdateDto("Source modifiée", "SRC-002", 46.9, 7.16, "Nouvelle description");
+        var updateDto = new ChangeRequestUpdateDto("Source modifiée", "SRC-002", "Nouvelle description");
         var created = CreateChangeRequestDto(ChangeRequestType.Update);
         _changeRequestServiceMock
             .Setup(x => x.SubmitUpdateRequestAsync(SamplingLocationId, updateDto, UserId, TenantId, It.IsAny<CancellationToken>()))
@@ -120,7 +118,7 @@ public class SamplingLocationChangeRequestsControllerTest
     [Fact]
     public async Task SubmitUpdateRequest_WhenNotFound_ShouldReturnNotFound()
     {
-        var updateDto = new ChangeRequestUpdateDto("Source modifiée", "SRC-002", 46.9, 7.16, "Nouvelle description");
+        var updateDto = new ChangeRequestUpdateDto("Source modifiée", "SRC-002", "Nouvelle description");
         _changeRequestServiceMock
             .Setup(x => x.SubmitUpdateRequestAsync(SamplingLocationId, updateDto, UserId, TenantId, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new KeyNotFoundException());
@@ -133,7 +131,7 @@ public class SamplingLocationChangeRequestsControllerTest
     [Fact]
     public async Task SubmitUpdateRequest_WhenUnauthorized_ShouldReturnForbid()
     {
-        var updateDto = new ChangeRequestUpdateDto("Source modifiée", "SRC-002", 46.9, 7.16, "Nouvelle description");
+        var updateDto = new ChangeRequestUpdateDto("Source modifiée", "SRC-002", "Nouvelle description");
         _changeRequestServiceMock
             .Setup(x => x.SubmitUpdateRequestAsync(SamplingLocationId, updateDto, UserId, TenantId, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new UnauthorizedAccessException());

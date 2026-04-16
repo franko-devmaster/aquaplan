@@ -10,8 +10,6 @@ public class Sampling
     public DateTime SamplingDateTime { get; set; }
     public double? Temperature { get; set; }
     public string? Weather { get; set; }
-    public double? LocationLat { get; set; }
-    public double? LocationLng { get; set; }
     public string? Notes { get; set; }
     public bool? HasWaterSoftener { get; set; }
     public bool IsChlorinated { get; set; }

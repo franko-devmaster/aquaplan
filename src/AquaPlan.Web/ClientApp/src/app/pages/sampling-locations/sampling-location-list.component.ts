@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -9,25 +10,26 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
-import { DecimalPipe, NgClass } from '@angular/common';
+import { NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { SamplingLocationDatastore, DistributorOption } from '../../datastore/sampling-location.datastore';
+import { SamplingLocationDatastore } from '../../datastore/sampling-location.datastore';
 import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
 import { AuthService } from '../../services/auth.service';
-import { SamplingLocationDto, SamplingLocationFilteringInputDto } from '../../models/sampling-location.model';
+import { SamplingLocationDto } from '../../models/sampling-location.model';
 import { SamplingLocationFormDialogComponent } from './sampling-location-form-dialog.component';
 
 @Component({
   selector: 'app-sampling-location-list',
   standalone: true,
   imports: [
-    MatTableModule, MatButtonModule, MatIconModule,
+    MatTableModule, MatButtonModule, MatIconModule, MatMenuModule,
     MatProgressSpinnerModule, MatTooltipModule, MatFormFieldModule, MatInputModule,
     MatSelectModule, MatPaginatorModule, MatDialogModule, MatSnackBarModule,
-    DecimalPipe, NgClass, FormsModule, TranslateModule,
+    NgClass, FormsModule, TranslateModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -100,17 +102,6 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
             <td mat-cell *matCellDef="let loc" [attr.data-label]="'samplingLocations.sector' | translate">{{ loc.sectorName ?? '—' }}</td>
           </ng-container>
 
-          <ng-container matColumnDef="coordinates">
-            <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.latitude' | translate }} / {{ 'samplingLocations.longitude' | translate }}</th>
-            <td mat-cell *matCellDef="let loc" [attr.data-label]="'samplingLocations.coordinates' | translate">
-              @if (loc.latitude && loc.longitude) {
-                {{ loc.latitude | number:'1.4-4' }}, {{ loc.longitude | number:'1.4-4' }}
-              } @else {
-                -
-              }
-            </td>
-          </ng-container>
-
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.status' | translate }}</th>
             <td mat-cell *matCellDef="let loc" [attr.data-label]="'samplingLocations.status' | translate">
@@ -126,20 +117,41 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
             </td>
           </ng-container>
 
-          @if (isAdmin()) {
-            <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef></th>
-              <td mat-cell *matCellDef="let loc">
-                <button mat-icon-button color="warn" (click)="deleteLocation(loc, $event)"
-                        [matTooltip]="'common.delete' | translate">
-                  <mat-icon>delete</mat-icon>
-                </button>
-              </td>
-            </ng-container>
-          }
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
+            <td mat-cell *matCellDef="let loc" [attr.data-label]="'common.actions' | translate">
+              <button mat-icon-button (click)="$event.stopPropagation()"
+                      [matMenuTriggerFor]="actionsMenu"
+                      [matMenuTriggerData]="{ loc: loc }"
+                      [attr.aria-label]="'common.actions' | translate">
+                <mat-icon>more_vert</mat-icon>
+              </button>
+            </td>
+          </ng-container>
 
-          <tr mat-header-row *matHeaderRowDef="getDisplayedColumns()"></tr>
-          <tr mat-row *matRowDef="let row; columns: getDisplayedColumns();"
+          <mat-menu #actionsMenu="matMenu">
+            <ng-template matMenuContent let-loc="loc">
+              <button mat-menu-item (click)="openViewOrEditDialog(loc)">
+                <mat-icon>edit</mat-icon>
+                <span>{{ 'samplingLocations.actions.edit' | translate }}</span>
+              </button>
+              @if (isAdmin() && !loc.isValidated) {
+                <button mat-menu-item (click)="validateLocation(loc)">
+                  <mat-icon>check_circle</mat-icon>
+                  <span>{{ 'samplingLocations.actions.validate' | translate }}</span>
+                </button>
+              }
+              @if (isAdmin()) {
+                <button mat-menu-item (click)="deleteLocationFromMenu(loc)">
+                  <mat-icon color="warn">delete</mat-icon>
+                  <span>{{ 'samplingLocations.actions.delete' | translate }}</span>
+                </button>
+              }
+            </ng-template>
+          </mat-menu>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns()"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns();"
               class="clickable-row" [class.inactive-row]="!row.isActive"
               (click)="openViewOrEditDialog(row)"></tr>
         </table>
@@ -181,8 +193,11 @@ export class SamplingLocationListComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly translate = inject(TranslateService);
+  private readonly route = inject(ActivatedRoute);
 
-  private readonly baseColumns = ['locationCode', 'name', 'distributor', 'sector', 'coordinates', 'status'];
+  readonly validationFilter = signal<'pending' | null>(null);
+
+  private readonly baseColumns = ['locationCode', 'name', 'distributor', 'sector', 'status', 'actions'];
 
   searchText = '';
   selectedDistributorId = '';
@@ -193,17 +208,14 @@ export class SamplingLocationListComponent implements OnInit {
   readonly filteredLocations = signal<SamplingLocationDto[]>([]);
   readonly totalFilteredCount = signal(0);
 
-  isAdmin(): boolean {
+  readonly isAdmin = computed(() => {
     const user = this.authService.currentUser();
     return user?.roles.includes('Administrator') ?? false;
-  }
+  });
 
-  getDisplayedColumns(): string[] {
-    return this.isAdmin() ? [...this.baseColumns, 'actions'] : this.baseColumns;
-  }
+  readonly displayedColumns = computed(() => this.baseColumns);
 
-  async deleteLocation(location: SamplingLocationDto, event: Event): Promise<void> {
-    event.stopPropagation();
+  async deleteLocationFromMenu(location: SamplingLocationDto): Promise<void> {
     if (!confirm(this.translate.instant('samplingLocations.confirmDelete'))) return;
     try {
       await firstValueFrom(this.apiService.delete(location.id));
@@ -223,44 +235,46 @@ export class SamplingLocationListComponent implements OnInit {
     }
   }
 
+  async validateLocation(location: SamplingLocationDto): Promise<void> {
+    try {
+      await firstValueFrom(this.apiService.validate(location.id));
+      this.snackBar.open(
+        this.translate.instant('samplingLocations.validateSuccess'),
+        this.translate.instant('common.close'),
+        { duration: 3000 }
+      );
+      this.store.loadAll().then(() => this.applyFilters());
+    } catch (err: unknown) {
+      const apiError = err as { error?: { message?: string } };
+      this.snackBar.open(
+        apiError?.error?.message ?? this.translate.instant('common.error'),
+        this.translate.instant('common.close'),
+        { duration: 5000 }
+      );
+    }
+  }
+
   ngOnInit(): void {
+    const validation = this.route.snapshot.queryParamMap.get('validation');
+    if (validation === 'pending') {
+      this.validationFilter.set('pending');
+    }
     this.store.loadAll().then(() => this.applyFilters());
   }
 
   applyFilters(): void {
-    let locations = this.store.locations();
-
-    if (this.searchText.trim()) {
-      const search = this.searchText.toLowerCase();
-      locations = locations.filter(loc =>
-        loc.name.toLowerCase().includes(search) ||
-        loc.locationCode.toLowerCase().includes(search)
-      );
-    }
-
-    if (this.selectedDistributorId) {
-      locations = locations.filter(loc => loc.distributorId === this.selectedDistributorId);
-    }
-
-    if (this.selectedStatus !== '') {
-      const isActive = this.selectedStatus === 'true';
-      locations = locations.filter(loc => loc.isActive === isActive);
-    }
-
-    this.totalFilteredCount.set(locations.length);
+    const all = this.getFilteredAll();
+    this.totalFilteredCount.set(all.length);
     this.currentPage = 0;
-
-    const start = this.currentPage * this.pageSize;
-    this.filteredLocations.set(locations.slice(start, start + this.pageSize));
+    this.filteredLocations.set(all.slice(0, this.pageSize));
   }
 
   onPageChange(event: PageEvent): void {
     this.currentPage = event.pageIndex;
     this.pageSize = event.pageSize;
-
-    let locations = this.getFilteredAll();
+    const all = this.getFilteredAll();
     const start = this.currentPage * this.pageSize;
-    this.filteredLocations.set(locations.slice(start, start + this.pageSize));
+    this.filteredLocations.set(all.slice(start, start + this.pageSize));
   }
 
   openCreateDialog(): void {
@@ -332,6 +346,10 @@ export class SamplingLocationListComponent implements OnInit {
     if (this.selectedStatus !== '') {
       const isActive = this.selectedStatus === 'true';
       locations = locations.filter(loc => loc.isActive === isActive);
+    }
+
+    if (this.validationFilter() === 'pending') {
+      locations = locations.filter(loc => !loc.isValidated);
     }
 
     return locations;

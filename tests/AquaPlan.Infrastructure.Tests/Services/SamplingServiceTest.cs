@@ -160,8 +160,6 @@ public class SamplingServiceTest : IDisposable
             SamplingDateTime: new DateTime(2026, 5, 1, 10, 0, 0, DateTimeKind.Utc),
             Temperature: 20.0,
             Weather: "Rainy",
-            LocationLat: 47.0,
-            LocationLng: 7.2,
             Notes: "Updated notes",
             HasWaterSoftener: null,
             IsChlorinated: false);
@@ -433,8 +431,6 @@ public class SamplingServiceTest : IDisposable
             SamplingDateTime: new DateTime(2026, 4, 10, 8, 30, 0, DateTimeKind.Utc),
             Temperature: 15.5,
             Weather: "Sunny",
-            LocationLat: 46.8,
-            LocationLng: 7.15,
             Notes: "Test notes",
             HasWaterSoftener: null,
             IsChlorinated: false);

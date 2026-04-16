@@ -132,7 +132,7 @@ import {
                         </mat-card-header>
                         <mat-card-content>
                             <div class="admin-list">
-                                <div class="admin-item" (click)="navigateTo('/admin/validation-queue')">
+                                <div class="admin-item" (click)="navigateTo('/sampling-locations', { validation: 'pending' })">
                                     <mat-icon color="warn">pending_actions</mat-icon>
                                     <span class="admin-count">{{ ldpToValidateCount() }}</span>
                                     <span class="admin-label">{{ 'dashboard.ldpToValidate' | translate }}</span>
@@ -418,8 +418,8 @@ export class HomeComponent implements OnInit {
         this.loadDashboardData();
     }
 
-    navigateTo(path: string): void {
-        this.router.navigate([path]);
+    navigateTo(path: string, queryParams?: Record<string, string>): void {
+        this.router.navigate([path], queryParams ? { queryParams } : undefined);
     }
 
     openOrdersToFinalize(): void {

@@ -2,8 +2,6 @@ export interface SamplingLocationDto {
   id: string;
   name: string;
   locationCode: string;
-  latitude: number | null;
-  longitude: number | null;
   description: string | null;
   address: string | null;
   accessDescription: string | null;
@@ -14,13 +12,12 @@ export interface SamplingLocationDto {
   sectorName: string | null;
   isValidated: boolean;
   createdAt: string;
+  canDelete?: boolean;
 }
 
 export interface SamplingLocationCreateDto {
   name: string;
   locationCode: string;
-  latitude: number | null;
-  longitude: number | null;
   description: string | null;
   address: string | null;
   accessDescription: string | null;
@@ -31,8 +28,6 @@ export interface SamplingLocationCreateDto {
 export interface SamplingLocationUpdateDto {
   name: string;
   locationCode: string;
-  latitude: number | null;
-  longitude: number | null;
   description: string | null;
   address: string | null;
   accessDescription: string | null;

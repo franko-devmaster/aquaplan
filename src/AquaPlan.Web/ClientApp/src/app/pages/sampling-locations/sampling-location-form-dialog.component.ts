@@ -1,16 +1,18 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { TranslateModule } from '@ngx-translate/core';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { SamplingLocationDatastore, DistributorOption } from '../../datastore/sampling-location.datastore';
 import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
 import { SectorApiService } from '../../services/sector-api.service';
 import { SectorDto } from '../../models/sector.model';
+import { ConfirmDialogComponent } from '../../components/confirm-dialog.component';
 import { firstValueFrom } from 'rxjs';
 
 export interface SamplingLocationFormDialogData {
@@ -27,7 +29,8 @@ export interface SamplingLocationFormDialogData {
   standalone: true,
   imports: [
     ReactiveFormsModule, MatDialogModule, MatFormFieldModule, MatInputModule,
-    MatButtonModule, MatSelectModule, MatProgressSpinnerModule, TranslateModule,
+    MatButtonModule, MatSelectModule, MatProgressSpinnerModule, MatSnackBarModule,
+    TranslateModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -64,18 +67,6 @@ export interface SamplingLocationFormDialogData {
           </mat-select>
         </mat-form-field>
 
-        <div class="coordinates-row">
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'samplingLocations.latitude' | translate }}</mat-label>
-            <input matInput formControlName="latitude" type="number" step="0.0001">
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>{{ 'samplingLocations.longitude' | translate }}</mat-label>
-            <input matInput formControlName="longitude" type="number" step="0.0001">
-          </mat-form-field>
-        </div>
-
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>{{ 'samplingLocations.description' | translate }}</mat-label>
           <textarea matInput formControlName="description" rows="3"></textarea>
@@ -94,13 +85,21 @@ export interface SamplingLocationFormDialogData {
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>{{ (data.readonly ? 'common.close' : 'common.cancel') | translate }}</button>
-      @if (data.showValidateButton) {
-        <button mat-raised-button color="accent" (click)="onValidate()"
-                [disabled]="saving()">
+      @if (canShowDelete()) {
+        <button mat-raised-button color="warn" (click)="onDelete()" [disabled]="saving()">
           @if (saving()) {
             <mat-spinner diameter="20"></mat-spinner>
           } @else {
-            {{ 'changeRequests.validate' | translate }}
+            {{ 'samplingLocations.form.actions.delete' | translate }}
+          }
+        </button>
+      }
+      @if (canShowValidate()) {
+        <button mat-raised-button color="accent" (click)="onValidate()" [disabled]="saving()">
+          @if (saving()) {
+            <mat-spinner diameter="20"></mat-spinner>
+          } @else {
+            {{ 'samplingLocations.form.actions.validate' | translate }}
           }
         </button>
       }
@@ -110,7 +109,7 @@ export interface SamplingLocationFormDialogData {
           @if (saving()) {
             <mat-spinner diameter="20"></mat-spinner>
           } @else {
-            {{ 'common.save' | translate }}
+            {{ 'samplingLocations.form.actions.save' | translate }}
           }
         </button>
       }
@@ -119,8 +118,6 @@ export interface SamplingLocationFormDialogData {
   styles: [`
     .form-container { display: flex; flex-direction: column; min-width: 450px; }
     .full-width { width: 100%; }
-    .coordinates-row { display: flex; gap: 16px; }
-    .coordinates-row mat-form-field { flex: 1; }
   `],
 })
 export class SamplingLocationFormDialogComponent implements OnInit {
@@ -130,19 +127,30 @@ export class SamplingLocationFormDialogComponent implements OnInit {
   private readonly store = inject(SamplingLocationDatastore);
   private readonly locationApi = inject(SamplingLocationApiService);
   private readonly sectorApi = inject(SectorApiService);
+  private readonly dialog = inject(MatDialog);
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly translate = inject(TranslateService);
 
   readonly distributors = signal<DistributorOption[]>([]);
   readonly sectors = signal<SectorDto[]>([]);
   readonly saving = signal(false);
+  readonly isValidated = signal(true);
+  readonly canDelete = signal(false);
   readonly form: FormGroup;
+
+  canShowValidate(): boolean {
+    return !this.data.readonly && this.data.mode === 'edit' && this.data.isAdmin && !this.isValidated();
+  }
+
+  canShowDelete(): boolean {
+    return !this.data.readonly && this.data.mode === 'edit' && this.data.isAdmin && this.canDelete();
+  }
 
   constructor() {
     this.form = this.fb.group({
       name: ['', [Validators.required, Validators.maxLength(200)]],
       locationCode: ['', [Validators.required, Validators.maxLength(50)]],
       distributorId: ['', Validators.required],
-      latitude: [null as number | null],
-      longitude: [null as number | null],
       description: ['', Validators.maxLength(1000)],
       address: ['', Validators.maxLength(500)],
       accessDescription: ['', Validators.maxLength(1000)],
@@ -181,17 +189,52 @@ export class SamplingLocationFormDialogComponent implements OnInit {
       const location = await firstValueFrom(this.locationApi.getById(this.data.locationId));
       // Load sectors for the location's distributor before patching
       await this.loadSectorsForDistributor(location.distributorId);
+      this.isValidated.set(location.isValidated);
+      this.canDelete.set(location.canDelete ?? false);
       this.form.patchValue({
         name: location.name,
         locationCode: location.locationCode,
         distributorId: location.distributorId,
-        latitude: location.latitude,
-        longitude: location.longitude,
         description: location.description,
         address: location.address ?? '',
         accessDescription: location.accessDescription ?? '',
         sectorId: location.sectorId ?? '',
       });
+    }
+  }
+
+  async onDelete(): Promise<void> {
+    if (!this.data.locationId) return;
+    const confirmed = await firstValueFrom(
+      this.dialog
+        .open(ConfirmDialogComponent, {
+          width: '400px',
+          data: {
+            title: this.translate.instant('samplingLocations.form.actions.delete'),
+            message: this.translate.instant('samplingLocations.confirmDelete'),
+          },
+        })
+        .afterClosed(),
+    );
+    if (!confirmed) return;
+
+    this.saving.set(true);
+    try {
+      await firstValueFrom(this.locationApi.delete(this.data.locationId));
+      this.snackBar.open(
+        this.translate.instant('samplingLocations.deleteSuccess'),
+        this.translate.instant('common.close'),
+        { duration: 3000 },
+      );
+      this.dialogRef.close(true);
+    } catch (err: unknown) {
+      const apiError = err as { error?: { message?: string } };
+      this.snackBar.open(
+        apiError?.error?.message ?? this.translate.instant('common.error'),
+        this.translate.instant('common.close'),
+        { duration: 5000 },
+      );
+      this.saving.set(false);
     }
   }
 
@@ -214,8 +257,6 @@ export class SamplingLocationFormDialogComponent implements OnInit {
         await this.store.update(this.data.locationId, {
           name: val.name,
           locationCode: val.locationCode,
-          latitude: val.latitude || null,
-          longitude: val.longitude || null,
           description: val.description || null,
           address: val.address || null,
           accessDescription: val.accessDescription || null,
@@ -241,8 +282,6 @@ export class SamplingLocationFormDialogComponent implements OnInit {
           name: val.name,
           locationCode: val.locationCode,
           distributorId: val.distributorId,
-          latitude: val.latitude || null,
-          longitude: val.longitude || null,
           description: val.description || null,
           address: val.address || null,
           accessDescription: val.accessDescription || null,
@@ -252,8 +291,6 @@ export class SamplingLocationFormDialogComponent implements OnInit {
         await this.store.update(this.data.locationId!, {
           name: val.name,
           locationCode: val.locationCode,
-          latitude: val.latitude || null,
-          longitude: val.longitude || null,
           description: val.description || null,
           address: val.address || null,
           accessDescription: val.accessDescription || null,

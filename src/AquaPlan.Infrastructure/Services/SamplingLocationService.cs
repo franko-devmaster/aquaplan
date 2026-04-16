@@ -97,12 +97,21 @@ internal class SamplingLocationService(
 
     public async Task<SamplingLocationDto?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default)
     {
-        return await dbContext.SamplingLocations
+        var location = await dbContext.SamplingLocations
             .Where(sl => sl.Id == id && sl.Distributor!.TenantId == tenantId)
             .Include(sl => sl.Distributor)
             .Include(sl => sl.Sector)
-            .Select(sl => MapToDto(sl))
             .FirstOrDefaultAsync(cancellationToken);
+
+        if (location is null)
+        {
+            return null;
+        }
+
+        var hasOrders = await dbContext.Orders
+            .AnyAsync(o => o.SamplingLocationId == id, cancellationToken);
+
+        return MapToDto(location) with { CanDelete = !hasOrders };
     }
 
     public async Task<SamplingLocationDto> CreateAsync(SamplingLocationCreateDto dto, Guid tenantId, bool isValidated = true, CancellationToken cancellationToken = default)
@@ -118,8 +127,6 @@ internal class SamplingLocationService(
             Id = Guid.NewGuid(),
             Name = dto.Name,
             LocationCode = dto.LocationCode,
-            Latitude = dto.Latitude,
-            Longitude = dto.Longitude,
             Description = dto.Description,
             Address = dto.Address,
             AccessDescription = dto.AccessDescription,
@@ -156,8 +163,6 @@ internal class SamplingLocationService(
 
         location.Name = dto.Name;
         location.LocationCode = dto.LocationCode;
-        location.Latitude = dto.Latitude;
-        location.Longitude = dto.Longitude;
         location.Description = dto.Description;
         location.Address = dto.Address;
         location.AccessDescription = dto.AccessDescription;
@@ -259,8 +264,6 @@ internal class SamplingLocationService(
                         columns.RelativeColumn(2f);     // Nom
                         columns.RelativeColumn(2f);     // Distributeur
                         columns.RelativeColumn(3f);     // Description
-                        columns.RelativeColumn(1.2f);   // Latitude
-                        columns.RelativeColumn(1.2f);   // Longitude
                     });
 
                     // Header row
@@ -278,8 +281,6 @@ internal class SamplingLocationService(
                         HeaderCell(h.Cell(), "Nom");
                         HeaderCell(h.Cell(), "Distributeur");
                         HeaderCell(h.Cell(), "Description");
-                        HeaderCell(h.Cell(), "Latitude");
-                        HeaderCell(h.Cell(), "Longitude");
                     });
 
                     // Data rows
@@ -302,8 +303,6 @@ internal class SamplingLocationService(
                         DataCell(table.Cell(), loc.Name);
                         DataCell(table.Cell(), loc.Distributor?.Name ?? "-");
                         DataCell(table.Cell(), loc.Description ?? "-");
-                        DataCell(table.Cell(), loc.Latitude?.ToString("F6") ?? "-");
-                        DataCell(table.Cell(), loc.Longitude?.ToString("F6") ?? "-");
 
                         rowIndex++;
                     }
@@ -357,6 +356,13 @@ internal class SamplingLocationService(
 
     public async Task<bool> DeleteAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default)
     {
+        var hasOrders = await dbContext.Orders
+            .AnyAsync(o => o.SamplingLocationId == id, cancellationToken);
+        if (hasOrders)
+        {
+            throw new InvalidOperationException("Cannot delete a sampling location that is referenced by orders. Deactivate it instead.");
+        }
+
         var location = await dbContext.SamplingLocations
             .Include(sl => sl.Distributor)
             .Where(sl => sl.Distributor!.TenantId == tenantId && sl.Id == id)
@@ -367,14 +373,6 @@ internal class SamplingLocationService(
             return false;
         }
 
-        // Check if location is referenced by any orders
-        var hasOrders = await dbContext.Orders
-            .AnyAsync(o => o.SamplingLocationId == id, cancellationToken);
-        if (hasOrders)
-        {
-            throw new InvalidOperationException("Cannot delete a sampling location that is referenced by orders. Deactivate it instead.");
-        }
-
         dbContext.SamplingLocations.Remove(location);
         await dbContext.SaveChangesAsync(cancellationToken);
         return true;
@@ -383,7 +381,7 @@ internal class SamplingLocationService(
     private static SamplingLocationDto MapToDto(SamplingLocation sl)
     {
         return new SamplingLocationDto(
-            sl.Id, sl.Name, sl.LocationCode, sl.Latitude, sl.Longitude,
+            sl.Id, sl.Name, sl.LocationCode,
             sl.Description, sl.Address, sl.AccessDescription,
             sl.IsActive, sl.IsValidated, sl.DistributorId,
             sl.Distributor != null ? sl.Distributor.Name : null,

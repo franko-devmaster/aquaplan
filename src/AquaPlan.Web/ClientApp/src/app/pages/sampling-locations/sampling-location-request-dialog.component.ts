@@ -15,8 +15,6 @@ export interface SamplingLocationRequestDialogData {
   samplingLocationId?: string;
   name?: string;
   locationCode?: string;
-  latitude?: number | null;
-  longitude?: number | null;
   description?: string | null;
   distributorId?: string;
 }
@@ -56,17 +54,6 @@ export interface SamplingLocationRequestDialogData {
         <input matInput [(ngModel)]="locationCode" required maxlength="50">
       </mat-form-field>
 
-      <div class="coordinate-row">
-        <mat-form-field appearance="outline">
-          <mat-label>{{ 'samplingLocations.latitude' | translate }}</mat-label>
-          <input matInput type="number" [(ngModel)]="latitude">
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>{{ 'samplingLocations.longitude' | translate }}</mat-label>
-          <input matInput type="number" [(ngModel)]="longitude">
-        </mat-form-field>
-      </div>
-
       <mat-form-field appearance="outline" class="full-width">
         <mat-label>{{ 'samplingLocations.description' | translate }}</mat-label>
         <textarea matInput [(ngModel)]="description" rows="3" maxlength="1000"></textarea>
@@ -87,8 +74,6 @@ export interface SamplingLocationRequestDialogData {
   `,
   styles: [`
     .full-width { width: 100%; }
-    .coordinate-row { display: flex; gap: 16px; }
-    .coordinate-row mat-form-field { flex: 1; }
   `],
 })
 export class SamplingLocationRequestDialogComponent {
@@ -101,8 +86,6 @@ export class SamplingLocationRequestDialogComponent {
 
   name = this.data.name ?? '';
   locationCode = this.data.locationCode ?? '';
-  latitude = this.data.latitude ?? null;
-  longitude = this.data.longitude ?? null;
   description = this.data.description ?? '';
   distributorId = this.data.distributorId ?? '';
 
@@ -132,8 +115,6 @@ export class SamplingLocationRequestDialogComponent {
         await this.changeRequestStore.submitCreate({
           name: this.name.trim(),
           locationCode: this.locationCode.trim(),
-          latitude: this.latitude,
-          longitude: this.longitude,
           description: this.description?.trim() || null,
           distributorId: this.distributorId,
         });
@@ -141,8 +122,6 @@ export class SamplingLocationRequestDialogComponent {
         await this.changeRequestStore.submitUpdate(this.data.samplingLocationId!, {
           name: this.name.trim(),
           locationCode: this.locationCode.trim(),
-          latitude: this.latitude,
-          longitude: this.longitude,
           description: this.description?.trim() || null,
         });
       }

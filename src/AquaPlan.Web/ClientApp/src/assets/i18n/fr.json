@@ -14,7 +14,6 @@
     "users": "Utilisateurs",
     "roles": "Rôles",
     "orderStatus": "Statuts de mandat",
-    "validationQueue": "Validation LDP",
     "analysisCatalog": "Catalogue d'analyses",
     "analysisProfiles": "Profils d'analyse",
     "analysisPrograms": "Programmes d'analyse",
@@ -127,6 +126,7 @@
     "plannedDate": "Date planifiée",
     "notes": "Notes",
     "analysisProfiles": "Profils d'analyse",
+    "analysisPrograms": "Programmes d'analyse",
     "createOrder": "Créer un mandat",
     "editOrder": "Modifier le mandat",
     "assignPreleveur": "Assigner un préleveur",
@@ -196,8 +196,6 @@
     "title": "Lieux de prélèvement",
     "name": "Nom",
     "locationCode": "Code",
-    "latitude": "Latitude",
-    "longitude": "Longitude",
     "description": "Description",
     "distributor": "Distributeur",
     "status": "Statut",
@@ -209,7 +207,6 @@
     "allDistributors": "Tous les distributeurs",
     "allStatuses": "Tous les statuts",
     "searchPlaceholder": "Rechercher par nom ou code",
-    "coordinates": "Coordonnées",
     "address": "Adresse",
     "accessDescription": "Description d'accès",
     "exportPdf": "Exporter PDF",
@@ -218,7 +215,21 @@
     "noSector": "Aucun",
     "toValidate": "À valider",
     "confirmDelete": "Êtes-vous sûr de vouloir supprimer ce lieu de prélèvement ? Cette action est irréversible.",
-    "deleteSuccess": "Lieu de prélèvement supprimé avec succès"
+    "deleteSuccess": "Lieu de prélèvement supprimé avec succès",
+    "validateSuccess": "Lieu de prélèvement validé avec succès",
+    "actions": {
+      "edit": "Éditer",
+      "validate": "Valider",
+      "delete": "Supprimer"
+    },
+    "form": {
+      "actions": {
+        "cancel": "Annuler",
+        "delete": "Supprimer",
+        "validate": "Valider",
+        "save": "Enregistrer"
+      }
+    }
   },
   "changeRequests": {
     "title": "Validation des demandes de modification",
@@ -447,9 +458,6 @@
     "samplingDateTime": "Date et heure du prélèvement",
     "temperature": "Température",
     "weather": "Météo",
-    "gps": "Coordonnées GPS",
-    "gpsLat": "Latitude",
-    "gpsLng": "Longitude",
     "notes": "Remarques",
     "complete": "Terminer le prélèvement",
     "validate": "Valider",

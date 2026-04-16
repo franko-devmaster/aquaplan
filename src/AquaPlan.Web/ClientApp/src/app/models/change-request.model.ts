@@ -11,8 +11,6 @@ export interface ChangeRequestDto {
   distributorName: string | null;
   proposedName: string | null;
   proposedLocationCode: string | null;
-  proposedLatitude: number | null;
-  proposedLongitude: number | null;
   proposedDescription: string | null;
   requestedById: string;
   requestedByName: string | null;
@@ -26,8 +24,6 @@ export interface ChangeRequestDto {
 export interface ChangeRequestCreateDto {
   name: string;
   locationCode: string;
-  latitude: number | null;
-  longitude: number | null;
   description: string | null;
   distributorId: string;
 }
@@ -35,8 +31,6 @@ export interface ChangeRequestCreateDto {
 export interface ChangeRequestUpdateDto {
   name: string;
   locationCode: string;
-  latitude: number | null;
-  longitude: number | null;
   description: string | null;
 }
 

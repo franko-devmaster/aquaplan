@@ -12,8 +12,6 @@ public record ChangeRequestDto(
     string? DistributorName,
     string? ProposedName,
     string? ProposedLocationCode,
-    double? ProposedLatitude,
-    double? ProposedLongitude,
     string? ProposedDescription,
     string RequestedById,
     string? RequestedByName,
