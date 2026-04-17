@@ -177,6 +177,14 @@
     "dateFrom": "Date from",
     "dateTo": "Date to",
     "export": "Export CSV",
+    "bulkValidate": "Validate all",
+    "bulkValidateTooltip": "Validate all in-progress orders",
+    "bulkTransmit": "Transmit all",
+    "bulkTransmitTooltip": "Transmit all validated orders",
+    "bulkConfirmTitle": "Confirm bulk action",
+    "bulkValidateConfirmMessage": "Validate {{count}} in-progress order(s)?",
+    "bulkTransmitConfirmMessage": "Transmit {{count}} validated order(s)?",
+    "bulkSuccess": "{{count}} order(s) updated",
     "deleteConfirmTitle": "Delete order",
     "deleteConfirmMessage": "Are you sure you want to delete this order? This action cannot be undone.",
     "deleteSuccess": "Order deleted successfully",
@@ -285,6 +293,13 @@
         "save": "Save"
       }
     }
+  },
+  "scan": {
+    "title": "Scan a barcode",
+    "instruction": "Position the barcode within the frame.",
+    "cancel": "Cancel",
+    "permissionDenied": "Unable to access the camera. Please check permissions.",
+    "success": "Barcode captured: {{value}}"
   },
   "sampling": {
     "weather3days": "Weather (3 days)",

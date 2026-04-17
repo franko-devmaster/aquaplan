@@ -136,6 +136,14 @@
     "dateFrom": "Date du",
     "dateTo": "Date au",
     "export": "Exporter CSV",
+    "bulkValidate": "Valider tout",
+    "bulkValidateTooltip": "Valider tous les mandats en cours",
+    "bulkTransmit": "Tout transmettre",
+    "bulkTransmitTooltip": "Transmettre tous les mandats validés",
+    "bulkConfirmTitle": "Confirmer l'action groupée",
+    "bulkValidateConfirmMessage": "Valider {{count}} mandat(s) en cours ?",
+    "bulkTransmitConfirmMessage": "Transmettre {{count}} mandat(s) validé(s) ?",
+    "bulkSuccess": "{{count}} mandat(s) mis à jour",
     "deleteConfirmTitle": "Supprimer le mandat",
     "deleteConfirmMessage": "Êtes-vous sûr de vouloir supprimer ce mandat ? Cette action est irréversible.",
     "deleteSuccess": "Mandat supprimé avec succès",
@@ -453,6 +461,13 @@
     "limsPlaceholder": "Les colonnes de résultats d'analyse (paramètres, conformité) seront disponibles après l'intégration Limsophy (v0.8). Les mandats ci-dessus sont prêts à recevoir les résultats.",
     "conforme": "CONFORME",
     "nonConforme": "NON CONFORME"
+  },
+  "scan": {
+    "title": "Scanner un code-barres",
+    "instruction": "Placez le code-barres dans le cadre.",
+    "cancel": "Annuler",
+    "permissionDenied": "Impossible d'accéder à la caméra. Vérifiez les autorisations.",
+    "success": "Code-barres capturé : {{value}}"
   },
   "sampling": {
     "title": "Saisie terrain",

@@ -242,6 +242,28 @@ public class OrdersController(
         return Ok(containers);
     }
 
+    [HttpPost("bulk-validate")]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}")]
+    public async Task<ActionResult<BulkTransitionResultDto>> BulkValidate(CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+
+        var result = await orderService.BulkValidateAsync(userId, tenantId, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpPost("bulk-transmit")]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}")]
+    public async Task<ActionResult<BulkTransitionResultDto>> BulkTransmit(CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+
+        var result = await orderService.BulkTransmitAsync(userId, tenantId, cancellationToken);
+        return Ok(result);
+    }
+
     [HttpGet("{id:guid}/audit-log")]
     public async Task<ActionResult<List<OrderAuditLogDto>>> GetAuditLog(Guid id, CancellationToken cancellationToken)
     {

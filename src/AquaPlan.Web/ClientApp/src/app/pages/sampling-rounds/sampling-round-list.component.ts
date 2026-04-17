@@ -13,7 +13,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSortModule, Sort } from '@angular/material/sort';
-import { DatePipe, NgClass } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { SamplingRoundDatastore } from '../../datastore/sampling-round.datastore';
 import { DistributorApiService } from '../../services/distributor-api.service';
@@ -25,6 +25,7 @@ import {
   SamplingRoundStatusLabels,
 } from '../../models/sampling-round.model';
 import { SamplingRoundCreateDialogComponent } from './sampling-round-create-dialog.component';
+import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
 
 @Component({
   selector: 'app-sampling-round-list',
@@ -34,7 +35,7 @@ import { SamplingRoundCreateDialogComponent } from './sampling-round-create-dial
     MatProgressSpinnerModule, MatTooltipModule,
     MatFormFieldModule, MatInputModule, MatSelectModule,
     MatPaginatorModule, MatSortModule, MatDialogModule,
-    DatePipe, NgClass, TranslateModule,
+    DatePipe, TranslateModule, StatusChipComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -95,9 +96,8 @@ import { SamplingRoundCreateDialogComponent } from './sampling-round-create-dial
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef mat-sort-header="status">{{ 'samplingRounds.status.label' | translate }}</th>
             <td mat-cell *matCellDef="let round" [attr.data-label]="'samplingRounds.status.label' | translate">
-              <span class="status-badge-round" [ngClass]="getStatusClass(round.status)">
-                {{ getStatusLabel(round) | translate }}
-              </span>
+              <app-status-chip [variant]="getStatusVariant(round.status)"
+                               [label]="(getStatusLabel(round) | translate)"></app-status-chip>
             </td>
           </ng-container>
 
@@ -201,15 +201,15 @@ export class SamplingRoundListComponent implements OnInit {
     return SamplingRoundStatusLabels[round.status] ?? 'samplingRounds.status.draft';
   }
 
-  getStatusClass(status: SamplingRoundStatus): string {
-    const map: Record<string, string> = {
-      'Draft': 'status-round-draft',
-      'Assigned': 'status-round-assigned',
-      'InProgress': 'status-round-inprogress',
-      'Completed': 'status-round-completed',
-      'Cancelled': 'status-round-cancelled',
+  getStatusVariant(status: SamplingRoundStatus): StatusChipVariant {
+    const map: Record<string, StatusChipVariant> = {
+      'Draft': 'draft',
+      'Assigned': 'info',
+      'InProgress': 'info',
+      'Completed': 'success',
+      'Cancelled': 'danger',
     };
-    return map[status] ?? 'status-round-draft';
+    return map[status] ?? 'draft';
   }
 
   onSearchChange(value: string): void {

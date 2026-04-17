@@ -429,4 +429,73 @@ public class OrdersControllerTest
         var attributes = method!.GetCustomAttributes(typeof(HttpDeleteAttribute), true);
         attributes.Should().NotBeEmpty();
     }
+
+    // ─── Bulk endpoints ────────────────────────────────────────
+    [Fact]
+    public async Task BulkValidate_ShouldReturnOkWithAffected()
+    {
+        _orderServiceMock
+            .Setup(x => x.BulkValidateAsync(UserId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new BulkTransitionResultDto(5));
+
+        var result = await _sut.BulkValidate(CancellationToken.None);
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeEquivalentTo(new BulkTransitionResultDto(5));
+    }
+
+    [Fact]
+    public async Task BulkTransmit_ShouldReturnOkWithAffected()
+    {
+        _orderServiceMock
+            .Setup(x => x.BulkTransmitAsync(UserId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new BulkTransitionResultDto(2));
+
+        var result = await _sut.BulkTransmit(CancellationToken.None);
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeEquivalentTo(new BulkTransitionResultDto(2));
+    }
+
+    [Fact]
+    public void BulkValidate_ShouldHaveHttpPostAttributeWithRoute()
+    {
+        var method = typeof(OrdersController).GetMethod(nameof(OrdersController.BulkValidate));
+        method.Should().NotBeNull();
+        var attributes = method!.GetCustomAttributes(typeof(HttpPostAttribute), true);
+        attributes.Should().NotBeEmpty();
+        attributes.OfType<HttpPostAttribute>().First().Template.Should().Be("bulk-validate");
+    }
+
+    [Fact]
+    public void BulkTransmit_ShouldHaveHttpPostAttributeWithRoute()
+    {
+        var method = typeof(OrdersController).GetMethod(nameof(OrdersController.BulkTransmit));
+        method.Should().NotBeNull();
+        var attributes = method!.GetCustomAttributes(typeof(HttpPostAttribute), true);
+        attributes.Should().NotBeEmpty();
+        attributes.OfType<HttpPostAttribute>().First().Template.Should().Be("bulk-transmit");
+    }
+
+    [Fact]
+    public void BulkValidate_ShouldHaveAuthorizeAttributeWithRoles()
+    {
+        var method = typeof(OrdersController).GetMethod(nameof(OrdersController.BulkValidate));
+        method.Should().NotBeNull();
+        var attributes = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true);
+        attributes.Should().NotBeEmpty();
+        var auth = attributes.OfType<AuthorizeAttribute>().First();
+        auth.Roles.Should().Contain("Administrator").And.Contain("Requérant");
+    }
+
+    [Fact]
+    public void BulkTransmit_ShouldHaveAuthorizeAttributeWithRoles()
+    {
+        var method = typeof(OrdersController).GetMethod(nameof(OrdersController.BulkTransmit));
+        method.Should().NotBeNull();
+        var attributes = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true);
+        attributes.Should().NotBeEmpty();
+        var auth = attributes.OfType<AuthorizeAttribute>().First();
+        auth.Roles.Should().Contain("Administrator").And.Contain("Requérant");
+    }
 }

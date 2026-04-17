@@ -139,3 +139,7 @@ export interface OrderPagedResultDto {
   page: number;
   pageSize: number;
 }
+
+export interface BulkTransitionResultDto {
+  affected: number;
+}

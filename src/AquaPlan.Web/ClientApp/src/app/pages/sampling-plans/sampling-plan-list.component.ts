@@ -22,6 +22,7 @@ import { DistributorApiService } from '../../services/distributor-api.service';
 import { DistributorListDto } from '../../models/distributor.model';
 import { SamplingPlanListDto, SamplingPlanStatus, SamplingPlanStatusLabels } from '../../models/sampling-plan.model';
 import { SamplingPlanCreateDialogComponent } from './sampling-plan-create-dialog.component';
+import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
 
 @Component({
   selector: 'app-sampling-plan-list',
@@ -31,7 +32,7 @@ import { SamplingPlanCreateDialogComponent } from './sampling-plan-create-dialog
     MatDialogModule, MatProgressSpinnerModule, MatTooltipModule,
     MatFormFieldModule, MatInputModule, MatSelectModule,
     MatPaginatorModule, MatSortModule,
-    DatePipe, TranslateModule,
+    DatePipe, TranslateModule, StatusChipComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -104,7 +105,8 @@ import { SamplingPlanCreateDialogComponent } from './sampling-plan-create-dialog
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef mat-sort-header="status">{{ 'samplingPlans.status.label' | translate }}</th>
             <td mat-cell *matCellDef="let plan" [attr.data-label]="'samplingPlans.status.label' | translate">
-              <mat-chip class="status-chip">{{ getStatusLabel(plan) | translate }}</mat-chip>
+              <app-status-chip [variant]="getStatusVariant(plan.status)"
+                               [label]="(getStatusLabel(plan) | translate)"></app-status-chip>
             </td>
           </ng-container>
 
@@ -183,6 +185,16 @@ export class SamplingPlanListComponent implements OnInit {
       const dists = await firstValueFrom(this.distributorApi.getAll({ isActive: true }));
       this.distributors.set(dists);
     }
+  }
+
+  getStatusVariant(status: SamplingPlanStatus): StatusChipVariant {
+    const map: Record<string, StatusChipVariant> = {
+      'Draft': 'draft',
+      'Submitted': 'info',
+      'Validated': 'success',
+      'Rejected': 'danger',
+    };
+    return map[status] ?? 'draft';
   }
 
   getStatusLabel(plan: SamplingPlanListDto): string {

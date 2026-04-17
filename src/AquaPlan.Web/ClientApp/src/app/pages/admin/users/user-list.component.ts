@@ -18,6 +18,7 @@ import { RoleApiService } from '../../../services/role-api.service';
 import { DistributorApiService } from '../../../services/distributor-api.service';
 import { RoleDto } from '../../../models/role.model';
 import { DistributorListDto } from '../../../models/distributor.model';
+import { StatusChipComponent } from '../../../components/status-chip/status-chip.component';
 
 @Component({
   selector: 'app-user-list',
@@ -25,7 +26,7 @@ import { DistributorListDto } from '../../../models/distributor.model';
   imports: [
     FormsModule, MatTableModule, MatButtonModule, MatIconModule, MatChipsModule,
     MatDialogModule, MatProgressSpinnerModule, MatTooltipModule,
-    MatFormFieldModule, MatSelectModule, TranslateModule,
+    MatFormFieldModule, MatSelectModule, TranslateModule, StatusChipComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -99,7 +100,7 @@ import { DistributorListDto } from '../../../models/distributor.model';
             <th mat-header-cell *matHeaderCellDef>{{ 'users.role' | translate }}</th>
             <td mat-cell *matCellDef="let user">
               @if (user.role) {
-                <mat-chip>{{ user.role }}</mat-chip>
+                <app-status-chip variant="info" [label]="user.role"></app-status-chip>
               } @else {
                 -
               }
@@ -109,9 +110,8 @@ import { DistributorListDto } from '../../../models/distributor.model';
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef>{{ 'users.status' | translate }}</th>
             <td mat-cell *matCellDef="let user">
-              <mat-chip class="status-chip" [highlighted]="user.isActive" [class.inactive]="!user.isActive">
-                {{ (user.isActive ? 'common.active' : 'common.inactive') | translate }}
-              </mat-chip>
+              <app-status-chip [variant]="user.isActive ? 'success' : 'draft'"
+                               [label]="((user.isActive ? 'common.active' : 'common.inactive') | translate)"></app-status-chip>
             </td>
           </ng-container>
 

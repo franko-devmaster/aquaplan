@@ -14,6 +14,7 @@ import { TranslateModule } from '@ngx-translate/core';
 import { DistributorDatastore } from '../../datastore/distributor.datastore';
 import { DistributorListDto } from '../../models/distributor.model';
 import { DistributorFormDialogComponent } from './distributor-form-dialog.component';
+import { StatusChipComponent } from '../../components/status-chip/status-chip.component';
 
 @Component({
   selector: 'app-distributor-list',
@@ -22,7 +23,7 @@ import { DistributorFormDialogComponent } from './distributor-form-dialog.compon
     MatTableModule, MatButtonModule, MatIconModule, MatChipsModule,
     MatDialogModule, MatProgressSpinnerModule, MatTooltipModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, FormsModule,
-    TranslateModule,
+    TranslateModule, StatusChipComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -77,9 +78,8 @@ import { DistributorFormDialogComponent } from './distributor-form-dialog.compon
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef>{{ 'distributors.status' | translate }}</th>
             <td mat-cell *matCellDef="let d" [attr.data-label]="'distributors.status' | translate">
-              <mat-chip class="status-chip" [highlighted]="d.isActive" [class.inactive]="!d.isActive">
-                {{ (d.isActive ? 'common.active' : 'common.inactive') | translate }}
-              </mat-chip>
+              <app-status-chip [variant]="d.isActive ? 'success' : 'draft'"
+                               [label]="((d.isActive ? 'common.active' : 'common.inactive') | translate)"></app-status-chip>
             </td>
           </ng-container>
 

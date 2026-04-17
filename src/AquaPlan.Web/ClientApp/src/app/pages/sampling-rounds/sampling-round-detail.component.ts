@@ -13,7 +13,7 @@ import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatCardModule } from '@angular/material/card';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
-import { DatePipe, NgClass } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { SamplingRoundApiService } from '../../services/sampling-round-api.service';
@@ -31,6 +31,7 @@ import { SamplingFormDialogComponent, SamplingFormDialogData } from './sampling-
 import { RoundAddOrderDialogComponent, RoundAddOrderDialogData } from './round-add-order-dialog.component';
 import { AssignSamplerDialogComponent, AssignSamplerDialogData } from './assign-sampler-dialog.component';
 import { ReplaceLocationDialogComponent, ReplaceLocationDialogData } from './replace-location-dialog.component';
+import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
 
 @Component({
   selector: 'app-sampling-round-detail',
@@ -40,7 +41,7 @@ import { ReplaceLocationDialogComponent, ReplaceLocationDialogData } from './rep
     MatFormFieldModule, MatInputModule, MatSelectModule, MatTableModule,
     MatProgressSpinnerModule, MatTooltipModule, MatDialogModule,
     MatCardModule, MatSnackBarModule, DragDropModule,
-    DatePipe, NgClass, TranslateModule,
+    DatePipe, TranslateModule, StatusChipComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -55,9 +56,8 @@ import { ReplaceLocationDialogComponent, ReplaceLocationDialogData } from './rep
             <mat-icon>arrow_back</mat-icon>
           </button>
           <h2>{{ round()!.name }}</h2>
-          <span class="status-badge-round" [ngClass]="getRoundStatusClass(round()!.status)">
-            {{ getStatusLabel() | translate }}
-          </span>
+          <app-status-chip [variant]="getRoundStatusVariant(round()!.status)"
+                           [label]="(getStatusLabel() | translate)"></app-status-chip>
         </div>
         <div class="header-actions">
           @if (isDraft()) {
@@ -186,9 +186,8 @@ import { ReplaceLocationDialogComponent, ReplaceLocationDialogData } from './rep
             <ng-container matColumnDef="status">
               <th mat-header-cell *matHeaderCellDef>{{ 'samplingRounds.status.label' | translate }}</th>
               <td mat-cell *matCellDef="let order">
-                <span class="status-badge-order" [ngClass]="getOrderStatusClass(order.status)">
-                  {{ 'orders.status.' + toCamelCase(order.status) | translate }}
-                </span>
+                <app-status-chip [variant]="getOrderStatusVariant(order.status)"
+                                 [label]="('orders.status.' + toCamelCase(order.status) | translate)"></app-status-chip>
               </td>
             </ng-container>
 
@@ -401,27 +400,27 @@ export class SamplingRoundDetailComponent implements OnInit {
     return r ? (SamplingRoundStatusLabels[r.status] ?? 'samplingRounds.status.draft') : '';
   }
 
-  getRoundStatusClass(status: SamplingRoundStatus): string {
-    const map: Record<string, string> = {
-      'Draft': 'status-round-draft',
-      'Assigned': 'status-round-assigned',
-      'InProgress': 'status-round-inprogress',
-      'Completed': 'status-round-completed',
-      'Cancelled': 'status-round-cancelled',
+  getRoundStatusVariant(status: SamplingRoundStatus): StatusChipVariant {
+    const map: Record<string, StatusChipVariant> = {
+      'Draft': 'draft',
+      'Assigned': 'info',
+      'InProgress': 'info',
+      'Completed': 'success',
+      'Cancelled': 'danger',
     };
-    return map[status] ?? 'status-round-draft';
+    return map[status] ?? 'draft';
   }
 
-  getOrderStatusClass(status: string): string {
-    const map: Record<string, string> = {
-      'New': 'status-order-new',
-      'InProgress': 'status-order-inprogress',
-      'Completed': 'status-order-completed',
-      'Transmitted': 'status-order-transmitted',
-      'Done': 'status-order-done',
-      'Cancelled': 'status-order-cancelled',
+  getOrderStatusVariant(status: string): StatusChipVariant {
+    const map: Record<string, StatusChipVariant> = {
+      'New': 'draft',
+      'InProgress': 'info',
+      'Completed': 'success',
+      'Transmitted': 'success',
+      'Done': 'success',
+      'Cancelled': 'danger',
     };
-    return map[status] ?? 'status-order-new';
+    return map[status] ?? 'draft';
   }
 
   toCamelCase(value: string): string {

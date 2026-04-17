@@ -1,14 +1,16 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { FormGroup, FormControl, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { TranslateModule } from '@ngx-translate/core';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { SamplingApiService } from '../../services/sampling-api.service';
 import { OrderApiService } from '../../services/order-api.service';
@@ -20,6 +22,7 @@ import {
   WEATHER_OPTIONS,
   WeatherOption,
 } from '../../models/sampling.model';
+import { BarcodeScannerDialogComponent, BarcodeScanResult } from '../../components/barcode-scanner/barcode-scanner-dialog.component';
 
 export interface SamplingFormDialogData {
   orderId: string;
@@ -42,7 +45,8 @@ interface ContainerFormGroup {
   imports: [
     ReactiveFormsModule, MatButtonModule, MatDialogModule,
     MatFormFieldModule, MatInputModule, MatSelectModule,
-    MatIconModule, MatCheckboxModule, MatProgressSpinnerModule, TranslateModule,
+    MatIconModule, MatCheckboxModule, MatProgressSpinnerModule,
+    MatTooltipModule, TranslateModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -95,6 +99,12 @@ interface ContainerFormGroup {
                   <mat-label>{{ 'sampling.containerBarcode' | translate }}</mat-label>
                   <input matInput formControlName="barcode" autocomplete="off">
                 </mat-form-field>
+                <button type="button" mat-icon-button
+                        class="scan-btn"
+                        [matTooltip]="'scan.title' | translate"
+                        (click)="openScanner(i)">
+                  <mat-icon>photo_camera</mat-icon>
+                </button>
               </div>
             }
           </div>
@@ -151,6 +161,7 @@ interface ContainerFormGroup {
     .container-name { font-weight: 500; }
     .container-specs { font-size: 12px; color: #777; }
     .container-barcode { width: 220px; }
+    .scan-btn { flex-shrink: 0; }
     .error-message { color: #c62828; font-size: 13px; margin-top: 4px; }
   `],
 })
@@ -159,6 +170,9 @@ export class SamplingFormDialogComponent implements OnInit {
   private readonly dialogRef = inject(MatDialogRef<SamplingFormDialogComponent>);
   private readonly samplingApi = inject(SamplingApiService);
   private readonly orderApi = inject(OrderApiService);
+  private readonly dialog = inject(MatDialog);
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly translate = inject(TranslateService);
 
   readonly saving = signal(false);
   readonly loadingContainers = signal(true);
@@ -224,6 +238,25 @@ export class SamplingFormDialogComponent implements OnInit {
         barcode: new FormControl<string>(existingBarcode ?? '', { nonNullable: true }),
       }));
     }
+  }
+
+  openScanner(index: number): void {
+    const ref = this.dialog.open(BarcodeScannerDialogComponent, {
+      width: '95vw',
+      maxWidth: '520px',
+      panelClass: 'responsive-dialog',
+    });
+    ref.afterClosed().subscribe((result: BarcodeScanResult | null | undefined) => {
+      if (result?.barcode) {
+        const group = this.containersFormArray.at(index);
+        group?.patchValue({ barcode: result.barcode });
+        this.snackBar.open(
+          this.translate.instant('scan.success', { value: result.barcode }),
+          this.translate.instant('common.close'),
+          { duration: 2500 },
+        );
+      }
+    });
   }
 
   async save(): Promise<void> {

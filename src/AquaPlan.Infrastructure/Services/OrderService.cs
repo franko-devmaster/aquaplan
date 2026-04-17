@@ -10,6 +10,7 @@ namespace AquaPlan.Infrastructure.Services;
 
 internal class OrderService(
     AquaPlanDbContext dbContext,
+    IOrderAuditService auditService,
     ILogger<OrderService> logger) : IOrderService
 {
     public async Task<OrderPagedResultDto> GetOrdersFilteredAsync(
@@ -536,6 +537,95 @@ internal class OrderService(
             analysisPrograms,
             order.TenantId, order.CreatedAt, order.UpdatedAt, samplingDto,
             order.SamplingRoundId);
+    }
+
+    public async Task<BulkTransitionResultDto> BulkValidateAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        return await BulkTransitionAsync(
+            userId, tenantId, OrderStatus.InProgress, OrderStatus.Completed, cancellationToken);
+    }
+
+    public async Task<BulkTransitionResultDto> BulkTransmitAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        return await BulkTransitionAsync(
+            userId, tenantId, OrderStatus.Completed, OrderStatus.Transmitted, cancellationToken);
+    }
+
+    private async Task<BulkTransitionResultDto> BulkTransitionAsync(
+        string userId, Guid tenantId, OrderStatus fromStatus, OrderStatus toStatus,
+        CancellationToken cancellationToken)
+    {
+        var orders = await dbContext.Orders
+            .Where(o => o.TenantId == tenantId && o.Status == fromStatus)
+            .ToListAsync(cancellationToken);
+
+        if (orders.Count == 0)
+        {
+            return new BulkTransitionResultDto(0);
+        }
+
+        var now = DateTime.UtcNow;
+        var roundIds = new HashSet<Guid>();
+        foreach (var order in orders)
+        {
+            order.Status = toStatus;
+            order.StatusChangedAt = now;
+            order.StatusChangedBy = userId;
+            order.UpdatedAt = now;
+            order.UpdatedBy = userId;
+            if (order.SamplingRoundId.HasValue)
+            {
+                roundIds.Add(order.SamplingRoundId.Value);
+            }
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        // Audit log per order (same pattern as OrderStatusService)
+        foreach (var order in orders)
+        {
+            await auditService.LogAsync(
+                order.Id,
+                "StatusTransitioned",
+                $"Status changed from {fromStatus} to {toStatus} (bulk)",
+                fromStatus.ToString(),
+                toStatus.ToString(),
+                userId,
+                tenantId,
+                cancellationToken);
+        }
+
+        // Auto-complete rounds where all orders reached terminal states (same as OrderStatusService)
+        if (roundIds.Count > 0)
+        {
+            var rounds = await dbContext.SamplingRounds
+                .Include(r => r.Orders)
+                .Where(r => roundIds.Contains(r.Id) && r.Status == SamplingRoundStatus.InProgress)
+                .ToListAsync(cancellationToken);
+
+            var completed = false;
+            foreach (var round in rounds)
+            {
+                if (round.Orders.All(o => o.Status is OrderStatus.Transmitted or OrderStatus.Done or OrderStatus.Cancelled))
+                {
+                    round.Status = SamplingRoundStatus.Completed;
+                    round.CompletedAt = now;
+                    round.UpdatedAt = now;
+                    round.UpdatedBy = userId;
+                    completed = true;
+                }
+            }
+            if (completed)
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+        }
+
+        logger.LogInformation(
+            "Bulk transitioned {Count} orders from {FromStatus} to {ToStatus} by {UserId} in tenant {TenantId}",
+            orders.Count, fromStatus, toStatus, userId, tenantId);
+
+        return new BulkTransitionResultDto(orders.Count);
     }
 
     private async Task<string> GenerateOrderNumberAsync(CancellationToken cancellationToken)

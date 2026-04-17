@@ -7,7 +7,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { DatePipe, NgClass } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { OrderApiService } from '../../services/order-api.service';
@@ -18,6 +18,7 @@ import { OrderEditDialogComponent } from './order-edit-dialog.component';
 import { ConfirmDialogComponent } from '../../components/confirm-dialog.component';
 import { OrderLinkRoundDialogComponent } from './order-link-round-dialog.component';
 import { SamplingRoundDetailDto } from '../../models/sampling-round.model';
+import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
 
 @Component({
   selector: 'app-order-detail',
@@ -25,7 +26,7 @@ import { SamplingRoundDetailDto } from '../../models/sampling-round.model';
   imports: [
     MatCardModule, MatButtonModule, MatIconModule, MatChipsModule,
     MatProgressSpinnerModule, MatDialogModule, MatSnackBarModule,
-    DatePipe, NgClass, TranslateModule,
+    DatePipe, TranslateModule, StatusChipComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -74,7 +75,8 @@ import { SamplingRoundDetailDto } from '../../models/sampling-round.model';
             </div>
             <div class="detail-item">
               <label>{{ 'orders.status.label' | translate }}</label>
-              <span class="status-badge-order" [ngClass]="getStatusClass()">{{ getStatusLabel() | translate }}</span>
+              <app-status-chip [variant]="getStatusVariant()"
+                               [label]="(getStatusLabel() | translate)"></app-status-chip>
             </div>
             <div class="detail-item">
               <label>{{ 'orders.distributor' | translate }}</label>
@@ -238,18 +240,18 @@ export class OrderDetailComponent implements OnInit {
     return OrderStatusLabels[o.status] ?? 'orders.status.new';
   }
 
-  getStatusClass(): string {
+  getStatusVariant(): StatusChipVariant {
     const o = this.order();
-    if (!o) return 'status-order-new';
-    const map: Record<string, string> = {
-      'New': 'status-order-new',
-      'InProgress': 'status-order-inprogress',
-      'Completed': 'status-order-completed',
-      'Transmitted': 'status-order-transmitted',
-      'Done': 'status-order-done',
-      'Cancelled': 'status-order-cancelled',
+    if (!o) return 'draft';
+    const map: Record<string, StatusChipVariant> = {
+      'New': 'draft',
+      'InProgress': 'info',
+      'Completed': 'success',
+      'Transmitted': 'success',
+      'Done': 'success',
+      'Cancelled': 'danger',
     };
-    return map[o.status] ?? 'status-order-new';
+    return map[o.status] ?? 'draft';
   }
 
   getUnplannedReasonLabel(): string {

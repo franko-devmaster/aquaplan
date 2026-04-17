@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Orders;
+using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Domain.Enums;
 using AquaPlan.Infrastructure.Data;
@@ -11,6 +12,7 @@ namespace AquaPlan.Infrastructure.Tests.Services;
 public class OrderServiceTest : IDisposable
 {
     private readonly AquaPlanDbContext _dbContext;
+    private readonly Mock<IOrderAuditService> _auditServiceMock = new();
     private readonly Mock<ILogger<OrderService>> _loggerMock = new();
     private readonly OrderService _sut;
 
@@ -25,7 +27,7 @@ public class OrderServiceTest : IDisposable
             .Options;
 
         _dbContext = new AquaPlanDbContext(options);
-        _sut = new OrderService(_dbContext, _loggerMock.Object);
+        _sut = new OrderService(_dbContext, _auditServiceMock.Object, _loggerMock.Object);
 
         SeedData().GetAwaiter().GetResult();
     }
@@ -450,6 +452,141 @@ public class OrderServiceTest : IDisposable
         var entryA = result!.Single(r => r.ContainerId == containerA.Id);
         entryA.ExistingBarcode.Should().Be("BC-AAA");
         result.Single(r => r.ContainerId != containerA.Id).ExistingBarcode.Should().BeNull();
+    }
+
+    // ─── Bulk transitions ──────────────────────────────────────
+    [Fact]
+    public async Task BulkValidateAsync_WithMultipleInProgress_ShouldTransitionAll()
+    {
+        await CreateSeedOrder(OrderStatus.InProgress);
+        await CreateSeedOrder(OrderStatus.InProgress);
+        await CreateSeedOrder(OrderStatus.InProgress);
+        await CreateSeedOrder(OrderStatus.New);
+        await CreateSeedOrder(OrderStatus.Completed);
+
+        var result = await _sut.BulkValidateAsync(UserId, TenantId);
+
+        result.Affected.Should().Be(3);
+        var completedCount = await _dbContext.Orders
+            .CountAsync(o => o.TenantId == TenantId && o.Status == OrderStatus.Completed);
+        completedCount.Should().Be(4); // 3 transitioned + 1 pre-existing
+        var inProgressCount = await _dbContext.Orders
+            .CountAsync(o => o.TenantId == TenantId && o.Status == OrderStatus.InProgress);
+        inProgressCount.Should().Be(0);
+        _auditServiceMock.Verify(a => a.LogAsync(
+            It.IsAny<Guid>(), "StatusTransitioned", It.IsAny<string>(),
+            "InProgress", "Completed", UserId, TenantId, It.IsAny<CancellationToken>()),
+            Times.Exactly(3));
+    }
+
+    [Fact]
+    public async Task BulkValidateAsync_WithNoInProgress_ShouldReturnZeroAffected()
+    {
+        await CreateSeedOrder(OrderStatus.New);
+        await CreateSeedOrder(OrderStatus.Completed);
+
+        var result = await _sut.BulkValidateAsync(UserId, TenantId);
+
+        result.Affected.Should().Be(0);
+        _auditServiceMock.Verify(a => a.LogAsync(
+            It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task BulkValidateAsync_ShouldRespectTenantIsolation()
+    {
+        var otherTenant = Guid.Parse("00000000-0000-0000-0000-000000000099");
+        await CreateSeedOrder(OrderStatus.InProgress);
+        await CreateSeedOrder(OrderStatus.InProgress);
+        // Seed a different-tenant InProgress order
+        _dbContext.Distributors.Add(new Distributor
+        {
+            Id = Guid.Parse("00000000-0000-0000-0000-000000000999"),
+            Name = "Other Tenant Distributor",
+            TenantId = otherTenant,
+            IsActive = true,
+        });
+        _dbContext.Orders.Add(new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = "ORD-OTHER-01",
+            Status = OrderStatus.InProgress,
+            CreatedById = UserId,
+            DistributorId = Guid.Parse("00000000-0000-0000-0000-000000000999"),
+            TenantId = otherTenant,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.BulkValidateAsync(UserId, TenantId);
+
+        result.Affected.Should().Be(2);
+        var otherOrder = await _dbContext.Orders
+            .FirstAsync(o => o.TenantId == otherTenant);
+        otherOrder.Status.Should().Be(OrderStatus.InProgress);
+    }
+
+    [Fact]
+    public async Task BulkTransmitAsync_WithMultipleCompleted_ShouldTransitionAll()
+    {
+        await CreateSeedOrder(OrderStatus.Completed);
+        await CreateSeedOrder(OrderStatus.Completed);
+        await CreateSeedOrder(OrderStatus.InProgress);
+
+        var result = await _sut.BulkTransmitAsync(UserId, TenantId);
+
+        result.Affected.Should().Be(2);
+        var transmittedCount = await _dbContext.Orders
+            .CountAsync(o => o.TenantId == TenantId && o.Status == OrderStatus.Transmitted);
+        transmittedCount.Should().Be(2);
+        _auditServiceMock.Verify(a => a.LogAsync(
+            It.IsAny<Guid>(), "StatusTransitioned", It.IsAny<string>(),
+            "Completed", "Transmitted", UserId, TenantId, It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task BulkTransmitAsync_WithNoCompleted_ShouldReturnZeroAffected()
+    {
+        await CreateSeedOrder(OrderStatus.InProgress);
+        await CreateSeedOrder(OrderStatus.New);
+
+        var result = await _sut.BulkTransmitAsync(UserId, TenantId);
+
+        result.Affected.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task BulkTransmitAsync_ShouldRespectTenantIsolation()
+    {
+        var otherTenant = Guid.Parse("00000000-0000-0000-0000-000000000099");
+        await CreateSeedOrder(OrderStatus.Completed);
+        _dbContext.Distributors.Add(new Distributor
+        {
+            Id = Guid.Parse("00000000-0000-0000-0000-000000000998"),
+            Name = "Other Tenant Distributor 2",
+            TenantId = otherTenant,
+            IsActive = true,
+        });
+        _dbContext.Orders.Add(new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = "ORD-OTHER-02",
+            Status = OrderStatus.Completed,
+            CreatedById = UserId,
+            DistributorId = Guid.Parse("00000000-0000-0000-0000-000000000998"),
+            TenantId = otherTenant,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.BulkTransmitAsync(UserId, TenantId);
+
+        result.Affected.Should().Be(1);
+        var otherOrder = await _dbContext.Orders
+            .FirstAsync(o => o.TenantId == otherTenant);
+        otherOrder.Status.Should().Be(OrderStatus.Completed);
     }
 
     private async Task<Order> CreateOrderWithPrograms()

@@ -15,8 +15,9 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { provideNativeDateAdapter } from '@angular/material/core';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSortModule, Sort } from '@angular/material/sort';
-import { DatePipe, NgClass } from '@angular/common';
-import { TranslateModule } from '@ngx-translate/core';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { DatePipe } from '@angular/common';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { OrderDatastore } from '../../datastore/order.datastore';
 import { OrderApiService } from '../../services/order-api.service';
@@ -25,6 +26,8 @@ import { OrderListDto, OrderStatus, OrderStatusLabels } from '../../models/order
 import { DistributorApiService } from '../../services/distributor-api.service';
 import { DistributorListDto } from '../../models/distributor.model';
 import { OrderCreateDialogComponent } from './order-create-dialog.component';
+import { ConfirmDialogComponent } from '../../components/confirm-dialog.component';
+import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
 
 @Component({
   selector: 'app-order-list',
@@ -34,7 +37,7 @@ import { OrderCreateDialogComponent } from './order-create-dialog.component';
     MatDialogModule, MatProgressSpinnerModule, MatTooltipModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule,
     MatDatepickerModule, MatPaginatorModule, MatSortModule,
-    DatePipe, NgClass, TranslateModule,
+    DatePipe, TranslateModule, StatusChipComponent,
   ],
   providers: [provideNativeDateAdapter()],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -42,6 +45,22 @@ import { OrderCreateDialogComponent } from './order-create-dialog.component';
     <div class="page-header">
       <h2>{{ 'orders.title' | translate }}</h2>
       <div class="header-actions">
+        @if (canBulkActions()) {
+          <button mat-stroked-button
+                  [disabled]="inProgressCount() === 0 || bulkLoading()"
+                  [matTooltip]="'orders.bulkValidateTooltip' | translate"
+                  (click)="confirmBulkValidate()">
+            <mat-icon>done_all</mat-icon>
+            {{ 'orders.bulkValidate' | translate }}
+          </button>
+          <button mat-stroked-button
+                  [disabled]="completedCount() === 0 || bulkLoading()"
+                  [matTooltip]="'orders.bulkTransmitTooltip' | translate"
+                  (click)="confirmBulkTransmit()">
+            <mat-icon>send</mat-icon>
+            {{ 'orders.bulkTransmit' | translate }}
+          </button>
+        }
         @if (isAdmin()) {
           <button mat-stroked-button (click)="exportCsv()">
             <mat-icon>download</mat-icon>
@@ -122,7 +141,8 @@ import { OrderCreateDialogComponent } from './order-create-dialog.component';
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef mat-sort-header="status">{{ 'orders.status.label' | translate }}</th>
             <td mat-cell *matCellDef="let order" [attr.data-label]="'orders.status.label' | translate">
-              <span class="status-badge-order" [ngClass]="getStatusClass(order.status)">{{ getStatusLabel(order) | translate }}</span>
+              <app-status-chip [variant]="getStatusVariant(order.status)"
+                               [label]="(getStatusLabel(order) | translate)"></app-status-chip>
             </td>
           </ng-container>
 
@@ -194,12 +214,22 @@ export class OrderListComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly distributorApi = inject(DistributorApiService);
   private readonly orderApi = inject(OrderApiService);
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly translate = inject(TranslateService);
 
   readonly isAdmin = computed(() =>
     this.authService.currentUser()?.roles.includes('Administrator') ?? false
   );
+  readonly isRequerant = computed(() => {
+    const roles = this.authService.currentUser()?.roles ?? [];
+    return roles.includes('Requérant') || roles.includes('Requérant-Préleveur');
+  });
+  readonly canBulkActions = computed(() => this.isAdmin() || this.isRequerant());
   readonly distributors = signal<DistributorListDto[]>([]);
   readonly searchValue = signal('');
+  readonly inProgressCount = signal(0);
+  readonly completedCount = signal(0);
+  readonly bulkLoading = signal(false);
   private searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
   readonly displayedColumns = [
@@ -223,6 +253,88 @@ export class OrderListComponent implements OnInit {
       const dists = await firstValueFrom(this.distributorApi.getAll({ isActive: true }));
       this.distributors.set(dists);
     }
+    if (this.canBulkActions()) {
+      this.refreshBulkCounts();
+    }
+  }
+
+  private async refreshBulkCounts(): Promise<void> {
+    try {
+      const [inProgress, completed] = await Promise.all([
+        firstValueFrom(this.orderApi.getFiltered({ statuses: [OrderStatus.InProgress], page: 1, pageSize: 1 })),
+        firstValueFrom(this.orderApi.getFiltered({ statuses: [OrderStatus.Completed], page: 1, pageSize: 1 })),
+      ]);
+      this.inProgressCount.set(inProgress.totalCount);
+      this.completedCount.set(completed.totalCount);
+    } catch {
+      // Silently handle — buttons stay disabled (count = 0)
+    }
+  }
+
+  confirmBulkValidate(): void {
+    const count = this.inProgressCount();
+    if (count === 0) {
+      return;
+    }
+    const ref = this.dialog.open(ConfirmDialogComponent, {
+      width: '450px',
+      panelClass: 'responsive-dialog',
+      data: {
+        title: this.translate.instant('orders.bulkConfirmTitle'),
+        message: this.translate.instant('orders.bulkValidateConfirmMessage', { count }),
+      },
+    });
+    ref.afterClosed().subscribe(async (confirmed) => {
+      if (!confirmed) {
+        return;
+      }
+      this.bulkLoading.set(true);
+      try {
+        const result = await firstValueFrom(this.orderApi.bulkValidate());
+        this.snackBar.open(
+          this.translate.instant('orders.bulkSuccess', { count: result.affected }),
+          this.translate.instant('common.close'),
+          { duration: 4000 },
+        );
+        this.store.loadFiltered();
+        await this.refreshBulkCounts();
+      } finally {
+        this.bulkLoading.set(false);
+      }
+    });
+  }
+
+  confirmBulkTransmit(): void {
+    const count = this.completedCount();
+    if (count === 0) {
+      return;
+    }
+    const ref = this.dialog.open(ConfirmDialogComponent, {
+      width: '450px',
+      panelClass: 'responsive-dialog',
+      data: {
+        title: this.translate.instant('orders.bulkConfirmTitle'),
+        message: this.translate.instant('orders.bulkTransmitConfirmMessage', { count }),
+      },
+    });
+    ref.afterClosed().subscribe(async (confirmed) => {
+      if (!confirmed) {
+        return;
+      }
+      this.bulkLoading.set(true);
+      try {
+        const result = await firstValueFrom(this.orderApi.bulkTransmit());
+        this.snackBar.open(
+          this.translate.instant('orders.bulkSuccess', { count: result.affected }),
+          this.translate.instant('common.close'),
+          { duration: 4000 },
+        );
+        this.store.loadFiltered();
+        await this.refreshBulkCounts();
+      } finally {
+        this.bulkLoading.set(false);
+      }
+    });
   }
 
   private applyStatusesFromQueryParams(): void {
@@ -245,16 +357,16 @@ export class OrderListComponent implements OnInit {
     return OrderStatusLabels[order.status] ?? 'orders.status.new';
   }
 
-  getStatusClass(status: string): string {
-    const map: Record<string, string> = {
-      'New': 'status-order-new',
-      'InProgress': 'status-order-inprogress',
-      'Completed': 'status-order-completed',
-      'Transmitted': 'status-order-transmitted',
-      'Done': 'status-order-done',
-      'Cancelled': 'status-order-cancelled',
+  getStatusVariant(status: string): StatusChipVariant {
+    const map: Record<string, StatusChipVariant> = {
+      'New': 'draft',
+      'InProgress': 'info',
+      'Completed': 'success',
+      'Transmitted': 'success',
+      'Done': 'success',
+      'Cancelled': 'danger',
     };
-    return map[status] ?? 'status-order-new';
+    return map[status] ?? 'draft';
   }
 
   onSearchChange(value: string): void {

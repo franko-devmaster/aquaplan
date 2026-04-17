@@ -176,6 +176,14 @@
     "dateFrom": "Datum von",
     "dateTo": "Datum bis",
     "export": "CSV exportieren",
+    "bulkValidate": "Alle validieren",
+    "bulkValidateTooltip": "Alle laufenden Aufträge validieren",
+    "bulkTransmit": "Alle übermitteln",
+    "bulkTransmitTooltip": "Alle validierten Aufträge übermitteln",
+    "bulkConfirmTitle": "Sammelaktion bestätigen",
+    "bulkValidateConfirmMessage": "{{count}} laufende(n) Auftrag(e) validieren?",
+    "bulkTransmitConfirmMessage": "{{count}} validierte(n) Auftrag(e) übermitteln?",
+    "bulkSuccess": "{{count}} Auftrag(e) aktualisiert",
     "deleteConfirmTitle": "Auftrag löschen",
     "deleteConfirmMessage": "Sind Sie sicher, dass Sie diesen Auftrag löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
     "deleteSuccess": "Auftrag erfolgreich gelöscht",
@@ -278,6 +286,13 @@
         "save": "Speichern"
       }
     }
+  },
+  "scan": {
+    "title": "Barcode scannen",
+    "instruction": "Platzieren Sie den Barcode im Rahmen.",
+    "cancel": "Abbrechen",
+    "permissionDenied": "Kein Kamerazugriff möglich. Bitte Berechtigungen prüfen.",
+    "success": "Barcode erfasst: {{value}}"
   },
   "sampling": {
     "weather3days": "Wetter (3 Tage)",

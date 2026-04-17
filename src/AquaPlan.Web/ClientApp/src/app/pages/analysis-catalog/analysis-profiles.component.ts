@@ -15,6 +15,7 @@ import { AnalysisProfileDatastore } from '../../datastore/analysis-profile.datas
 import { ContainerDatastore } from '../../datastore/container.datastore';
 import { AnalysisProfileAddDto, AnalysisProfileUpdateDto, AnalysisCategory } from '../../models/analysis-profile.model';
 import { AuthService } from '../../services/auth.service';
+import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
 
 @Component({
   selector: 'app-analysis-profiles',
@@ -23,7 +24,7 @@ import { AuthService } from '../../services/auth.service';
     MatTableModule, MatButtonModule, MatIconModule, MatChipsModule,
     MatProgressSpinnerModule, MatDialogModule, MatFormFieldModule,
     MatInputModule, MatSelectModule, MatTooltipModule, FormsModule,
-    TranslateModule,
+    TranslateModule, StatusChipComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -74,7 +75,8 @@ import { AuthService } from '../../services/auth.service';
         <ng-container matColumnDef="category">
           <th mat-header-cell *matHeaderCellDef>{{ 'analysisCatalog.profiles.category' | translate }}</th>
           <td mat-cell *matCellDef="let p">
-            <mat-chip>{{ 'analysisCatalog.categories.' + p.category | translate }}</mat-chip>
+            <app-status-chip [variant]="getCategoryVariant(p.category)"
+                             [label]="('analysisCatalog.categories.' + p.category | translate)"></app-status-chip>
           </td>
         </ng-container>
 
@@ -86,9 +88,8 @@ import { AuthService } from '../../services/auth.service';
         <ng-container matColumnDef="status">
           <th mat-header-cell *matHeaderCellDef>{{ 'common.status' | translate }}</th>
           <td mat-cell *matCellDef="let p">
-            <mat-chip class="status-chip" [class.inactive]="!p.isActive">
-              {{ (p.isActive ? 'common.active' : 'common.inactive') | translate }}
-            </mat-chip>
+            <app-status-chip [variant]="p.isActive ? 'success' : 'draft'"
+                             [label]="((p.isActive ? 'common.active' : 'common.inactive') | translate)"></app-status-chip>
           </td>
         </ng-container>
 
@@ -194,6 +195,16 @@ export class AnalysisProfilesComponent implements OnInit {
   isAdmin(): boolean {
     const user = this.authService.currentUser();
     return user?.roles.includes('Administrator') ?? false;
+  }
+
+  getCategoryVariant(category: AnalysisCategory): StatusChipVariant {
+    const map: Record<AnalysisCategory, StatusChipVariant> = {
+      'Bacteriology': 'info',
+      'Chemistry': 'warning',
+      'Physical': 'success',
+      'Other': 'neutral',
+    };
+    return map[category] ?? 'neutral';
   }
 
   canSave(): boolean {

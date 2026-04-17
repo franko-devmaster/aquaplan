@@ -27,6 +27,7 @@ import {
   SamplingPlanStatus,
   SamplingPlanStatusLabels,
 } from '../../models/sampling-plan.model';
+import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
 
 interface EditableItem {
   samplingLocationId: string;
@@ -48,7 +49,7 @@ interface SelectOption {
     MatFormFieldModule, MatInputModule, MatSelectModule, MatTableModule,
     MatProgressSpinnerModule, MatTooltipModule, MatDialogModule,
     MatCheckboxModule, MatCardModule, MatSnackBarModule,
-    DatePipe, TranslateModule,
+    DatePipe, TranslateModule, StatusChipComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -63,7 +64,8 @@ interface SelectOption {
             <mat-icon>arrow_back</mat-icon>
           </button>
           <h2>{{ 'samplingPlans.details' | translate }} — {{ plan()!.distributorName }} {{ plan()!.year }}</h2>
-          <mat-chip class="status-chip">{{ getStatusLabel() | translate }}</mat-chip>
+          <app-status-chip [variant]="getStatusVariant()"
+                           [label]="(getStatusLabel() | translate)"></app-status-chip>
         </div>
         <div class="header-actions">
           @if (isDraft()) {
@@ -310,6 +312,18 @@ export class SamplingPlanDetailComponent implements OnInit {
   getStatusLabel(): string {
     const p = this.plan();
     return p ? (SamplingPlanStatusLabels[p.status] ?? 'samplingPlans.status.draft') : '';
+  }
+
+  getStatusVariant(): StatusChipVariant {
+    const p = this.plan();
+    if (!p) return 'draft';
+    const map: Record<string, StatusChipVariant> = {
+      'Draft': 'draft',
+      'Submitted': 'info',
+      'Validated': 'success',
+      'Rejected': 'danger',
+    };
+    return map[p.status] ?? 'draft';
   }
 
   getMonthLabel(month: number): string {

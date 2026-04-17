@@ -10,7 +10,6 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
-import { NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -21,6 +20,7 @@ import { SamplingLocationApiService } from '../../services/sampling-location-api
 import { AuthService } from '../../services/auth.service';
 import { SamplingLocationDto } from '../../models/sampling-location.model';
 import { SamplingLocationFormDialogComponent } from './sampling-location-form-dialog.component';
+import { StatusChipComponent } from '../../components/status-chip/status-chip.component';
 
 @Component({
   selector: 'app-sampling-location-list',
@@ -29,7 +29,7 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
     MatTableModule, MatButtonModule, MatIconModule, MatMenuModule,
     MatProgressSpinnerModule, MatTooltipModule, MatFormFieldModule, MatInputModule,
     MatSelectModule, MatPaginatorModule, MatDialogModule, MatSnackBarModule,
-    NgClass, FormsModule, TranslateModule,
+    FormsModule, TranslateModule, StatusChipComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -106,13 +106,11 @@ import { SamplingLocationFormDialogComponent } from './sampling-location-form-di
             <th mat-header-cell *matHeaderCellDef>{{ 'samplingLocations.status' | translate }}</th>
             <td mat-cell *matCellDef="let loc" [attr.data-label]="'samplingLocations.status' | translate">
               @if (!loc.isValidated) {
-                <span class="status-badge status-to-validate">
-                  {{ 'samplingLocations.toValidate' | translate }}
-                </span>
+                <app-status-chip variant="warning"
+                                 [label]="('samplingLocations.toValidate' | translate)"></app-status-chip>
               } @else {
-                <span class="status-badge" [ngClass]="loc.isActive ? 'status-active' : 'status-inactive'">
-                  {{ (loc.isActive ? 'common.active' : 'common.inactive') | translate }}
-                </span>
+                <app-status-chip [variant]="loc.isActive ? 'success' : 'draft'"
+                                 [label]="((loc.isActive ? 'common.active' : 'common.inactive') | translate)"></app-status-chip>
               }
             </td>
           </ng-container>

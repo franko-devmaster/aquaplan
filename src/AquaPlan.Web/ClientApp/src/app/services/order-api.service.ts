@@ -8,6 +8,7 @@ import {
   OrderAssignDto,
   OrderFilterDto,
   OrderPagedResultDto,
+  BulkTransitionResultDto,
 } from '../models/order.model';
 import { RequiredContainerDto } from '../models/sampling.model';
 
@@ -85,6 +86,14 @@ export class OrderApiService {
 
   getRequiredContainers(orderId: string): Observable<RequiredContainerDto[]> {
     return this.http.get<RequiredContainerDto[]>(`${this.baseUrl}/${orderId}/required-containers`);
+  }
+
+  bulkValidate(): Observable<BulkTransitionResultDto> {
+    return this.http.post<BulkTransitionResultDto>(`${this.baseUrl}/bulk-validate`, {});
+  }
+
+  bulkTransmit(): Observable<BulkTransitionResultDto> {
+    return this.http.post<BulkTransitionResultDto>(`${this.baseUrl}/bulk-transmit`, {});
   }
 
   exportCsv(filter: OrderFilterDto): Observable<Blob> {

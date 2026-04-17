@@ -15,6 +15,7 @@ import { SectorDatastore } from '../../datastore/sector.datastore';
 import { SectorListDto } from '../../models/sector.model';
 import { SectorFormDialogComponent } from './sector-form-dialog.component';
 import { AuthService } from '../../services/auth.service';
+import { StatusChipComponent } from '../../components/status-chip/status-chip.component';
 
 @Component({
   selector: 'app-sector-list',
@@ -23,7 +24,7 @@ import { AuthService } from '../../services/auth.service';
     MatTableModule, MatButtonModule, MatIconModule, MatChipsModule,
     MatDialogModule, MatProgressSpinnerModule, MatTooltipModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, FormsModule,
-    TranslateModule,
+    TranslateModule, StatusChipComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -87,9 +88,8 @@ import { AuthService } from '../../services/auth.service';
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef>{{ 'sectors.status' | translate }}</th>
             <td mat-cell *matCellDef="let s" [attr.data-label]="'sectors.status' | translate">
-              <mat-chip class="status-chip" [highlighted]="s.isActive" [class.inactive]="!s.isActive">
-                {{ (s.isActive ? 'common.active' : 'common.inactive') | translate }}
-              </mat-chip>
+              <app-status-chip [variant]="s.isActive ? 'success' : 'draft'"
+                               [label]="((s.isActive ? 'common.active' : 'common.inactive') | translate)"></app-status-chip>
             </td>
           </ng-container>
 

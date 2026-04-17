@@ -17,6 +17,7 @@ import {
     SamplingRoundStatusLabels,
     SamplingRoundListDto,
 } from '../../models/sampling-round.model';
+import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
 
 @Component({
     selector: 'app-home',
@@ -27,6 +28,7 @@ import {
         MatCardModule,
         MatIconModule,
         MatButtonModule,
+        StatusChipComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
@@ -108,10 +110,9 @@ import {
                                             <td>{{ round.name }}</td>
                                             <td>{{ round.orderCount }}</td>
                                             <td>
-                                                <span class="status-badge-round"
-                                                      [ngClass]="getRoundStatusClass(round.status)">
-                                                    {{ getRoundStatusLabel(round.status) | translate }}
-                                                </span>
+                                                <app-status-chip
+                                                    [variant]="getRoundStatusVariant(round.status)"
+                                                    [label]="(getRoundStatusLabel(round.status) | translate)"></app-status-chip>
                                             </td>
                                         </tr>
                                     }
@@ -406,13 +407,13 @@ export class HomeComponent implements OnInit {
         this.authService.currentUser()?.roles.includes('Administrator') ?? false
     );
 
-    private readonly roundStatusColors: Record<string, string> = {
-        [SamplingRoundStatus.Draft]: '#455A64',
-        [SamplingRoundStatus.Assigned]: '#00695C',
-        [SamplingRoundStatus.InProgress]: '#1565C0',
-        [SamplingRoundStatus.Completed]: '#2E7D32',
-        [SamplingRoundStatus.Cancelled]: '#C62828',
-    };
+    readonly isPreleveur = computed(() => {
+        const user = this.authService.currentUser();
+        if (!user) {
+            return false;
+        }
+        return user.roles.some(r => r.toLowerCase().includes('réleveur')) && !user.roles.includes('Administrator');
+    });
 
     ngOnInit(): void {
         this.loadDashboardData();
@@ -434,19 +435,15 @@ export class HomeComponent implements OnInit {
         });
     }
 
-    getRoundStatusColor(status: SamplingRoundStatus): string {
-        return this.roundStatusColors[status] ?? '#9E9E9E';
-    }
-
-    getRoundStatusClass(status: SamplingRoundStatus): string {
-        const map: Record<string, string> = {
-            'Draft': 'status-round-draft',
-            'Assigned': 'status-round-assigned',
-            'InProgress': 'status-round-inprogress',
-            'Completed': 'status-round-completed',
-            'Cancelled': 'status-round-cancelled',
+    getRoundStatusVariant(status: SamplingRoundStatus): StatusChipVariant {
+        const map: Record<string, StatusChipVariant> = {
+            'Draft': 'draft',
+            'Assigned': 'info',
+            'InProgress': 'info',
+            'Completed': 'success',
+            'Cancelled': 'danger',
         };
-        return map[status] ?? 'status-round-draft';
+        return map[status] ?? 'draft';
     }
 
     getRoundStatusLabel(status: SamplingRoundStatus): string {
@@ -481,13 +478,12 @@ export class HomeComponent implements OnInit {
 
     private async loadUpcomingRounds(): Promise<void> {
         try {
+            const statuses = this.isPreleveur()
+                ? [SamplingRoundStatus.Assigned]
+                : [SamplingRoundStatus.Draft, SamplingRoundStatus.Assigned];
             const result = await firstValueFrom(
                 this.roundApi.getFiltered({
-                    statuses: [
-                        SamplingRoundStatus.Draft,
-                        SamplingRoundStatus.Assigned,
-                        SamplingRoundStatus.InProgress,
-                    ],
+                    statuses,
                     page: 1,
                     pageSize: 10,
                     sortBy: 'deadline',

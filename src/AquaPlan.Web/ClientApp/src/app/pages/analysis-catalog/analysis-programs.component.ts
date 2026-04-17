@@ -15,6 +15,7 @@ import { AnalysisProgramDatastore } from '../../datastore/analysis-program.datas
 import { AnalysisProfileDatastore } from '../../datastore/analysis-profile.datastore';
 import { AnalysisProgramAddDto, AnalysisProgramUpdateDto } from '../../models/analysis-program.model';
 import { AuthService } from '../../services/auth.service';
+import { StatusChipComponent } from '../../components/status-chip/status-chip.component';
 
 @Component({
   selector: 'app-analysis-programs',
@@ -23,7 +24,7 @@ import { AuthService } from '../../services/auth.service';
     MatTableModule, MatButtonModule, MatIconModule, MatChipsModule,
     MatProgressSpinnerModule, MatFormFieldModule, MatInputModule,
     MatSelectModule, MatTooltipModule, MatListModule, FormsModule,
-    TranslateModule,
+    TranslateModule, StatusChipComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -69,9 +70,8 @@ import { AuthService } from '../../services/auth.service';
         <ng-container matColumnDef="status">
           <th mat-header-cell *matHeaderCellDef>{{ 'common.status' | translate }}</th>
           <td mat-cell *matCellDef="let p">
-            <mat-chip class="status-chip" [class.inactive]="!p.isActive">
-              {{ (p.isActive ? 'common.active' : 'common.inactive') | translate }}
-            </mat-chip>
+            <app-status-chip [variant]="p.isActive ? 'success' : 'draft'"
+                             [label]="((p.isActive ? 'common.active' : 'common.inactive') | translate)"></app-status-chip>
           </td>
         </ng-container>
 
