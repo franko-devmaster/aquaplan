@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace AquaPlan.Api.Tests.Controllers;
 
@@ -820,6 +822,49 @@ public class SamplingPlansControllerTest
         var method = typeof(SamplingPlansController).GetMethod(nameof(SamplingPlansController.GenerateOrders));
         var attr = method!.GetCustomAttributes(typeof(HttpPostAttribute), true).OfType<HttpPostAttribute>().First();
         attr.Template.Should().Be("{id:guid}/generate-orders");
+    }
+
+    #endregion
+
+    #region Serialization contract (AQ-364)
+
+    // Regression guard: the Angular SamplingPlanStatus enum relies on the API
+    // returning the status as a string (e.g. "Draft"). If JsonStringEnumConverter
+    // is removed or the DTO stops using the enum type, the frontend compares
+    // "Draft" === 0 (always false), which silently hides all action buttons on
+    // the plan detail page ("impossible de créer/compléter un plan de prélèvement").
+    [Theory]
+    [InlineData(SamplingPlanStatus.Draft, "Draft")]
+    [InlineData(SamplingPlanStatus.Submitted, "Submitted")]
+    [InlineData(SamplingPlanStatus.Validated, "Validated")]
+    [InlineData(SamplingPlanStatus.Rejected, "Rejected")]
+    public void SamplingPlanDetailDto_ShouldSerializeStatusAsString(SamplingPlanStatus status, string expected)
+    {
+        var dto = CreateDetailDto(status: status);
+        var options = new JsonSerializerOptions { Converters = { new JsonStringEnumConverter() } };
+
+        var json = JsonSerializer.Serialize(dto, options);
+
+        using var document = JsonDocument.Parse(json);
+        var statusProperty = document.RootElement.GetProperty("Status");
+        statusProperty.ValueKind.Should().Be(JsonValueKind.String);
+        statusProperty.GetString().Should().Be(expected);
+    }
+
+    [Fact]
+    public void SamplingPlanListDto_ShouldSerializeStatusAsString()
+    {
+        var listDto = new SamplingPlanListDto(
+            PlanId, 2026, SamplingPlanStatus.Draft, DistributorId, "Distributor A",
+            UserId, "Test User", 0, DateTime.UtcNow);
+        var options = new JsonSerializerOptions { Converters = { new JsonStringEnumConverter() } };
+
+        var json = JsonSerializer.Serialize(listDto, options);
+
+        using var document = JsonDocument.Parse(json);
+        var statusProperty = document.RootElement.GetProperty("Status");
+        statusProperty.ValueKind.Should().Be(JsonValueKind.String);
+        statusProperty.GetString().Should().Be("Draft");
     }
 
     #endregion

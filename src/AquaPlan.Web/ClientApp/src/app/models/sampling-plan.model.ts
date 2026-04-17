@@ -1,8 +1,8 @@
 export enum SamplingPlanStatus {
-  Draft = 0,
-  Submitted = 1,
-  Validated = 2,
-  Rejected = 3,
+  Draft = 'Draft',
+  Submitted = 'Submitted',
+  Validated = 'Validated',
+  Rejected = 'Rejected',
 }
 
 export const SamplingPlanStatusLabels: Record<SamplingPlanStatus, string> = {
