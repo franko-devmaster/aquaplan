@@ -19,4 +19,6 @@ public class Sampling
     public DateTime? ValidatedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
+
+    public ICollection<SamplingContainer> Containers { get; set; } = new List<SamplingContainer>();
 }

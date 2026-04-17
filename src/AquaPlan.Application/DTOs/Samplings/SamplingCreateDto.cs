@@ -8,4 +8,5 @@ public record SamplingCreateDto(
     string? Notes,
     bool? HasWaterSoftener,
     bool IsChlorinated = false,
-    string? SampleBarcode = null);
+    string? SampleBarcode = null,
+    IList<SamplingContainerInputDto>? Containers = null);

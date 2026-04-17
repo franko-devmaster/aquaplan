@@ -531,6 +531,176 @@ public class SamplingRoundServiceTest : IDisposable
         updatedOrder!.SamplerComment.Should().Be("Water looks cloudy");
     }
 
+    // --- ContainerSummary (AQ-341) ---
+
+    [Fact]
+    public async Task GetByIdAsync_WithMultipleOrders_ShouldAggregateContainers()
+    {
+        var (program, _, _) = await CreateAnalysisProgramWithTwoContainers();
+        var round = await CreateDraftRound("Round summary");
+        await CreateOrderInRoundWithProgram(round.Id, program.Id, sortOrder: 0);
+        await CreateOrderInRoundWithProgram(round.Id, program.Id, sortOrder: 1);
+
+        var result = await _sut.GetByIdAsync(round.Id, TenantId);
+
+        result.Should().NotBeNull();
+        result!.ContainerSummary.Should().HaveCount(2);
+        result.ContainerSummary.Should().AllSatisfy(s => s.Count.Should().Be(2));
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_WithCancelledOrder_ShouldExcludeFromSummary()
+    {
+        var (program, _, _) = await CreateAnalysisProgramWithTwoContainers();
+        var round = await CreateDraftRound("Round with cancel");
+        await CreateOrderInRoundWithProgram(round.Id, program.Id, sortOrder: 0);
+        var cancelledOrderId = await CreateOrderInRoundWithProgram(round.Id, program.Id, sortOrder: 1);
+
+        var cancelled = await _dbContext.Orders.FindAsync(cancelledOrderId);
+        cancelled!.Status = OrderStatus.Cancelled;
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetByIdAsync(round.Id, TenantId);
+
+        result.Should().NotBeNull();
+        result!.ContainerSummary.Should().HaveCount(2);
+        result.ContainerSummary.Should().AllSatisfy(s => s.Count.Should().Be(1));
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_With2OrdersSharingContainer_ShouldSumCount()
+    {
+        var (program, _, _) = await CreateAnalysisProgramWithSharedContainer();
+        var round = await CreateDraftRound("Round shared");
+        await CreateOrderInRoundWithProgram(round.Id, program.Id, sortOrder: 0);
+        await CreateOrderInRoundWithProgram(round.Id, program.Id, sortOrder: 1);
+
+        var result = await _sut.GetByIdAsync(round.Id, TenantId);
+
+        result.Should().NotBeNull();
+        result!.ContainerSummary.Should().HaveCount(1);
+        result.ContainerSummary[0].Count.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_WithEmptyRound_ShouldReturnEmptySummary()
+    {
+        var round = await CreateDraftRound("Empty round");
+
+        var result = await _sut.GetByIdAsync(round.Id, TenantId);
+
+        result.Should().NotBeNull();
+        result!.ContainerSummary.Should().BeEmpty();
+    }
+
+    private async Task<(AnalysisProgram Program, Container ContainerA, Container ContainerB)> CreateAnalysisProgramWithTwoContainers()
+    {
+        var containerA = new Container
+        {
+            Id = Guid.NewGuid(), Code = "ROUND-A", Name = "Flacon A",
+            Material = "Verre", VolumeMl = 250, Color = "T", IsActive = true, TenantId = TenantId,
+        };
+        var containerB = new Container
+        {
+            Id = Guid.NewGuid(), Code = "ROUND-B", Name = "Flacon B",
+            Material = "PET", VolumeMl = 500, Color = "T", IsActive = true, TenantId = TenantId,
+        };
+        _dbContext.Containers.Add(containerA);
+        _dbContext.Containers.Add(containerB);
+
+        var profileA = new AnalysisProfile
+        {
+            Id = Guid.NewGuid(), Code = "pA", Name = "Profil A",
+            TenantId = TenantId, ContainerId = containerA.Id,
+        };
+        var profileB = new AnalysisProfile
+        {
+            Id = Guid.NewGuid(), Code = "pB", Name = "Profil B",
+            TenantId = TenantId, ContainerId = containerB.Id,
+        };
+        _dbContext.AnalysisProfiles.Add(profileA);
+        _dbContext.AnalysisProfiles.Add(profileB);
+
+        var program = new AnalysisProgram
+        {
+            Id = Guid.NewGuid(), Code = "PRG-R", Name = "Prog Round", TenantId = TenantId,
+        };
+        _dbContext.AnalysisPrograms.Add(program);
+        _dbContext.AnalysisProgramProfiles.Add(new AnalysisProgramProfile
+        {
+            AnalysisProgramId = program.Id, AnalysisProfileId = profileA.Id,
+        });
+        _dbContext.AnalysisProgramProfiles.Add(new AnalysisProgramProfile
+        {
+            AnalysisProgramId = program.Id, AnalysisProfileId = profileB.Id,
+        });
+        await _dbContext.SaveChangesAsync();
+        return (program, containerA, containerB);
+    }
+
+    private async Task<(AnalysisProgram Program, Container Container, Container _)> CreateAnalysisProgramWithSharedContainer()
+    {
+        var container = new Container
+        {
+            Id = Guid.NewGuid(), Code = "ROUND-SHARED", Name = "Flacon Shared",
+            Material = "Verre", VolumeMl = 250, Color = "T", IsActive = true, TenantId = TenantId,
+        };
+        _dbContext.Containers.Add(container);
+
+        var profileA = new AnalysisProfile
+        {
+            Id = Guid.NewGuid(), Code = "pA", Name = "Profil A",
+            TenantId = TenantId, ContainerId = container.Id,
+        };
+        var profileB = new AnalysisProfile
+        {
+            Id = Guid.NewGuid(), Code = "pB", Name = "Profil B",
+            TenantId = TenantId, ContainerId = container.Id,
+        };
+        _dbContext.AnalysisProfiles.Add(profileA);
+        _dbContext.AnalysisProfiles.Add(profileB);
+
+        var program = new AnalysisProgram
+        {
+            Id = Guid.NewGuid(), Code = "PRG-SH", Name = "Prog Shared", TenantId = TenantId,
+        };
+        _dbContext.AnalysisPrograms.Add(program);
+        _dbContext.AnalysisProgramProfiles.Add(new AnalysisProgramProfile
+        {
+            AnalysisProgramId = program.Id, AnalysisProfileId = profileA.Id,
+        });
+        _dbContext.AnalysisProgramProfiles.Add(new AnalysisProgramProfile
+        {
+            AnalysisProgramId = program.Id, AnalysisProfileId = profileB.Id,
+        });
+        await _dbContext.SaveChangesAsync();
+        return (program, container, container);
+    }
+
+    private async Task<Guid> CreateOrderInRoundWithProgram(Guid roundId, Guid programId, int sortOrder)
+    {
+        var order = new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = $"ORD-{Guid.NewGuid().ToString()[..4]}",
+            Status = OrderStatus.New,
+            DistributorId = DistributorId,
+            SamplingRoundId = roundId,
+            SortOrder = sortOrder,
+            SamplingLocationId = SamplingLocationId,
+            CreatedById = UserId,
+            TenantId = TenantId,
+            CreatedAt = DateTime.UtcNow,
+        };
+        _dbContext.Orders.Add(order);
+        _dbContext.OrderAnalysisPrograms.Add(new OrderAnalysisProgram
+        {
+            OrderId = order.Id, AnalysisProgramId = programId,
+        });
+        await _dbContext.SaveChangesAsync();
+        return order.Id;
+    }
+
     // --- Helpers ---
 
     private async Task SeedData()

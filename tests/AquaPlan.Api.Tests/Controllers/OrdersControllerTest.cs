@@ -339,6 +339,71 @@ public class OrdersControllerTest
         result.Result.Should().BeOfType<BadRequestObjectResult>();
     }
 
+    // ─── GetRequiredContainers ─────────────────────────────────
+    [Fact]
+    public async Task GetRequiredContainers_ShouldReturnNotFound_WhenOrderNotFound()
+    {
+        _orderServiceMock
+            .Setup(x => x.GetRequiredContainersAsync(OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IList<RequiredContainerDto>?)null);
+
+        var result = await _sut.GetRequiredContainers(OrderId, CancellationToken.None);
+
+        result.Result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task GetRequiredContainers_ShouldReturnForbid_WhenNonAdminCannotAccessOrder()
+    {
+        var containers = new List<RequiredContainerDto>
+        {
+            new(Guid.NewGuid(), "BACT-V250", "Flacon", "Verre", 250, null),
+        };
+        _orderServiceMock
+            .Setup(x => x.GetRequiredContainersAsync(OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(containers);
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.UserCanAccessOrderAsync(UserId, OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _sut.GetRequiredContainers(OrderId, CancellationToken.None);
+
+        result.Result.Should().BeOfType<ForbidResult>();
+    }
+
+    [Fact]
+    public async Task GetRequiredContainers_ShouldReturnOk_WhenAdminUser()
+    {
+        var containers = new List<RequiredContainerDto>
+        {
+            new(Guid.NewGuid(), "BACT-V250", "Flacon", "Verre", 250, null),
+        };
+        _orderServiceMock
+            .Setup(x => x.GetRequiredContainersAsync(OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(containers);
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await _sut.GetRequiredContainers(OrderId, CancellationToken.None);
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeSameAs(containers);
+    }
+
+    [Fact]
+    public void GetRequiredContainers_ShouldHaveHttpGetAttribute()
+    {
+        var method = typeof(OrdersController).GetMethod(nameof(OrdersController.GetRequiredContainers));
+        method.Should().NotBeNull();
+        var attributes = method!.GetCustomAttributes(typeof(HttpGetAttribute), true);
+        attributes.Should().NotBeEmpty();
+        attributes.OfType<HttpGetAttribute>().First().Template.Should().Be("{id:guid}/required-containers");
+    }
+
     // ─── Attribute tests ───────────────────────────────────────
     [Fact]
     public void Controller_ShouldHaveAuthorizeAttribute()

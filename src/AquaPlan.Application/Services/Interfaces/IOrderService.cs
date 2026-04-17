@@ -13,4 +13,5 @@ public interface IOrderService
     Task<byte[]> ExportOrdersCsvAsync(Guid tenantId, OrderFilterDto filter, CancellationToken cancellationToken = default);
     Task<bool> UserHasDistributorAccessAsync(string userId, Guid distributorId, CancellationToken cancellationToken = default);
     Task<bool> UserCanAccessOrderAsync(string userId, Guid orderId, Guid tenantId, CancellationToken cancellationToken = default);
+    Task<IList<RequiredContainerDto>?> GetRequiredContainersAsync(Guid orderId, Guid tenantId, CancellationToken cancellationToken = default);
 }

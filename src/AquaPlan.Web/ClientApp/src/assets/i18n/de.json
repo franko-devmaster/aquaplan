@@ -282,6 +282,9 @@
   "sampling": {
     "weather3days": "Wetter (3 Tage)",
     "sampleBarcode": "Proben-Barcode",
+    "containersTitle": "Behälter und Barcodes",
+    "containerBarcode": "Barcode",
+    "noContainers": "Kein Behälter für diesen Auftrag erforderlich.",
     "weatherOptions": {
       "dry": "Trocken",
       "light_rain": "Leichter Regen",
@@ -293,7 +296,9 @@
     "replacementReason": "Ersetzungsgrund",
     "locationReplaced": "Probenahmeort ersetzt",
     "sector": "Sektor",
-    "location": "Probenahmeort"
+    "location": "Probenahmeort",
+    "materialToPrepare": "Vorzubereitendes Material",
+    "noMaterial": "Kein Behälter erforderlich"
   },
   "dashboard": {
     "title": "Dashboard",

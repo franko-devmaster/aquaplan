@@ -53,6 +53,7 @@ public class SamplingRoundsControllerTest
             DistributorId, "Test Distributor", "TD",
             null, UserId, "John Doe",
             DateTime.UtcNow, null, null,
+            [],
             []);
     }
 

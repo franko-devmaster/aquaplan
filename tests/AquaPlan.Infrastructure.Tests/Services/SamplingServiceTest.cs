@@ -293,6 +293,212 @@ public class SamplingServiceTest : IDisposable
             .WithMessage("*no sampling data found*");
     }
 
+    // --- Multi-container tests (AQ-340) ---
+
+    [Fact]
+    public async Task CreateAsync_WithMultipleContainers_ShouldInsertAllContainers()
+    {
+        var (orderId, containerA, containerB) = await CreateOrderWithTwoContainers(OrderStatus.InProgress);
+        var dto = CreateSamplingDto(orderId) with
+        {
+            Containers = new List<SamplingContainerInputDto>
+            {
+                new(containerA, "BC-A"),
+                new(containerB, "BC-B"),
+            },
+        };
+
+        var result = await _sut.CreateAsync(dto, PreleveurId, TenantId);
+
+        result.Containers.Should().HaveCount(2);
+        result.Containers.Select(c => c.Barcode).Should().BeEquivalentTo(new[] { "BC-A", "BC-B" });
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithDuplicateBarcodeInPayload_ShouldThrow()
+    {
+        var (orderId, containerA, containerB) = await CreateOrderWithTwoContainers(OrderStatus.InProgress);
+        var dto = CreateSamplingDto(orderId) with
+        {
+            Containers = new List<SamplingContainerInputDto>
+            {
+                new(containerA, "BC-X"),
+                new(containerB, "BC-X"),
+            },
+        };
+
+        await _sut.Awaiting(s => s.CreateAsync(dto, PreleveurId, TenantId))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*more than once*");
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithBarcodeCollisionInTenant_ShouldThrow()
+    {
+        var (orderId, containerA, _) = await CreateOrderWithTwoContainers(OrderStatus.InProgress);
+
+        // Seed an existing sampling_container row with the same barcode for another sampling in same tenant.
+        var otherSampling = new Sampling
+        {
+            Id = Guid.NewGuid(),
+            OrderId = Guid.NewGuid(),
+            PreleveurId = PreleveurId,
+            SamplingDateTime = DateTime.UtcNow,
+        };
+        _dbContext.Samplings.Add(otherSampling);
+        _dbContext.SamplingContainers.Add(new SamplingContainer
+        {
+            Id = Guid.NewGuid(),
+            SamplingId = otherSampling.Id,
+            ContainerId = containerA,
+            Barcode = "COLLIDE",
+            TenantId = TenantId,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var dto = CreateSamplingDto(orderId) with
+        {
+            Containers = new List<SamplingContainerInputDto>
+            {
+                new(containerA, "COLLIDE"),
+            },
+        };
+
+        await _sut.Awaiting(s => s.CreateAsync(dto, PreleveurId, TenantId))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*already used*");
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithNewContainers_ShouldUpsert()
+    {
+        var (orderId, containerA, containerB) = await CreateOrderWithTwoContainers(OrderStatus.InProgress);
+
+        // Initial create with one container
+        var createDto = CreateSamplingDto(orderId) with
+        {
+            Containers = new List<SamplingContainerInputDto> { new(containerA, "BC-A") },
+        };
+        await _sut.CreateAsync(createDto, PreleveurId, TenantId);
+
+        // Update adding a second container
+        var updateDto = CreateSamplingDto(orderId) with
+        {
+            Containers = new List<SamplingContainerInputDto>
+            {
+                new(containerA, "BC-A2"),
+                new(containerB, "BC-B"),
+            },
+        };
+        var result = await _sut.UpdateAsync(orderId, updateDto, PreleveurId, TenantId);
+
+        result!.Containers.Should().HaveCount(2);
+        result.Containers.Single(c => c.ContainerId == containerA).Barcode.Should().Be("BC-A2");
+        result.Containers.Single(c => c.ContainerId == containerB).Barcode.Should().Be("BC-B");
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WithMissingBarcode_ShouldThrow()
+    {
+        var (orderId, containerA, containerB) = await CreateOrderWithTwoContainers(OrderStatus.InProgress);
+
+        var createDto = CreateSamplingDto(orderId) with
+        {
+            Containers = new List<SamplingContainerInputDto>
+            {
+                new(containerA, "BC-A"),
+                new(containerB, null),
+            },
+        };
+        await _sut.CreateAsync(createDto, PreleveurId, TenantId);
+
+        await _sut.Awaiting(s => s.CompleteAsync(orderId, PreleveurId, TenantId))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*barcode is missing*");
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WithAllBarcodes_ShouldSucceed()
+    {
+        var (orderId, containerA, containerB) = await CreateOrderWithTwoContainers(OrderStatus.InProgress);
+
+        var createDto = CreateSamplingDto(orderId) with
+        {
+            Containers = new List<SamplingContainerInputDto>
+            {
+                new(containerA, "BC-A"),
+                new(containerB, "BC-B"),
+            },
+        };
+        await _sut.CreateAsync(createDto, PreleveurId, TenantId);
+
+        var result = await _sut.CompleteAsync(orderId, PreleveurId, TenantId);
+
+        result.Should().BeTrue();
+    }
+
+    private async Task<(Guid OrderId, Guid ContainerAId, Guid ContainerBId)> CreateOrderWithTwoContainers(OrderStatus status)
+    {
+        var containerA = new Container
+        {
+            Id = Guid.NewGuid(), Code = "AAA", Name = "A",
+            Material = "Verre", VolumeMl = 250, Color = "T", IsActive = true, TenantId = TenantId,
+        };
+        var containerB = new Container
+        {
+            Id = Guid.NewGuid(), Code = "BBB", Name = "B",
+            Material = "PET", VolumeMl = 500, Color = "T", IsActive = true, TenantId = TenantId,
+        };
+        _dbContext.Containers.Add(containerA);
+        _dbContext.Containers.Add(containerB);
+
+        var profileA = new AnalysisProfile
+        {
+            Id = Guid.NewGuid(), Code = "pA", Name = "Profil A",
+            TenantId = TenantId, ContainerId = containerA.Id,
+        };
+        var profileB = new AnalysisProfile
+        {
+            Id = Guid.NewGuid(), Code = "pB", Name = "Profil B",
+            TenantId = TenantId, ContainerId = containerB.Id,
+        };
+        _dbContext.AnalysisProfiles.Add(profileA);
+        _dbContext.AnalysisProfiles.Add(profileB);
+
+        var program = new AnalysisProgram
+        {
+            Id = Guid.NewGuid(), Code = "PRG", Name = "Prog", TenantId = TenantId,
+        };
+        _dbContext.AnalysisPrograms.Add(program);
+        _dbContext.AnalysisProgramProfiles.Add(new AnalysisProgramProfile
+        {
+            AnalysisProgramId = program.Id, AnalysisProfileId = profileA.Id,
+        });
+        _dbContext.AnalysisProgramProfiles.Add(new AnalysisProgramProfile
+        {
+            AnalysisProgramId = program.Id, AnalysisProfileId = profileB.Id,
+        });
+
+        var order = new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = $"ORD-{Guid.NewGuid().ToString()[..4]}",
+            Status = status,
+            PreleveurId = PreleveurId,
+            DistributorId = DistributorId,
+            SamplingLocationId = SamplingLocationId,
+            CreatedById = PreleveurId,
+            TenantId = TenantId,
+        };
+        _dbContext.Orders.Add(order);
+        _dbContext.OrderAnalysisPrograms.Add(new OrderAnalysisProgram
+        {
+            OrderId = order.Id, AnalysisProgramId = program.Id,
+        });
+        await _dbContext.SaveChangesAsync();
+        return (order.Id, containerA.Id, containerB.Id);
+    }
+
     // --- Helpers ---
 
     private async Task SeedData()

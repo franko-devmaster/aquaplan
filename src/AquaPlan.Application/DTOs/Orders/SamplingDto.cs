@@ -15,4 +15,11 @@ public record SamplingDto(
     DateTime? BarcodeScannedAt,
     bool IsValidated,
     DateTime? ValidatedAt,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    IList<SamplingContainerDto> Containers);
+
+public record SamplingContainerDto(
+    Guid Id,
+    Guid ContainerId,
+    string? Barcode,
+    DateTime? BarcodeScannedAt);

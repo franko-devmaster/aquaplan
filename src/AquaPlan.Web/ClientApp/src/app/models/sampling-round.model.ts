@@ -54,6 +54,15 @@ export interface SamplingRoundOrderDto {
   mandataireNotes: string | null;
 }
 
+export interface RoundContainerSummaryDto {
+  containerId: string;
+  code: string;
+  name: string;
+  material: string;
+  volumeMl: number;
+  count: number;
+}
+
 export interface SamplingRoundDetailDto {
   id: string;
   name: string;
@@ -69,6 +78,7 @@ export interface SamplingRoundDetailDto {
   tenantId: string;
   createdAt: string;
   updatedAt: string | null;
+  containerSummary: RoundContainerSummaryDto[];
 }
 
 export interface SamplingRoundCreateDto {

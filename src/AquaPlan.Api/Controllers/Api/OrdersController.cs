@@ -217,6 +217,31 @@ public class OrdersController(
         }
     }
 
+    [HttpGet("{id:guid}/required-containers")]
+    public async Task<ActionResult<IList<RequiredContainerDto>>> GetRequiredContainers(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+
+        var containers = await orderService.GetRequiredContainersAsync(id, tenantId, cancellationToken);
+        if (containers is null)
+        {
+            return NotFound();
+        }
+
+        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        if (!hasViewAll)
+        {
+            var canAccess = await orderService.UserCanAccessOrderAsync(userId, id, tenantId, cancellationToken);
+            if (!canAccess)
+            {
+                return Forbid();
+            }
+        }
+
+        return Ok(containers);
+    }
+
     [HttpGet("{id:guid}/audit-log")]
     public async Task<ActionResult<List<OrderAuditLogDto>>> GetAuditLog(Guid id, CancellationToken cancellationToken)
     {

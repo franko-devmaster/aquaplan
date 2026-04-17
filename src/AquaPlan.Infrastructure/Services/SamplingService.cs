@@ -19,6 +19,7 @@ internal class SamplingService(
     {
         var sampling = await dbContext.Samplings
             .Include(s => s.Preleveur)
+            .Include(s => s.Containers)
             .Where(s => s.OrderId == orderId && s.Order!.TenantId == tenantId)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -75,6 +76,27 @@ internal class SamplingService(
         };
 
         dbContext.Samplings.Add(sampling);
+
+        if (dto.Containers is { Count: > 0 })
+        {
+            await ValidateBarcodeUniquenessAsync(dto.Containers, sampling.Id, tenantId, cancellationToken);
+
+            foreach (var containerInput in dto.Containers)
+            {
+                var barcode = string.IsNullOrWhiteSpace(containerInput.Barcode) ? null : containerInput.Barcode.Trim();
+                sampling.Containers.Add(new SamplingContainer
+                {
+                    Id = Guid.NewGuid(),
+                    SamplingId = sampling.Id,
+                    ContainerId = containerInput.ContainerId,
+                    Barcode = barcode,
+                    BarcodeScannedAt = containerInput.BarcodeScannedAt,
+                    TenantId = tenantId,
+                    CreatedAt = DateTime.UtcNow,
+                });
+            }
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation("Sampling {SamplingId} created for order {OrderId} by préleveur {PreleveurId}",
@@ -95,6 +117,7 @@ internal class SamplingService(
     {
         var order = await dbContext.Orders
             .Include(o => o.Sampling)
+                .ThenInclude(s => s!.Containers)
             .Include(o => o.SamplingRound)
             .Where(o => o.Id == orderId && o.TenantId == tenantId)
             .FirstOrDefaultAsync(cancellationToken);
@@ -124,6 +147,12 @@ internal class SamplingService(
         sampling.SampleBarcode = dto.SampleBarcode;
         sampling.UpdatedAt = DateTime.UtcNow;
 
+        if (dto.Containers is not null)
+        {
+            await ValidateBarcodeUniquenessAsync(dto.Containers, sampling.Id, tenantId, cancellationToken);
+            UpsertContainers(sampling, dto.Containers, tenantId);
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation("Sampling updated for order {OrderId} by préleveur {PreleveurId}",
@@ -143,7 +172,12 @@ internal class SamplingService(
     {
         var order = await dbContext.Orders
             .Include(o => o.Sampling)
+                .ThenInclude(s => s!.Containers)
             .Include(o => o.SamplingRound)
+            .Include(o => o.OrderAnalysisPrograms)
+                .ThenInclude(oap => oap.AnalysisProgram!)
+                    .ThenInclude(ap => ap.AnalysisProgramProfiles)
+                        .ThenInclude(app => app.AnalysisProfile!)
             .Where(o => o.Id == orderId && o.TenantId == tenantId)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -163,6 +197,29 @@ internal class SamplingService(
         if (order.Sampling is null)
         {
             throw new InvalidOperationException("Cannot complete sampling: no sampling data recorded yet.");
+        }
+
+        // Every required container must have a non-empty barcode before completion.
+        var requiredContainerIds = order.OrderAnalysisPrograms
+            .Where(oap => oap.AnalysisProgram is not null)
+            .SelectMany(oap => oap.AnalysisProgram!.AnalysisProgramProfiles)
+            .Where(app => app.AnalysisProfile is not null)
+            .Select(app => app.AnalysisProfile!.ContainerId)
+            .Distinct()
+            .ToList();
+
+        if (requiredContainerIds.Count > 0)
+        {
+            var recordedBarcodes = order.Sampling.Containers
+                .Where(c => !string.IsNullOrWhiteSpace(c.Barcode))
+                .Select(c => c.ContainerId)
+                .ToHashSet();
+            var missing = requiredContainerIds.Where(id => !recordedBarcodes.Contains(id)).ToList();
+            if (missing.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    "Cannot complete sampling: a barcode is missing for at least one required container.");
+            }
         }
 
         order.Status = OrderStatus.Completed;
@@ -228,6 +285,7 @@ internal class SamplingService(
     {
         var order = await dbContext.Orders
             .Include(o => o.Sampling)
+                .ThenInclude(s => s!.Containers)
             .Include(o => o.SamplingRound)
             .Where(o => o.Id == orderId && o.TenantId == tenantId)
             .FirstOrDefaultAsync(cancellationToken);
@@ -251,7 +309,7 @@ internal class SamplingService(
             throw new InvalidOperationException("Cannot scan barcode: no sampling data recorded yet. Create sampling first.");
         }
 
-        // Check barcode uniqueness within tenant
+        // Check barcode uniqueness within tenant (legacy field)
         var existingBarcode = await dbContext.Samplings
             .Where(s => s.SampleBarcode == barcode && s.Order!.TenantId == tenantId && s.Id != sampling.Id)
             .AnyAsync(cancellationToken);
@@ -283,6 +341,7 @@ internal class SamplingService(
     {
         var sampling = await dbContext.Samplings
             .Include(s => s.Preleveur)
+            .Include(s => s.Containers)
             .Where(s => s.SampleBarcode == barcode && s.Order!.TenantId == tenantId)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -291,8 +350,90 @@ internal class SamplingService(
         return MapToDto(sampling);
     }
 
+    private async Task ValidateBarcodeUniquenessAsync(
+        IList<SamplingContainerInputDto> inputs, Guid samplingId, Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        // Duplicate barcodes within the payload itself
+        var withinPayload = inputs
+            .Where(i => !string.IsNullOrWhiteSpace(i.Barcode))
+            .GroupBy(i => i.Barcode!.Trim())
+            .FirstOrDefault(g => g.Count() > 1);
+        if (withinPayload is not null)
+        {
+            throw new InvalidOperationException(
+                $"Barcode '{withinPayload.Key}' is used more than once in the same sampling.");
+        }
+
+        var nonNullBarcodes = inputs
+            .Where(i => !string.IsNullOrWhiteSpace(i.Barcode))
+            .Select(i => i.Barcode!.Trim())
+            .Distinct()
+            .ToList();
+
+        if (nonNullBarcodes.Count == 0) return;
+
+        var collision = await dbContext.SamplingContainers
+            .Where(sc => sc.TenantId == tenantId
+                && sc.SamplingId != samplingId
+                && sc.Barcode != null
+                && nonNullBarcodes.Contains(sc.Barcode))
+            .Select(sc => sc.Barcode)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (collision is not null)
+        {
+            throw new InvalidOperationException(
+                $"Barcode '{collision}' is already used by another sampling of the same tenant.");
+        }
+    }
+
+    private void UpsertContainers(
+        Sampling sampling, IList<SamplingContainerInputDto> inputs, Guid tenantId)
+    {
+        var inputIds = inputs.Select(i => i.ContainerId).ToHashSet();
+
+        // Remove rows that are no longer in the payload
+        var toRemove = sampling.Containers.Where(c => !inputIds.Contains(c.ContainerId)).ToList();
+        foreach (var removed in toRemove)
+        {
+            dbContext.SamplingContainers.Remove(removed);
+        }
+
+        foreach (var input in inputs)
+        {
+            var normalizedBarcode = string.IsNullOrWhiteSpace(input.Barcode) ? null : input.Barcode.Trim();
+            var existing = sampling.Containers.FirstOrDefault(c => c.ContainerId == input.ContainerId);
+            if (existing is null)
+            {
+                dbContext.SamplingContainers.Add(new SamplingContainer
+                {
+                    Id = Guid.NewGuid(),
+                    SamplingId = sampling.Id,
+                    ContainerId = input.ContainerId,
+                    Barcode = normalizedBarcode,
+                    BarcodeScannedAt = input.BarcodeScannedAt,
+                    TenantId = tenantId,
+                    CreatedAt = DateTime.UtcNow,
+                });
+            }
+            else
+            {
+                existing.Barcode = normalizedBarcode;
+                if (input.BarcodeScannedAt.HasValue)
+                {
+                    existing.BarcodeScannedAt = input.BarcodeScannedAt;
+                }
+            }
+        }
+    }
+
     private static SamplingDto MapToDto(Sampling sampling)
     {
+        var containers = sampling.Containers
+            .Select(c => new SamplingContainerDto(c.Id, c.ContainerId, c.Barcode, c.BarcodeScannedAt))
+            .ToList();
+
         return new SamplingDto(
             sampling.Id,
             sampling.OrderId,
@@ -310,6 +451,7 @@ internal class SamplingService(
             sampling.BarcodeScannedAt,
             sampling.IsValidated,
             sampling.ValidatedAt,
-            sampling.CreatedAt);
+            sampling.CreatedAt,
+            containers);
     }
 }

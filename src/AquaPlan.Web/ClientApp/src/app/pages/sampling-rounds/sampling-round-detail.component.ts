@@ -121,6 +121,22 @@ import { ReplaceLocationDialogComponent, ReplaceLocationDialogData } from './rep
         </mat-card-content>
       </mat-card>
 
+      <!-- Material summary -->
+      <mat-card class="material-summary-card">
+        <mat-card-content>
+          <h3 class="material-title">{{ 'samplingRounds.materialToPrepare' | translate }}</h3>
+          @if (round()!.containerSummary && round()!.containerSummary.length > 0) {
+            <ul class="container-summary">
+              @for (item of round()!.containerSummary; track item.containerId) {
+                <li>{{ item.count }} × {{ item.name }} ({{ item.volumeMl }} ml, {{ item.material }})</li>
+              }
+            </ul>
+          } @else {
+            <p class="empty-summary">{{ 'samplingRounds.noMaterial' | translate }}</p>
+          }
+        </mat-card-content>
+      </mat-card>
+
       <!-- Orders with progress -->
       <div class="orders-header">
         <h3>{{ 'samplingRounds.orders' | translate }} ({{ round()!.orders.length }})</h3>
@@ -283,6 +299,11 @@ import { ReplaceLocationDialogComponent, ReplaceLocationDialogData } from './rep
     .header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .loading-container { display: flex; justify-content: center; padding: 48px; }
     .round-info-card { margin-bottom: 16px; }
+    .material-summary-card { margin-bottom: 16px; }
+    .material-title { margin: 0 0 8px; font-size: 15px; font-weight: 600; color: #455A64; }
+    .container-summary { margin: 0; padding-left: 20px; }
+    .container-summary li { margin: 4px 0; }
+    .empty-summary { color: #888; font-style: italic; margin: 0; }
     .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin-bottom: 12px; }
     .description { margin-top: 8px; }
     .orders-header { display: flex; justify-content: space-between; align-items: center; margin: 16px 0; }

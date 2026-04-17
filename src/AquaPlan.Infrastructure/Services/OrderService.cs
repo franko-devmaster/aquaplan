@@ -147,6 +147,8 @@ internal class OrderService(
                 .ThenInclude(oap => oap.AnalysisProgram)
             .Include(o => o.Sampling)
                 .ThenInclude(s => s!.Preleveur)
+            .Include(o => o.Sampling)
+                .ThenInclude(s => s!.Containers)
             .FirstOrDefaultAsync(o => o.Id == orderId && o.TenantId == tenantId, cancellationToken);
 
         if (order is null)
@@ -412,6 +414,48 @@ internal class OrderService(
             .AnyAsync(ud => ud.UserId == userId && ud.DistributorId == distributorId, cancellationToken);
     }
 
+    public async Task<IList<RequiredContainerDto>?> GetRequiredContainersAsync(
+        Guid orderId, Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        var order = await dbContext.Orders
+            .Include(o => o.OrderAnalysisPrograms)
+                .ThenInclude(oap => oap.AnalysisProgram!)
+                    .ThenInclude(ap => ap.AnalysisProgramProfiles)
+                        .ThenInclude(app => app.AnalysisProfile!)
+                            .ThenInclude(ap => ap.Container)
+            .Include(o => o.Sampling)
+                .ThenInclude(s => s!.Containers)
+            .FirstOrDefaultAsync(o => o.Id == orderId && o.TenantId == tenantId, cancellationToken);
+
+        if (order is null)
+        {
+            return null;
+        }
+
+        var existingBarcodes = order.Sampling?.Containers
+            .ToDictionary(c => c.ContainerId, c => c.Barcode)
+            ?? new Dictionary<Guid, string?>();
+
+        var containers = order.OrderAnalysisPrograms
+            .Where(oap => oap.AnalysisProgram is not null)
+            .SelectMany(oap => oap.AnalysisProgram!.AnalysisProgramProfiles)
+            .Where(app => app.AnalysisProfile?.Container is not null)
+            .Select(app => app.AnalysisProfile!.Container!)
+            .GroupBy(c => c.Id)
+            .Select(g => g.First())
+            .OrderBy(c => c.Code)
+            .Select(c => new RequiredContainerDto(
+                c.Id,
+                c.Code,
+                c.Name,
+                c.Material,
+                c.VolumeMl,
+                existingBarcodes.TryGetValue(c.Id, out var barcode) ? barcode : null))
+            .ToList();
+
+        return containers;
+    }
+
     public async Task<bool> UserCanAccessOrderAsync(string userId, Guid orderId, Guid tenantId, CancellationToken cancellationToken = default)
     {
         var order = await dbContext.Orders
@@ -452,6 +496,9 @@ internal class OrderService(
         if (order.Sampling is not null)
         {
             var s = order.Sampling;
+            var containers = s.Containers
+                .Select(c => new SamplingContainerDto(c.Id, c.ContainerId, c.Barcode, c.BarcodeScannedAt))
+                .ToList();
             samplingDto = new SamplingDto(
                 s.Id, s.OrderId, s.PreleveurId,
                 s.Preleveur is not null ? s.Preleveur.FirstName + " " + s.Preleveur.LastName : null,
@@ -459,7 +506,8 @@ internal class OrderService(
                 s.Notes,
                 s.HasWaterSoftener, s.IsChlorinated,
                 s.SampleBarcode, s.BarcodeScannedAt,
-                s.IsValidated, s.ValidatedAt, s.CreatedAt);
+                s.IsValidated, s.ValidatedAt, s.CreatedAt,
+                containers);
         }
 
         var analysisPrograms = order.OrderAnalysisPrograms

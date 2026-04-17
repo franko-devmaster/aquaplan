@@ -69,7 +69,16 @@ public record SamplingRoundDetailDto(
     DateTime CreatedAt,
     DateTime? UpdatedAt,
     DateTime? CompletedAt,
-    List<SamplingRoundOrderDto> Orders);
+    List<SamplingRoundOrderDto> Orders,
+    IList<RoundContainerSummaryDto> ContainerSummary);
+
+public record RoundContainerSummaryDto(
+    Guid ContainerId,
+    string Code,
+    string Name,
+    string Material,
+    int VolumeMl,
+    int Count);
 
 public record SamplingRoundOrderDto(
     Guid Id,

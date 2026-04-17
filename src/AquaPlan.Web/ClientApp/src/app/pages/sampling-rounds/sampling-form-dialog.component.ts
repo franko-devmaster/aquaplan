@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
-import { FormGroup, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormGroup, FormControl, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -11,13 +11,29 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TranslateModule } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { SamplingApiService } from '../../services/sampling-api.service';
-import { SamplingDto, SamplingCreateDto, WEATHER_OPTIONS, WeatherOption } from '../../models/sampling.model';
+import { OrderApiService } from '../../services/order-api.service';
+import {
+  SamplingDto,
+  SamplingCreateDto,
+  SamplingContainerInputDto,
+  RequiredContainerDto,
+  WEATHER_OPTIONS,
+  WeatherOption,
+} from '../../models/sampling.model';
 
 export interface SamplingFormDialogData {
   orderId: string;
   sampling: SamplingDto | null;
   orderNumber: string;
   locationName: string;
+}
+
+interface ContainerFormGroup {
+  containerId: FormControl<string>;
+  containerName: FormControl<string>;
+  containerMaterial: FormControl<string>;
+  containerVolumeMl: FormControl<number>;
+  barcode: FormControl<string>;
 }
 
 @Component({
@@ -57,10 +73,32 @@ export interface SamplingFormDialogData {
           </mat-form-field>
         </div>
 
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>{{ 'sampling.sampleBarcode' | translate }}</mat-label>
-          <input matInput formControlName="sampleBarcode">
-        </mat-form-field>
+        <h3 class="section-title">{{ 'sampling.containersTitle' | translate }}</h3>
+
+        @if (loadingContainers()) {
+          <div class="loading-containers">
+            <mat-spinner diameter="24"></mat-spinner>
+          </div>
+        } @else if (containersFormArray.controls.length === 0) {
+          <p class="empty-containers">{{ 'sampling.noContainers' | translate }}</p>
+        } @else {
+          <div class="containers-list" formArrayName="containers">
+            @for (containerGroup of containersFormArray.controls; track containerGroup.value.containerId; let i = $index) {
+              <div class="container-row" [formGroupName]="i">
+                <div class="container-info">
+                  <div class="container-name">{{ containerGroup.value.containerName }}</div>
+                  <div class="container-specs">
+                    {{ containerGroup.value.containerMaterial }} — {{ containerGroup.value.containerVolumeMl }} ml
+                  </div>
+                </div>
+                <mat-form-field appearance="outline" class="container-barcode">
+                  <mat-label>{{ 'sampling.containerBarcode' | translate }}</mat-label>
+                  <input matInput formControlName="barcode" autocomplete="off">
+                </mat-form-field>
+              </div>
+            }
+          </div>
+        }
 
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>{{ 'sampling.notes' | translate }}</mat-label>
@@ -75,6 +113,10 @@ export interface SamplingFormDialogData {
             {{ 'sampling.hasWaterSoftener' | translate }}
           </mat-checkbox>
         </div>
+
+        @if (errorMessage()) {
+          <p class="error-message">{{ errorMessage() }}</p>
+        }
       </form>
     </mat-dialog-content>
 
@@ -84,42 +126,59 @@ export interface SamplingFormDialogData {
         @if (saving()) {
           <mat-spinner diameter="20"></mat-spinner>
         } @else {
-          <mat-icon>save</mat-icon>
-          {{ 'common.save' | translate }}
+          <ng-container>
+            <mat-icon>save</mat-icon>
+            {{ 'common.save' | translate }}
+          </ng-container>
         }
       </button>
     </mat-dialog-actions>
   `,
   styles: [`
     .location-subtitle { margin: -8px 24px 8px; color: #666; font-size: 14px; }
-    .sampling-form { display: flex; flex-direction: column; min-width: 400px; }
+    .sampling-form { display: flex; flex-direction: column; min-width: 480px; }
     .row { display: flex; gap: 16px; }
     .half-width { flex: 1; }
     .full-width { width: 100%; }
     .checkbox-row { display: flex; gap: 24px; margin: 8px 0 16px; }
     mat-dialog-content { max-height: 70vh; }
+    .section-title { margin: 8px 0; font-size: 14px; font-weight: 600; color: #555; }
+    .loading-containers { display: flex; justify-content: center; padding: 16px; }
+    .empty-containers { color: #888; font-style: italic; padding: 8px 0; }
+    .containers-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+    .container-row { display: flex; align-items: center; gap: 12px; padding: 8px; border: 1px solid #eee; border-radius: 4px; }
+    .container-info { flex: 1; min-width: 0; }
+    .container-name { font-weight: 500; }
+    .container-specs { font-size: 12px; color: #777; }
+    .container-barcode { width: 220px; }
+    .error-message { color: #c62828; font-size: 13px; margin-top: 4px; }
   `],
 })
 export class SamplingFormDialogComponent implements OnInit {
   readonly data = inject<SamplingFormDialogData>(MAT_DIALOG_DATA);
   private readonly dialogRef = inject(MatDialogRef<SamplingFormDialogComponent>);
   private readonly samplingApi = inject(SamplingApiService);
+  private readonly orderApi = inject(OrderApiService);
 
   readonly saving = signal(false);
+  readonly loadingContainers = signal(true);
+  readonly errorMessage = signal<string | null>(null);
   readonly isEditMode = signal(false);
   readonly weatherOptions: readonly WeatherOption[] = WEATHER_OPTIONS;
+
+  readonly containersFormArray = new FormArray<FormGroup<ContainerFormGroup>>([]);
 
   readonly form = new FormGroup({
     samplingDateTime: new FormControl<string>(''),
     temperature: new FormControl<number | null>(null, Validators.required),
     weather: new FormControl<string | null>(null, Validators.required),
-    sampleBarcode: new FormControl<string>('', Validators.required),
     notes: new FormControl<string | null>(null),
     hasWaterSoftener: new FormControl<boolean>(false),
     isChlorinated: new FormControl<boolean>(false),
+    containers: this.containersFormArray,
   });
 
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
     const sampling = this.data.sampling;
     if (sampling) {
       this.isEditMode.set(true);
@@ -127,23 +186,55 @@ export class SamplingFormDialogComponent implements OnInit {
         samplingDateTime: this.toDatetimeLocalValue(sampling.samplingDateTime),
         temperature: sampling.temperature,
         weather: sampling.weather,
-        sampleBarcode: sampling.sampleBarcode ?? '',
         notes: sampling.notes,
         hasWaterSoftener: sampling.hasWaterSoftener ?? false,
         isChlorinated: sampling.isChlorinated,
       });
     } else {
-      // Default to current date/time
       this.form.patchValue({
         samplingDateTime: this.toDatetimeLocalValue(new Date().toISOString()),
       });
     }
+
+    try {
+      const required = await firstValueFrom(this.orderApi.getRequiredContainers(this.data.orderId));
+      this.buildContainerFormArray(required, sampling);
+    } catch {
+      // Error handled globally; keep empty array
+    } finally {
+      this.loadingContainers.set(false);
+    }
+  }
+
+  private buildContainerFormArray(required: RequiredContainerDto[], sampling: SamplingDto | null): void {
+    this.containersFormArray.clear();
+    const existingByContainerId = new Map<string, string | null>();
+    if (sampling?.containers) {
+      for (const c of sampling.containers) {
+        existingByContainerId.set(c.containerId, c.barcode);
+      }
+    }
+    for (const required_ of required) {
+      const existingBarcode = existingByContainerId.get(required_.containerId) ?? required_.existingBarcode ?? '';
+      this.containersFormArray.push(new FormGroup<ContainerFormGroup>({
+        containerId: new FormControl<string>(required_.containerId, { nonNullable: true }),
+        containerName: new FormControl<string>(required_.name, { nonNullable: true }),
+        containerMaterial: new FormControl<string>(required_.material, { nonNullable: true }),
+        containerVolumeMl: new FormControl<number>(required_.volumeMl, { nonNullable: true }),
+        barcode: new FormControl<string>(existingBarcode ?? '', { nonNullable: true }),
+      }));
+    }
   }
 
   async save(): Promise<void> {
+    this.errorMessage.set(null);
     this.saving.set(true);
     try {
       const formValue = this.form.getRawValue();
+      const containers: SamplingContainerInputDto[] = this.containersFormArray.controls.map(ctrl => ({
+        containerId: ctrl.value.containerId!,
+        barcode: ctrl.value.barcode && ctrl.value.barcode.trim() !== '' ? ctrl.value.barcode.trim() : null,
+      }));
       const dto: SamplingCreateDto = {
         orderId: this.data.orderId,
         samplingDateTime: formValue.samplingDateTime
@@ -154,7 +245,8 @@ export class SamplingFormDialogComponent implements OnInit {
         notes: formValue.notes,
         hasWaterSoftener: formValue.hasWaterSoftener || null,
         isChlorinated: formValue.isChlorinated ?? false,
-        sampleBarcode: formValue.sampleBarcode || null,
+        sampleBarcode: null,
+        containers,
       };
 
       let result: SamplingDto;
@@ -164,10 +256,20 @@ export class SamplingFormDialogComponent implements OnInit {
         result = await firstValueFrom(this.samplingApi.create(this.data.orderId, dto));
       }
       this.dialogRef.close(result);
-    } catch {
-      // Error handled by global error handler
+    } catch (err: unknown) {
+      const message = this.extractErrorMessage(err);
+      this.errorMessage.set(message);
       this.saving.set(false);
     }
+  }
+
+  private extractErrorMessage(err: unknown): string {
+    if (err && typeof err === 'object') {
+      const maybeResponse = err as { error?: { error?: string; message?: string } };
+      if (maybeResponse.error?.error) return maybeResponse.error.error;
+      if (maybeResponse.error?.message) return maybeResponse.error.message;
+    }
+    return 'Une erreur est survenue lors de l’enregistrement.';
   }
 
   private toDatetimeLocalValue(isoString: string): string {

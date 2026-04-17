@@ -9,6 +9,7 @@ import {
   OrderFilterDto,
   OrderPagedResultDto,
 } from '../models/order.model';
+import { RequiredContainerDto } from '../models/sampling.model';
 
 @Injectable({ providedIn: 'root' })
 export class OrderApiService {
@@ -80,6 +81,10 @@ export class OrderApiService {
 
   transition(orderId: string, newStatus: string): Observable<void> {
     return this.http.post<void>(`${this.baseUrl}/${orderId}/transition`, { newStatus });
+  }
+
+  getRequiredContainers(orderId: string): Observable<RequiredContainerDto[]> {
+    return this.http.get<RequiredContainerDto[]>(`${this.baseUrl}/${orderId}/required-containers`);
   }
 
   exportCsv(filter: OrderFilterDto): Observable<Blob> {

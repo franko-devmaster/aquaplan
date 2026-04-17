@@ -373,6 +373,8 @@
     "cancelRound": "Annuler la tournée",
     "addOrder": "Ajouter un mandat",
     "removeOrder": "Retirer le mandat",
+    "materialToPrepare": "Matériel à préparer",
+    "noMaterial": "Aucun contenant requis",
     "noOrders": "Aucun mandat dans cette tournée",
     "searchPlaceholder": "Rechercher par nom, distributeur...",
     "confirmCancel": "Êtes-vous sûr de vouloir annuler cette tournée ?",
@@ -472,6 +474,9 @@
     "isChlorinated": "Eau chlorée",
     "weather3days": "Météo à 3 jours",
     "sampleBarcode": "Code-barres récipient",
+    "containersTitle": "Contenants et codes-barres",
+    "containerBarcode": "Code-barres",
+    "noContainers": "Aucun contenant requis pour ce mandat.",
     "weatherOptions": {
       "dry": "Sec",
       "light_rain": "Faibles pluies",

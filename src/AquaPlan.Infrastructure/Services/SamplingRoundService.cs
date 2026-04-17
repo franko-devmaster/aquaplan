@@ -50,7 +50,10 @@ internal class SamplingRoundService(
                 .ThenInclude(o => o.OriginalSamplingLocation)
             .Include(sr => sr.Orders)
                 .ThenInclude(o => o.OrderAnalysisPrograms)
-                    .ThenInclude(oap => oap.AnalysisProgram)
+                    .ThenInclude(oap => oap.AnalysisProgram!)
+                        .ThenInclude(ap => ap.AnalysisProgramProfiles)
+                            .ThenInclude(app => app.AnalysisProfile!)
+                                .ThenInclude(profile => profile.Container)
             .Where(sr => sr.TenantId == tenantId && sr.Id == id)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -517,7 +520,10 @@ internal class SamplingRoundService(
                 .ThenInclude(o => o.OriginalSamplingLocation)
             .Include(r => r.Orders)
                 .ThenInclude(o => o.OrderAnalysisPrograms)
-                    .ThenInclude(oap => oap.AnalysisProgram)
+                    .ThenInclude(oap => oap.AnalysisProgram!)
+                        .ThenInclude(ap => ap.AnalysisProgramProfiles)
+                            .ThenInclude(app => app.AnalysisProfile!)
+                                .ThenInclude(profile => profile.Container)
             .FirstOrDefaultAsync(r => r.Id == id && r.TenantId == tenantId, cancellationToken);
 
         if (round is null) return null;
@@ -551,6 +557,8 @@ internal class SamplingRoundService(
 
     private static SamplingRoundDetailDto MapToDetailDto(SamplingRound round)
     {
+        var containerSummary = BuildContainerSummary(round);
+
         return new SamplingRoundDetailDto(
             round.Id,
             round.Name,
@@ -583,6 +591,36 @@ internal class SamplingRoundService(
                 o.SamplerComment,
                 o.Notes,
                 o.OrderAnalysisPrograms.Select(oap => oap.AnalysisProgram?.Name ?? string.Empty).ToList()
-            )).ToList());
+            )).ToList(),
+            containerSummary);
+    }
+
+    private static IList<RoundContainerSummaryDto> BuildContainerSummary(SamplingRound round)
+    {
+        var perOrderContainers = round.Orders
+            .Where(o => o.Status != OrderStatus.Cancelled)
+            .SelectMany(o => o.OrderAnalysisPrograms
+                .Where(oap => oap.AnalysisProgram is not null)
+                .SelectMany(oap => oap.AnalysisProgram!.AnalysisProgramProfiles)
+                .Where(app => app.AnalysisProfile?.Container is not null)
+                .Select(app => app.AnalysisProfile!.Container!)
+                .GroupBy(c => c.Id)
+                .Select(g => g.First()));
+
+        return perOrderContainers
+            .GroupBy(c => c.Id)
+            .Select(g =>
+            {
+                var first = g.First();
+                return new RoundContainerSummaryDto(
+                    first.Id,
+                    first.Code,
+                    first.Name,
+                    first.Material,
+                    first.VolumeMl,
+                    g.Count());
+            })
+            .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 }

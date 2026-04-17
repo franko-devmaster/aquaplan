@@ -363,6 +363,233 @@ public class OrderServiceTest : IDisposable
         result.IsDelegated.Should().BeTrue();
     }
 
+    // --- GetRequiredContainersAsync ---
+
+    [Fact]
+    public async Task GetRequiredContainersAsync_WithNoOrder_ShouldReturnNull()
+    {
+        var result = await _sut.GetRequiredContainersAsync(Guid.NewGuid(), TenantId);
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetRequiredContainersAsync_WithCrossTenant_ShouldReturnNull()
+    {
+        var otherTenant = Guid.Parse("00000000-0000-0000-0000-000000000999");
+        var order = await CreateOrderWithPrograms();
+
+        var result = await _sut.GetRequiredContainersAsync(order.Id, otherTenant);
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetRequiredContainersAsync_With2ProfilesSharingContainer_ShouldDeduplicate()
+    {
+        var (order, containerA, _) = await CreateOrderSharedContainerScenario();
+
+        var result = await _sut.GetRequiredContainersAsync(order.Id, TenantId);
+
+        result.Should().NotBeNull();
+        result!.Should().HaveCount(1);
+        result[0].ContainerId.Should().Be(containerA.Id);
+        result[0].ExistingBarcode.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetRequiredContainersAsync_With2ProfilesDifferentContainers_ShouldReturnBoth()
+    {
+        var (order, containerA, containerB) = await CreateOrderTwoContainerScenario();
+
+        var result = await _sut.GetRequiredContainersAsync(order.Id, TenantId);
+
+        result.Should().NotBeNull();
+        result!.Should().HaveCount(2);
+        result.Select(r => r.ContainerId).Should().BeEquivalentTo(new[] { containerA.Id, containerB.Id });
+        result.Should().BeInAscendingOrder(r => r.Code);
+    }
+
+    [Fact]
+    public async Task GetRequiredContainersAsync_WithoutSampling_ShouldReturnEmptyExistingBarcodes()
+    {
+        var (order, _, _) = await CreateOrderTwoContainerScenario();
+
+        var result = await _sut.GetRequiredContainersAsync(order.Id, TenantId);
+
+        result.Should().NotBeNull();
+        result!.Should().AllSatisfy(r => r.ExistingBarcode.Should().BeNull());
+    }
+
+    [Fact]
+    public async Task GetRequiredContainersAsync_WithExistingSampling_ShouldReturnBarcodesFromSamplingContainers()
+    {
+        var (order, containerA, _) = await CreateOrderTwoContainerScenario();
+
+        var sampling = new Sampling
+        {
+            Id = Guid.NewGuid(),
+            OrderId = order.Id,
+            PreleveurId = UserId,
+            SamplingDateTime = DateTime.UtcNow,
+        };
+        _dbContext.Samplings.Add(sampling);
+        _dbContext.SamplingContainers.Add(new SamplingContainer
+        {
+            Id = Guid.NewGuid(),
+            SamplingId = sampling.Id,
+            ContainerId = containerA.Id,
+            Barcode = "BC-AAA",
+            TenantId = TenantId,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetRequiredContainersAsync(order.Id, TenantId);
+
+        result.Should().NotBeNull();
+        var entryA = result!.Single(r => r.ContainerId == containerA.Id);
+        entryA.ExistingBarcode.Should().Be("BC-AAA");
+        result.Single(r => r.ContainerId != containerA.Id).ExistingBarcode.Should().BeNull();
+    }
+
+    private async Task<Order> CreateOrderWithPrograms()
+    {
+        var (order, _, _) = await CreateOrderTwoContainerScenario();
+        return order;
+    }
+
+    private async Task<(Order Order, Container ContainerA, Container ContainerB)> CreateOrderTwoContainerScenario()
+    {
+        var containerA = new Container
+        {
+            Id = Guid.NewGuid(),
+            Code = "AAA-CONT",
+            Name = "Flacon A",
+            Material = "Verre",
+            VolumeMl = 250,
+            Color = "Transparent",
+            IsActive = true,
+            TenantId = TenantId,
+        };
+        var containerB = new Container
+        {
+            Id = Guid.NewGuid(),
+            Code = "BBB-CONT",
+            Name = "Flacon B",
+            Material = "PET",
+            VolumeMl = 500,
+            Color = "Transparent",
+            IsActive = true,
+            TenantId = TenantId,
+        };
+        _dbContext.Containers.Add(containerA);
+        _dbContext.Containers.Add(containerB);
+
+        var profileA = new AnalysisProfile
+        {
+            Id = Guid.NewGuid(), Code = "PA", Name = "Profil A",
+            TenantId = TenantId, ContainerId = containerA.Id,
+        };
+        var profileB = new AnalysisProfile
+        {
+            Id = Guid.NewGuid(), Code = "PB", Name = "Profil B",
+            TenantId = TenantId, ContainerId = containerB.Id,
+        };
+        _dbContext.AnalysisProfiles.Add(profileA);
+        _dbContext.AnalysisProfiles.Add(profileB);
+
+        var program = new AnalysisProgram
+        {
+            Id = Guid.NewGuid(), Code = "PRG", Name = "Programme", TenantId = TenantId,
+        };
+        _dbContext.AnalysisPrograms.Add(program);
+        _dbContext.AnalysisProgramProfiles.Add(new AnalysisProgramProfile
+        {
+            AnalysisProgramId = program.Id, AnalysisProfileId = profileA.Id,
+        });
+        _dbContext.AnalysisProgramProfiles.Add(new AnalysisProgramProfile
+        {
+            AnalysisProgramId = program.Id, AnalysisProfileId = profileB.Id,
+        });
+
+        var order = new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = "ORD-REQ",
+            CreatedById = UserId,
+            DistributorId = DistributorId,
+            TenantId = TenantId,
+            Status = OrderStatus.New,
+        };
+        _dbContext.Orders.Add(order);
+        _dbContext.OrderAnalysisPrograms.Add(new OrderAnalysisProgram
+        {
+            OrderId = order.Id, AnalysisProgramId = program.Id,
+        });
+        await _dbContext.SaveChangesAsync();
+        return (order, containerA, containerB);
+    }
+
+    private async Task<(Order Order, Container ContainerA, Container ContainerB)> CreateOrderSharedContainerScenario()
+    {
+        var container = new Container
+        {
+            Id = Guid.NewGuid(),
+            Code = "AAA-CONT",
+            Name = "Flacon partagé",
+            Material = "Verre",
+            VolumeMl = 250,
+            Color = "Transparent",
+            IsActive = true,
+            TenantId = TenantId,
+        };
+        _dbContext.Containers.Add(container);
+
+        var profileA = new AnalysisProfile
+        {
+            Id = Guid.NewGuid(), Code = "PA", Name = "Profil A",
+            TenantId = TenantId, ContainerId = container.Id,
+        };
+        var profileB = new AnalysisProfile
+        {
+            Id = Guid.NewGuid(), Code = "PB", Name = "Profil B",
+            TenantId = TenantId, ContainerId = container.Id,
+        };
+        _dbContext.AnalysisProfiles.Add(profileA);
+        _dbContext.AnalysisProfiles.Add(profileB);
+
+        var program = new AnalysisProgram
+        {
+            Id = Guid.NewGuid(), Code = "PRG", Name = "Programme", TenantId = TenantId,
+        };
+        _dbContext.AnalysisPrograms.Add(program);
+        _dbContext.AnalysisProgramProfiles.Add(new AnalysisProgramProfile
+        {
+            AnalysisProgramId = program.Id, AnalysisProfileId = profileA.Id,
+        });
+        _dbContext.AnalysisProgramProfiles.Add(new AnalysisProgramProfile
+        {
+            AnalysisProgramId = program.Id, AnalysisProfileId = profileB.Id,
+        });
+
+        var order = new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = "ORD-SHARED",
+            CreatedById = UserId,
+            DistributorId = DistributorId,
+            TenantId = TenantId,
+            Status = OrderStatus.New,
+        };
+        _dbContext.Orders.Add(order);
+        _dbContext.OrderAnalysisPrograms.Add(new OrderAnalysisProgram
+        {
+            OrderId = order.Id, AnalysisProgramId = program.Id,
+        });
+        await _dbContext.SaveChangesAsync();
+        return (order, container, container);
+    }
+
     private async Task<Order> CreateSeedOrder(OrderStatus status)
     {
         var order = new Order
