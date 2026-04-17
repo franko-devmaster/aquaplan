@@ -20,7 +20,18 @@ public class SamplingConfiguration : IEntityTypeConfiguration<Sampling>
             .HasForeignKey(s => s.PreleveurId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(s => s.Tenant)
+            .WithMany()
+            .HasForeignKey(s => s.TenantId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.Property(s => s.SampleBarcode).HasMaxLength(100);
-        builder.HasIndex(s => s.SampleBarcode).IsUnique().HasFilter("sample_barcode IS NOT NULL");
+
+        // Sample barcode is unique per tenant when not null.
+        // Rule: within a mandate, every container shares the same barcode,
+        // and that barcode cannot be reused by another mandate of the same tenant.
+        builder.HasIndex(s => new { s.TenantId, s.SampleBarcode })
+            .IsUnique()
+            .HasFilter("sample_barcode IS NOT NULL");
     }
 }

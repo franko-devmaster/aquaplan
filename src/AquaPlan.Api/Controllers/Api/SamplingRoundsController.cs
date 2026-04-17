@@ -17,7 +17,7 @@ public class SamplingRoundsController(
 {
     [HttpGet]
     public async Task<ActionResult<SamplingRoundPagedResultDto>> GetRounds(
-        [FromQuery] SamplingRoundStatus? status,
+        [FromQuery(Name = "statuses")] SamplingRoundStatus[]? statuses,
         [FromQuery] Guid? distributorId,
         [FromQuery] string? preleveurId,
         [FromQuery] DateTime? deadlineFrom,
@@ -32,7 +32,7 @@ public class SamplingRoundsController(
         var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
 
         var filter = new SamplingRoundFilterDto(
-            status, distributorId, preleveurId, deadlineFrom, deadlineTo, search, page, pageSize);
+            statuses, distributorId, preleveurId, deadlineFrom, deadlineTo, search, page, pageSize);
 
         var result = await samplingRoundService.GetFilteredAsync(userId, tenantId, filter, isAdmin, cancellationToken);
         return Ok(result);

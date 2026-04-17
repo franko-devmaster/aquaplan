@@ -492,6 +492,10 @@
     "containersTitle": "Contenants et codes-barres",
     "containerBarcode": "Code-barres",
     "noContainers": "Aucun contenant requis pour ce mandat.",
+    "barcodeSharedHint": "Tous les flacons d'un mandat partagent le même code-barres (un seul prélèvement, plusieurs flacons).",
+    "errors": {
+      "barcodesMustBeIdentical": "Tous les codes-barres d'un mandat doivent être identiques (même prélèvement, flacons multiples)."
+    },
     "weatherOptions": {
       "dry": "Sec",
       "light_rain": "Faibles pluies",

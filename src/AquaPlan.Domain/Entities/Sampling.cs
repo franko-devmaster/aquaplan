@@ -17,6 +17,8 @@ public class Sampling
     public DateTime? BarcodeScannedAt { get; set; }
     public bool IsValidated { get; set; }
     public DateTime? ValidatedAt { get; set; }
+    public Guid TenantId { get; set; }
+    public Tenant? Tenant { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 

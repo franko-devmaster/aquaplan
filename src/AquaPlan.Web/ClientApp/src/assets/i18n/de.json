@@ -300,6 +300,10 @@
     "containersTitle": "Behälter und Barcodes",
     "containerBarcode": "Barcode",
     "noContainers": "Kein Behälter für diesen Auftrag erforderlich.",
+    "barcodeSharedHint": "Alle Flaschen eines Auftrags teilen sich denselben Barcode (eine einzige Probe, mehrere Flaschen).",
+    "errors": {
+      "barcodesMustBeIdentical": "Alle Barcodes eines Auftrags müssen identisch sein (eine Probe, mehrere Flaschen)."
+    },
     "weatherOptions": {
       "dry": "Trocken",
       "light_rain": "Leichter Regen",

@@ -84,6 +84,38 @@ public class SamplingRoundsControllerTest
 
     #endregion
 
+    #region GetRounds multi-status filter
+
+    [Fact]
+    public void GetRounds_ShouldAcceptStatusesArrayFromQuery()
+    {
+        // AQ-362 — the endpoint must bind the repeated statuses=A&statuses=B
+        // query pattern emitted by the dashboard.
+        var method = typeof(SamplingRoundsController).GetMethod(nameof(SamplingRoundsController.GetRounds));
+        method.Should().NotBeNull();
+
+        var statusesParam = method!.GetParameters()
+            .FirstOrDefault(p => p.Name == "statuses");
+        statusesParam.Should().NotBeNull("GetRounds must accept a 'statuses' query parameter");
+
+        statusesParam!.ParameterType.Should().Be(typeof(SamplingRoundStatus[]));
+
+        var fromQuery = statusesParam.GetCustomAttributes(typeof(FromQueryAttribute), true)
+            .OfType<FromQueryAttribute>()
+            .FirstOrDefault();
+        fromQuery.Should().NotBeNull();
+        fromQuery!.Name.Should().Be("statuses");
+    }
+
+    [Fact]
+    public void GetRounds_ShouldHaveHttpGetAttribute()
+    {
+        var method = typeof(SamplingRoundsController).GetMethod(nameof(SamplingRoundsController.GetRounds));
+        method!.GetCustomAttributes(typeof(HttpGetAttribute), true).Should().NotBeEmpty();
+    }
+
+    #endregion
+
     #region RevertToDraft
 
     [Fact]

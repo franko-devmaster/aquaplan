@@ -307,6 +307,10 @@
     "containersTitle": "Containers and barcodes",
     "containerBarcode": "Barcode",
     "noContainers": "No container required for this order.",
+    "barcodeSharedHint": "Every vial of a mandate shares the same barcode (one sample, multiple vials).",
+    "errors": {
+      "barcodesMustBeIdentical": "All barcodes of a mandate must be identical (one sample, multiple vials)."
+    },
     "weatherOptions": {
       "dry": "Dry",
       "light_rain": "Light rain",

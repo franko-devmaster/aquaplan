@@ -424,16 +424,19 @@ public class OrderServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task GetRequiredContainersAsync_WithExistingSampling_ShouldReturnBarcodesFromSamplingContainers()
+    public async Task GetRequiredContainersAsync_WithExistingSampling_ShouldReturnCanonicalBarcodeForAllContainers()
     {
-        var (order, containerA, _) = await CreateOrderTwoContainerScenario();
+        var (order, containerA, containerB) = await CreateOrderTwoContainerScenario();
 
+        // AQ-363 — a mandate has a SINGLE canonical barcode shared by every container.
         var sampling = new Sampling
         {
             Id = Guid.NewGuid(),
             OrderId = order.Id,
             PreleveurId = UserId,
             SamplingDateTime = DateTime.UtcNow,
+            SampleBarcode = "BC-CANONICAL",
+            TenantId = TenantId,
         };
         _dbContext.Samplings.Add(sampling);
         _dbContext.SamplingContainers.Add(new SamplingContainer
@@ -441,17 +444,14 @@ public class OrderServiceTest : IDisposable
             Id = Guid.NewGuid(),
             SamplingId = sampling.Id,
             ContainerId = containerA.Id,
-            Barcode = "BC-AAA",
-            TenantId = TenantId,
         });
         await _dbContext.SaveChangesAsync();
 
         var result = await _sut.GetRequiredContainersAsync(order.Id, TenantId);
 
         result.Should().NotBeNull();
-        var entryA = result!.Single(r => r.ContainerId == containerA.Id);
-        entryA.ExistingBarcode.Should().Be("BC-AAA");
-        result.Single(r => r.ContainerId != containerA.Id).ExistingBarcode.Should().BeNull();
+        result!.Single(r => r.ContainerId == containerA.Id).ExistingBarcode.Should().Be("BC-CANONICAL");
+        result.Single(r => r.ContainerId == containerB.Id).ExistingBarcode.Should().Be("BC-CANONICAL");
     }
 
     // ─── Bulk transitions ──────────────────────────────────────

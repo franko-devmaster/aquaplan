@@ -54,15 +54,17 @@ public class SamplingContainerConfigurationTest : IDisposable
     }
 
     [Fact]
-    public void Model_ShouldConfigureFilteredUniqueIndex_OnTenantAndBarcode()
+    public void Model_ShouldConfigureFilteredUniqueIndex_OnTenantAndSampleBarcode_OnSamplings()
     {
-        var entity = _dbContext.Model.FindEntityType(typeof(SamplingContainer))!;
+        // AQ-363 — the barcode is carried by Sampling (canonical per mandate),
+        // not by SamplingContainer. The unique index lives on samplings(tenant_id, sample_barcode).
+        var entity = _dbContext.Model.FindEntityType(typeof(Sampling))!;
 
         var index = entity.GetIndexes().FirstOrDefault(i =>
             i.Properties.Select(p => p.Name).SequenceEqual(new[]
             {
-                nameof(SamplingContainer.TenantId),
-                nameof(SamplingContainer.Barcode)
+                nameof(Sampling.TenantId),
+                nameof(Sampling.SampleBarcode)
             }));
 
         index.Should().NotBeNull();
@@ -105,6 +107,8 @@ public class SamplingContainerConfigurationTest : IDisposable
             OrderId = order.Id,
             PreleveurId = "u1",
             SamplingDateTime = DateTime.UtcNow,
+            SampleBarcode = "LAB-001",
+            TenantId = tenantId,
         };
         _dbContext.Samplings.Add(sampling);
 
@@ -113,15 +117,13 @@ public class SamplingContainerConfigurationTest : IDisposable
             Id = Guid.NewGuid(),
             SamplingId = sampling.Id,
             ContainerId = container.Id,
-            Barcode = "LAB-001",
-            TenantId = tenantId,
         };
         _dbContext.SamplingContainers.Add(sc);
 
         await _dbContext.SaveChangesAsync();
 
-        var reloaded = await _dbContext.SamplingContainers.FindAsync(sc.Id);
+        var reloaded = await _dbContext.Samplings.FindAsync(sampling.Id);
         reloaded.Should().NotBeNull();
-        reloaded!.Barcode.Should().Be("LAB-001");
+        reloaded!.SampleBarcode.Should().Be("LAB-001");
     }
 }

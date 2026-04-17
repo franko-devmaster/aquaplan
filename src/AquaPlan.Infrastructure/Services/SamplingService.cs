@@ -60,6 +60,10 @@ internal class SamplingService(
             throw new InvalidOperationException("Sampling data already exists for this order. Use update instead.");
         }
 
+        // Derive canonical barcode from containers (if any) or from dto.SampleBarcode.
+        var canonicalBarcode = ResolveCanonicalBarcode(dto);
+        await EnsureBarcodeUniqueAcrossTenantAsync(canonicalBarcode, null, tenantId, cancellationToken);
+
         var sampling = new Sampling
         {
             Id = Guid.NewGuid(),
@@ -71,7 +75,9 @@ internal class SamplingService(
             Notes = dto.Notes,
             HasWaterSoftener = dto.HasWaterSoftener,
             IsChlorinated = dto.IsChlorinated,
-            SampleBarcode = dto.SampleBarcode,
+            SampleBarcode = canonicalBarcode,
+            BarcodeScannedAt = canonicalBarcode is not null ? DateTime.UtcNow : null,
+            TenantId = tenantId,
             CreatedAt = DateTime.UtcNow,
         };
 
@@ -79,19 +85,14 @@ internal class SamplingService(
 
         if (dto.Containers is { Count: > 0 })
         {
-            await ValidateBarcodeUniquenessAsync(dto.Containers, sampling.Id, tenantId, cancellationToken);
-
             foreach (var containerInput in dto.Containers)
             {
-                var barcode = string.IsNullOrWhiteSpace(containerInput.Barcode) ? null : containerInput.Barcode.Trim();
                 sampling.Containers.Add(new SamplingContainer
                 {
                     Id = Guid.NewGuid(),
                     SamplingId = sampling.Id,
                     ContainerId = containerInput.ContainerId,
-                    Barcode = barcode,
                     BarcodeScannedAt = containerInput.BarcodeScannedAt,
-                    TenantId = tenantId,
                     CreatedAt = DateTime.UtcNow,
                 });
             }
@@ -138,19 +139,32 @@ internal class SamplingService(
         var sampling = order.Sampling;
         if (sampling is null) return null;
 
+        var canonicalBarcode = ResolveCanonicalBarcode(dto);
+        await EnsureBarcodeUniqueAcrossTenantAsync(canonicalBarcode, sampling.Id, tenantId, cancellationToken);
+
         sampling.SamplingDateTime = DateTime.SpecifyKind(dto.SamplingDateTime, DateTimeKind.Utc);
         sampling.Temperature = dto.Temperature;
         sampling.Weather = dto.Weather;
         sampling.Notes = dto.Notes;
         sampling.HasWaterSoftener = dto.HasWaterSoftener;
         sampling.IsChlorinated = dto.IsChlorinated;
-        sampling.SampleBarcode = dto.SampleBarcode;
+
+        if (canonicalBarcode is not null && sampling.SampleBarcode != canonicalBarcode)
+        {
+            sampling.SampleBarcode = canonicalBarcode;
+            sampling.BarcodeScannedAt = DateTime.UtcNow;
+        }
+        else if (canonicalBarcode is null)
+        {
+            sampling.SampleBarcode = null;
+            sampling.BarcodeScannedAt = null;
+        }
+
         sampling.UpdatedAt = DateTime.UtcNow;
 
         if (dto.Containers is not null)
         {
-            await ValidateBarcodeUniquenessAsync(dto.Containers, sampling.Id, tenantId, cancellationToken);
-            UpsertContainers(sampling, dto.Containers, tenantId);
+            UpsertContainers(sampling, dto.Containers);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -199,27 +213,11 @@ internal class SamplingService(
             throw new InvalidOperationException("Cannot complete sampling: no sampling data recorded yet.");
         }
 
-        // Every required container must have a non-empty barcode before completion.
-        var requiredContainerIds = order.OrderAnalysisPrograms
-            .Where(oap => oap.AnalysisProgram is not null)
-            .SelectMany(oap => oap.AnalysisProgram!.AnalysisProgramProfiles)
-            .Where(app => app.AnalysisProfile is not null)
-            .Select(app => app.AnalysisProfile!.ContainerId)
-            .Distinct()
-            .ToList();
-
-        if (requiredContainerIds.Count > 0)
+        // A mandate can only be completed once a canonical barcode has been captured.
+        if (string.IsNullOrWhiteSpace(order.Sampling.SampleBarcode))
         {
-            var recordedBarcodes = order.Sampling.Containers
-                .Where(c => !string.IsNullOrWhiteSpace(c.Barcode))
-                .Select(c => c.ContainerId)
-                .ToHashSet();
-            var missing = requiredContainerIds.Where(id => !recordedBarcodes.Contains(id)).ToList();
-            if (missing.Count > 0)
-            {
-                throw new InvalidOperationException(
-                    "Cannot complete sampling: a barcode is missing for at least one required container.");
-            }
+            throw new InvalidOperationException(
+                "Cannot complete sampling: a barcode is missing for at least one required container.");
         }
 
         order.Status = OrderStatus.Completed;
@@ -309,15 +307,7 @@ internal class SamplingService(
             throw new InvalidOperationException("Cannot scan barcode: no sampling data recorded yet. Create sampling first.");
         }
 
-        // Check barcode uniqueness within tenant (legacy field)
-        var existingBarcode = await dbContext.Samplings
-            .Where(s => s.SampleBarcode == barcode && s.Order!.TenantId == tenantId && s.Id != sampling.Id)
-            .AnyAsync(cancellationToken);
-
-        if (existingBarcode)
-        {
-            throw new InvalidOperationException($"Barcode '{barcode}' is already associated with another sampling.");
-        }
+        await EnsureBarcodeUniqueAcrossTenantAsync(barcode, sampling.Id, tenantId, cancellationToken);
 
         sampling.SampleBarcode = barcode;
         sampling.BarcodeScannedAt = DateTime.UtcNow;
@@ -342,7 +332,7 @@ internal class SamplingService(
         var sampling = await dbContext.Samplings
             .Include(s => s.Preleveur)
             .Include(s => s.Containers)
-            .Where(s => s.SampleBarcode == barcode && s.Order!.TenantId == tenantId)
+            .Where(s => s.SampleBarcode == barcode && s.TenantId == tenantId)
             .FirstOrDefaultAsync(cancellationToken);
 
         if (sampling is null) return null;
@@ -350,46 +340,65 @@ internal class SamplingService(
         return MapToDto(sampling);
     }
 
-    private async Task ValidateBarcodeUniquenessAsync(
-        IList<SamplingContainerInputDto> inputs, Guid samplingId, Guid tenantId,
-        CancellationToken cancellationToken)
+    /// <summary>
+    /// Extracts the canonical barcode for a mandate.
+    /// Rule: every container of the same mandate must share the same barcode
+    /// (it is the same sample, conditioned into multiple vials).
+    /// Returns the shared barcode, or null if all inputs are empty.
+    /// Throws when container barcodes diverge.
+    /// </summary>
+    private static string? ResolveCanonicalBarcode(SamplingCreateDto dto)
     {
-        // Duplicate barcodes within the payload itself
-        var withinPayload = inputs
-            .Where(i => !string.IsNullOrWhiteSpace(i.Barcode))
-            .GroupBy(i => i.Barcode!.Trim())
-            .FirstOrDefault(g => g.Count() > 1);
-        if (withinPayload is not null)
+        var distinctContainerBarcodes = dto.Containers?
+            .Select(c => string.IsNullOrWhiteSpace(c.Barcode) ? null : c.Barcode.Trim())
+            .Where(b => b is not null)
+            .Distinct()
+            .ToList() ?? new List<string?>();
+
+        if (distinctContainerBarcodes.Count > 1)
         {
             throw new InvalidOperationException(
-                $"Barcode '{withinPayload.Key}' is used more than once in the same sampling.");
+                "Tous les codes-barres d'un mandat doivent être identiques (même prélèvement, flacons multiples).");
         }
 
-        var nonNullBarcodes = inputs
-            .Where(i => !string.IsNullOrWhiteSpace(i.Barcode))
-            .Select(i => i.Barcode!.Trim())
-            .Distinct()
-            .ToList();
+        var fromContainers = distinctContainerBarcodes.SingleOrDefault();
+        var fromDto = string.IsNullOrWhiteSpace(dto.SampleBarcode) ? null : dto.SampleBarcode.Trim();
 
-        if (nonNullBarcodes.Count == 0) return;
-
-        var collision = await dbContext.SamplingContainers
-            .Where(sc => sc.TenantId == tenantId
-                && sc.SamplingId != samplingId
-                && sc.Barcode != null
-                && nonNullBarcodes.Contains(sc.Barcode))
-            .Select(sc => sc.Barcode)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (collision is not null)
+        // If both are provided, they must match.
+        if (fromContainers is not null && fromDto is not null && fromContainers != fromDto)
         {
             throw new InvalidOperationException(
-                $"Barcode '{collision}' is already used by another sampling of the same tenant.");
+                "Tous les codes-barres d'un mandat doivent être identiques (même prélèvement, flacons multiples).");
+        }
+
+        return fromContainers ?? fromDto;
+    }
+
+    /// <summary>
+    /// Ensures a barcode is not already used by another Sampling in the same tenant.
+    /// </summary>
+    private async Task EnsureBarcodeUniqueAcrossTenantAsync(
+        string? barcode, Guid? currentSamplingId, Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(barcode)) return;
+
+        var trimmed = barcode.Trim();
+        var exists = await dbContext.Samplings
+            .AnyAsync(s => s.TenantId == tenantId
+                && s.SampleBarcode == trimmed
+                && (currentSamplingId == null || s.Id != currentSamplingId),
+                cancellationToken);
+
+        if (exists)
+        {
+            throw new InvalidOperationException(
+                $"Ce code-barres '{trimmed}' est déjà utilisé par un autre mandat.");
         }
     }
 
     private void UpsertContainers(
-        Sampling sampling, IList<SamplingContainerInputDto> inputs, Guid tenantId)
+        Sampling sampling, IList<SamplingContainerInputDto> inputs)
     {
         var inputIds = inputs.Select(i => i.ContainerId).ToHashSet();
 
@@ -402,7 +411,6 @@ internal class SamplingService(
 
         foreach (var input in inputs)
         {
-            var normalizedBarcode = string.IsNullOrWhiteSpace(input.Barcode) ? null : input.Barcode.Trim();
             var existing = sampling.Containers.FirstOrDefault(c => c.ContainerId == input.ContainerId);
             if (existing is null)
             {
@@ -411,27 +419,22 @@ internal class SamplingService(
                     Id = Guid.NewGuid(),
                     SamplingId = sampling.Id,
                     ContainerId = input.ContainerId,
-                    Barcode = normalizedBarcode,
                     BarcodeScannedAt = input.BarcodeScannedAt,
-                    TenantId = tenantId,
                     CreatedAt = DateTime.UtcNow,
                 });
             }
-            else
+            else if (input.BarcodeScannedAt.HasValue)
             {
-                existing.Barcode = normalizedBarcode;
-                if (input.BarcodeScannedAt.HasValue)
-                {
-                    existing.BarcodeScannedAt = input.BarcodeScannedAt;
-                }
+                existing.BarcodeScannedAt = input.BarcodeScannedAt;
             }
         }
     }
 
     private static SamplingDto MapToDto(Sampling sampling)
     {
+        // Every container of a mandate shares the same canonical barcode (Sampling.SampleBarcode).
         var containers = sampling.Containers
-            .Select(c => new SamplingContainerDto(c.Id, c.ContainerId, c.Barcode, c.BarcodeScannedAt))
+            .Select(c => new SamplingContainerDto(c.Id, c.ContainerId, sampling.SampleBarcode, c.BarcodeScannedAt))
             .ToList();
 
         return new SamplingDto(

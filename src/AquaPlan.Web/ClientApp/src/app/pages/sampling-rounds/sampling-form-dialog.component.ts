@@ -97,7 +97,9 @@ interface ContainerFormGroup {
                 </div>
                 <mat-form-field appearance="outline" class="container-barcode">
                   <mat-label>{{ 'sampling.containerBarcode' | translate }}</mat-label>
-                  <input matInput formControlName="barcode" autocomplete="off">
+                  <input matInput formControlName="barcode" autocomplete="off"
+                         [matTooltip]="'sampling.barcodeSharedHint' | translate"
+                         (input)="onBarcodeInput(i)">
                 </mat-form-field>
                 <button type="button" mat-icon-button
                         class="scan-btn"
@@ -250,6 +252,9 @@ export class SamplingFormDialogComponent implements OnInit {
       if (result?.barcode) {
         const group = this.containersFormArray.at(index);
         group?.patchValue({ barcode: result.barcode });
+        // AQ-363 — every container of a mandate shares the SAME barcode.
+        // Auto-fill empty peer fields to match.
+        this.propagateBarcodeToEmptyPeers(index, result.barcode);
         this.snackBar.open(
           this.translate.instant('scan.success', { value: result.barcode }),
           this.translate.instant('common.close'),
@@ -259,14 +264,53 @@ export class SamplingFormDialogComponent implements OnInit {
     });
   }
 
+  /**
+   * AQ-363 — When the user types/scans a barcode in one row, propagate the value
+   * to every other row that is still empty. Rows already containing a value are
+   * left untouched (divergence will be surfaced by validateBarcodesIdentical at save).
+   */
+  onBarcodeInput(index: number): void {
+    const source = this.containersFormArray.at(index);
+    const value = source?.value.barcode?.trim();
+    if (!value) return;
+    this.propagateBarcodeToEmptyPeers(index, value);
+  }
+
+  private propagateBarcodeToEmptyPeers(sourceIndex: number, barcode: string): void {
+    const trimmed = barcode.trim();
+    if (!trimmed) return;
+    this.containersFormArray.controls.forEach((ctrl, i) => {
+      if (i === sourceIndex) return;
+      const current = ctrl.value.barcode?.trim();
+      if (!current) {
+        ctrl.patchValue({ barcode: trimmed }, { emitEvent: false });
+      }
+    });
+  }
+
   async save(): Promise<void> {
     this.errorMessage.set(null);
+
+    // AQ-363 — all non-empty barcodes of a mandate MUST be identical.
+    const raw = this.containersFormArray.controls
+      .map(ctrl => (ctrl.value.barcode ?? '').trim())
+      .filter(v => v !== '');
+    const distinct = Array.from(new Set(raw));
+    if (distinct.length > 1) {
+      this.errorMessage.set(
+        this.translate.instant('sampling.errors.barcodesMustBeIdentical'));
+      return;
+    }
+    const canonicalBarcode = distinct[0] ?? null;
+
     this.saving.set(true);
     try {
       const formValue = this.form.getRawValue();
       const containers: SamplingContainerInputDto[] = this.containersFormArray.controls.map(ctrl => ({
         containerId: ctrl.value.containerId!,
-        barcode: ctrl.value.barcode && ctrl.value.barcode.trim() !== '' ? ctrl.value.barcode.trim() : null,
+        // Send the canonical value on every row so the backend's server-side
+        // validation sees a consistent payload.
+        barcode: canonicalBarcode,
       }));
       const dto: SamplingCreateDto = {
         orderId: this.data.orderId,
@@ -278,7 +322,7 @@ export class SamplingFormDialogComponent implements OnInit {
         notes: formValue.notes,
         hasWaterSoftener: formValue.hasWaterSoftener || null,
         isChlorinated: formValue.isChlorinated ?? false,
-        sampleBarcode: null,
+        sampleBarcode: canonicalBarcode,
         containers,
       };
 

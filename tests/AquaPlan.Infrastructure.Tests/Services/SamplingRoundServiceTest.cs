@@ -95,10 +95,40 @@ public class SamplingRoundServiceTest : IDisposable
         var round2 = await CreateDraftRoundWithOrders(orderCount: 1);
         await TransitionToAssigned(round2.Id);
 
-        var filter = new SamplingRoundFilterDto(Status: SamplingRoundStatus.Assigned);
+        var filter = new SamplingRoundFilterDto(Statuses: new[] { SamplingRoundStatus.Assigned });
         var result = await _sut.GetFilteredAsync(UserId, TenantId, filter, isAdmin: true);
 
         result.Items.Should().AllSatisfy(r => r.Status.Should().Be(SamplingRoundStatus.Assigned));
+    }
+
+    [Fact]
+    public async Task GetFilteredAsync_WithMultipleStatuses_ShouldReturnAllMatching()
+    {
+        // AQ-362 — dashboard filter sends statuses=Draft&statuses=Assigned&statuses=InProgress
+        // and every matching round must come back.
+        var draft = await CreateDraftRound("Draft round");
+        var roundToAssign = await CreateDraftRoundWithOrders(orderCount: 1);
+        await TransitionToAssigned(roundToAssign.Id);
+        var roundToComplete = await CreateDraftRoundWithOrders(orderCount: 1);
+        await TransitionToAssigned(roundToComplete.Id);
+        await TransitionToCompleted(roundToComplete.Id);
+
+        var filter = new SamplingRoundFilterDto(Statuses: new[]
+        {
+            SamplingRoundStatus.Draft,
+            SamplingRoundStatus.Assigned,
+            SamplingRoundStatus.InProgress,
+        });
+        var result = await _sut.GetFilteredAsync(UserId, TenantId, filter, isAdmin: true);
+
+        var ids = result.Items.Select(r => r.Id).ToList();
+        ids.Should().Contain(draft.Id);
+        ids.Should().Contain(roundToAssign.Id);
+        ids.Should().NotContain(roundToComplete.Id);
+        result.Items.Should().AllSatisfy(r => r.Status.Should().BeOneOf(
+            SamplingRoundStatus.Draft,
+            SamplingRoundStatus.Assigned,
+            SamplingRoundStatus.InProgress));
     }
 
     [Fact]
@@ -860,5 +890,12 @@ public class SamplingRoundServiceTest : IDisposable
     {
         var dto = new SamplingRoundAssignDto(PreleveurId: PreleveurId);
         await _sut.AssignPreleveurAsync(roundId, dto, UserId, TenantId);
+    }
+
+    private async Task TransitionToCompleted(Guid roundId)
+    {
+        var round = await _dbContext.SamplingRounds.FirstAsync(r => r.Id == roundId);
+        round.Status = SamplingRoundStatus.Completed;
+        await _dbContext.SaveChangesAsync();
     }
 }

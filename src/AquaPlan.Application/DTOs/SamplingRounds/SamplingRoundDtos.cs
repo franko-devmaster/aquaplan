@@ -97,7 +97,7 @@ public record SamplingRoundOrderDto(
     List<string> AnalysisProgramNames);
 
 public record SamplingRoundFilterDto(
-    SamplingRoundStatus? Status = null,
+    IReadOnlyList<SamplingRoundStatus>? Statuses = null,
     Guid? DistributorId = null,
     string? PreleveurId = null,
     DateTime? DeadlineFrom = null,

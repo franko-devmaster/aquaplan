@@ -293,29 +293,34 @@ public class SamplingServiceTest : IDisposable
             .WithMessage("*no sampling data found*");
     }
 
-    // --- Multi-container tests (AQ-340) ---
+    // --- Multi-container & barcode validation tests (AQ-340 / AQ-363) ---
+    // Business rule: every container of a mandate shares the SAME barcode
+    // (same sample, conditioned into multiple vials). A barcode is unique INTER-mandates
+    // (per tenant) but must be identical INTRA-mandate.
 
     [Fact]
-    public async Task CreateAsync_WithMultipleContainers_ShouldInsertAllContainers()
+    public async Task CreateAsync_WithAllSameBarcodes_ShouldStoreCanonicalOnSampling()
     {
         var (orderId, containerA, containerB) = await CreateOrderWithTwoContainers(OrderStatus.InProgress);
         var dto = CreateSamplingDto(orderId) with
         {
             Containers = new List<SamplingContainerInputDto>
             {
-                new(containerA, "BC-A"),
-                new(containerB, "BC-B"),
+                new(containerA, "BC-CANON"),
+                new(containerB, "BC-CANON"),
             },
         };
 
         var result = await _sut.CreateAsync(dto, PreleveurId, TenantId);
 
         result.Containers.Should().HaveCount(2);
-        result.Containers.Select(c => c.Barcode).Should().BeEquivalentTo(new[] { "BC-A", "BC-B" });
+        result.SampleBarcode.Should().Be("BC-CANON");
+        // Every container exposes the canonical mandate barcode.
+        result.Containers.Should().AllSatisfy(c => c.Barcode.Should().Be("BC-CANON"));
     }
 
     [Fact]
-    public async Task CreateAsync_WithDuplicateBarcodeInPayload_ShouldThrow()
+    public async Task CreateAsync_WithDivergentBarcodes_ShouldThrow()
     {
         var (orderId, containerA, containerB) = await CreateOrderWithTwoContainers(OrderStatus.InProgress);
         var dto = CreateSamplingDto(orderId) with
@@ -323,35 +328,49 @@ public class SamplingServiceTest : IDisposable
             Containers = new List<SamplingContainerInputDto>
             {
                 new(containerA, "BC-X"),
-                new(containerB, "BC-X"),
+                new(containerB, "BC-Y"),
             },
         };
 
         await _sut.Awaiting(s => s.CreateAsync(dto, PreleveurId, TenantId))
             .Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*more than once*");
+            .WithMessage("*identiques*");
     }
 
     [Fact]
-    public async Task CreateAsync_WithBarcodeCollisionInTenant_ShouldThrow()
+    public async Task CreateAsync_WithAllEmptyBarcodes_ShouldSucceedWithoutCanonical()
+    {
+        var (orderId, containerA, containerB) = await CreateOrderWithTwoContainers(OrderStatus.InProgress);
+        var dto = CreateSamplingDto(orderId) with
+        {
+            Containers = new List<SamplingContainerInputDto>
+            {
+                new(containerA, null),
+                new(containerB, null),
+            },
+        };
+
+        var result = await _sut.CreateAsync(dto, PreleveurId, TenantId);
+
+        result.SampleBarcode.Should().BeNull();
+        result.Containers.Should().HaveCount(2);
+        result.Containers.Should().AllSatisfy(c => c.Barcode.Should().BeNull());
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithBarcodeAlreadyUsedByOtherSampling_ShouldThrow()
     {
         var (orderId, containerA, _) = await CreateOrderWithTwoContainers(OrderStatus.InProgress);
 
-        // Seed an existing sampling_container row with the same barcode for another sampling in same tenant.
-        var otherSampling = new Sampling
+        // Seed an existing sampling with the same canonical barcode in the same tenant.
+        var otherOrderId = await CreateOrder(OrderStatus.InProgress, PreleveurId);
+        _dbContext.Samplings.Add(new Sampling
         {
             Id = Guid.NewGuid(),
-            OrderId = Guid.NewGuid(),
+            OrderId = otherOrderId,
             PreleveurId = PreleveurId,
             SamplingDateTime = DateTime.UtcNow,
-        };
-        _dbContext.Samplings.Add(otherSampling);
-        _dbContext.SamplingContainers.Add(new SamplingContainer
-        {
-            Id = Guid.NewGuid(),
-            SamplingId = otherSampling.Id,
-            ContainerId = containerA,
-            Barcode = "COLLIDE",
+            SampleBarcode = "COLLIDE",
             TenantId = TenantId,
         });
         await _dbContext.SaveChangesAsync();
@@ -366,7 +385,37 @@ public class SamplingServiceTest : IDisposable
 
         await _sut.Awaiting(s => s.CreateAsync(dto, PreleveurId, TenantId))
             .Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*already used*");
+            .WithMessage("*déjà utilisé*");
+    }
+
+    [Fact]
+    public async Task CreateAsync_TwoSamplingsDifferentTenants_CanHaveSameBarcode()
+    {
+        var (orderId, containerA, _) = await CreateOrderWithTwoContainers(OrderStatus.InProgress);
+
+        // Seed an existing sampling with the same barcode but on ANOTHER tenant.
+        _dbContext.Samplings.Add(new Sampling
+        {
+            Id = Guid.NewGuid(),
+            OrderId = Guid.NewGuid(),
+            PreleveurId = PreleveurId,
+            SamplingDateTime = DateTime.UtcNow,
+            SampleBarcode = "SHARED",
+            TenantId = OtherTenantId,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var dto = CreateSamplingDto(orderId) with
+        {
+            Containers = new List<SamplingContainerInputDto>
+            {
+                new(containerA, "SHARED"),
+            },
+        };
+
+        var result = await _sut.CreateAsync(dto, PreleveurId, TenantId);
+
+        result.SampleBarcode.Should().Be("SHARED");
     }
 
     [Fact]
@@ -377,36 +426,37 @@ public class SamplingServiceTest : IDisposable
         // Initial create with one container
         var createDto = CreateSamplingDto(orderId) with
         {
-            Containers = new List<SamplingContainerInputDto> { new(containerA, "BC-A") },
+            Containers = new List<SamplingContainerInputDto> { new(containerA, "BC-CANON") },
         };
         await _sut.CreateAsync(createDto, PreleveurId, TenantId);
 
-        // Update adding a second container
+        // Update adding a second container — must share the SAME canonical barcode.
         var updateDto = CreateSamplingDto(orderId) with
         {
             Containers = new List<SamplingContainerInputDto>
             {
-                new(containerA, "BC-A2"),
-                new(containerB, "BC-B"),
+                new(containerA, "BC-CANON-V2"),
+                new(containerB, "BC-CANON-V2"),
             },
         };
         var result = await _sut.UpdateAsync(orderId, updateDto, PreleveurId, TenantId);
 
         result!.Containers.Should().HaveCount(2);
-        result.Containers.Single(c => c.ContainerId == containerA).Barcode.Should().Be("BC-A2");
-        result.Containers.Single(c => c.ContainerId == containerB).Barcode.Should().Be("BC-B");
+        result.SampleBarcode.Should().Be("BC-CANON-V2");
+        result.Containers.Should().AllSatisfy(c => c.Barcode.Should().Be("BC-CANON-V2"));
     }
 
     [Fact]
-    public async Task CompleteAsync_WithMissingBarcode_ShouldThrow()
+    public async Task CompleteAsync_WhenCanonicalBarcodeMissing_ShouldThrow()
     {
         var (orderId, containerA, containerB) = await CreateOrderWithTwoContainers(OrderStatus.InProgress);
 
+        // No barcode provided at all -> SampleBarcode remains null.
         var createDto = CreateSamplingDto(orderId) with
         {
             Containers = new List<SamplingContainerInputDto>
             {
-                new(containerA, "BC-A"),
+                new(containerA, null),
                 new(containerB, null),
             },
         };
@@ -418,7 +468,7 @@ public class SamplingServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task CompleteAsync_WithAllBarcodes_ShouldSucceed()
+    public async Task CompleteAsync_WithCanonicalBarcode_ShouldSucceed()
     {
         var (orderId, containerA, containerB) = await CreateOrderWithTwoContainers(OrderStatus.InProgress);
 
@@ -426,8 +476,8 @@ public class SamplingServiceTest : IDisposable
         {
             Containers = new List<SamplingContainerInputDto>
             {
-                new(containerA, "BC-A"),
-                new(containerB, "BC-B"),
+                new(containerA, "BC-CANON"),
+                new(containerB, "BC-CANON"),
             },
         };
         await _sut.CreateAsync(createDto, PreleveurId, TenantId);
@@ -622,6 +672,10 @@ public class SamplingServiceTest : IDisposable
             Temperature = 15.5,
             Weather = "Sunny",
             Notes = "Test notes",
+            // Default helper yields a sampling that is complete-ready (has canonical barcode).
+            // Tests that want to exercise the "no barcode" branch create the sampling manually.
+            SampleBarcode = $"HELPER-{Guid.NewGuid():N}",
+            TenantId = TenantId,
             CreatedAt = DateTime.UtcNow,
         };
 

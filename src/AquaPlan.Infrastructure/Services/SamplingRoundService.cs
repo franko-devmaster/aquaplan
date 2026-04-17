@@ -84,9 +84,11 @@ internal class SamplingRoundService(
                 (sr.PreleveurId == userId && sr.Status != SamplingRoundStatus.Draft));
         }
 
-        if (filter.Status.HasValue)
+        if (filter.Statuses is { Count: > 0 })
         {
-            query = query.Where(sr => sr.Status == filter.Status.Value);
+            // AQ-362 — support multi-value statuses=Draft&statuses=Assigned.
+            var statuses = filter.Statuses.ToList();
+            query = query.Where(sr => statuses.Contains(sr.Status));
         }
 
         if (filter.DistributorId.HasValue)

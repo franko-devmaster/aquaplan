@@ -478,9 +478,11 @@ export class HomeComponent implements OnInit {
 
     private async loadUpcomingRounds(): Promise<void> {
         try {
+            // AQ-362 — dashboard only shows non-terminated rounds.
+            // Préleveur sees their assigned + ongoing rounds; admins/requesters also see drafts.
             const statuses = this.isPreleveur()
-                ? [SamplingRoundStatus.Assigned]
-                : [SamplingRoundStatus.Draft, SamplingRoundStatus.Assigned];
+                ? [SamplingRoundStatus.Assigned, SamplingRoundStatus.InProgress]
+                : [SamplingRoundStatus.Draft, SamplingRoundStatus.Assigned, SamplingRoundStatus.InProgress];
             const result = await firstValueFrom(
                 this.roundApi.getFiltered({
                     statuses,

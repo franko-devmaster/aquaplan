@@ -433,9 +433,8 @@ internal class OrderService(
             return null;
         }
 
-        var existingBarcodes = order.Sampling?.Containers
-            .ToDictionary(c => c.ContainerId, c => c.Barcode)
-            ?? new Dictionary<Guid, string?>();
+        // A mandate has a single canonical barcode shared by every container (Sampling.SampleBarcode).
+        var existingBarcode = order.Sampling?.SampleBarcode;
 
         var containers = order.OrderAnalysisPrograms
             .Where(oap => oap.AnalysisProgram is not null)
@@ -451,7 +450,7 @@ internal class OrderService(
                 c.Name,
                 c.Material,
                 c.VolumeMl,
-                existingBarcodes.TryGetValue(c.Id, out var barcode) ? barcode : null))
+                existingBarcode))
             .ToList();
 
         return containers;
@@ -497,8 +496,9 @@ internal class OrderService(
         if (order.Sampling is not null)
         {
             var s = order.Sampling;
+            // Every container shares the canonical mandate barcode (Sampling.SampleBarcode).
             var containers = s.Containers
-                .Select(c => new SamplingContainerDto(c.Id, c.ContainerId, c.Barcode, c.BarcodeScannedAt))
+                .Select(c => new SamplingContainerDto(c.Id, c.ContainerId, s.SampleBarcode, c.BarcodeScannedAt))
                 .ToList();
             samplingDto = new SamplingDto(
                 s.Id, s.OrderId, s.PreleveurId,
