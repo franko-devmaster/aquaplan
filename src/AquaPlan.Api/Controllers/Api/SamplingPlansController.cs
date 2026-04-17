@@ -63,6 +63,7 @@ public class SamplingPlansController(
     }
 
     [HttpPost]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}")]
     public async Task<ActionResult<SamplingPlanDetailDto>> CreatePlan([FromBody] SamplingPlanCreateDto dto, CancellationToken cancellationToken)
     {
         var userId = GetUserId();

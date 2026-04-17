@@ -185,6 +185,31 @@ public class SamplingRoundsControllerTest
         method!.GetCustomAttributes(typeof(HttpPostAttribute), true).Should().NotBeEmpty();
     }
 
+    [Fact]
+    public void CreateRound_ShouldHaveAuthorizeAttributeWithCreatorRoles()
+    {
+        var method = typeof(SamplingRoundsController).GetMethod(nameof(SamplingRoundsController.CreateRound));
+        var auth = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true).OfType<AuthorizeAttribute>().FirstOrDefault();
+        auth.Should().NotBeNull();
+        auth!.Roles.Should()
+            .Contain(RoleName.Administrator)
+            .And.Contain(RoleName.Requerant)
+            .And.Contain(RoleName.RequerantPreleveur);
+        auth.Roles.Should().NotContain(RoleName.Preleveur + ",");
+    }
+
+    [Fact]
+    public void AddOrder_ShouldHaveAuthorizeAttributeWithCreatorRoles()
+    {
+        var method = typeof(SamplingRoundsController).GetMethod(nameof(SamplingRoundsController.AddOrder));
+        var auth = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true).OfType<AuthorizeAttribute>().FirstOrDefault();
+        auth.Should().NotBeNull();
+        auth!.Roles.Should()
+            .Contain(RoleName.Administrator)
+            .And.Contain(RoleName.Requerant)
+            .And.Contain(RoleName.RequerantPreleveur);
+    }
+
     #endregion
 
     #region TransmitAll

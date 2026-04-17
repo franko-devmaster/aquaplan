@@ -317,6 +317,24 @@ public class SamplingPlansControllerTest
         method!.GetCustomAttributes(typeof(HttpPostAttribute), true).Should().NotBeEmpty();
     }
 
+    [Fact]
+    public void CreatePlan_ShouldHaveAuthorizeAttributeRestrictingPreleveur()
+    {
+        var method = typeof(SamplingPlansController).GetMethod(nameof(SamplingPlansController.CreatePlan));
+        method.Should().NotBeNull();
+        var auth = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true)
+            .OfType<AuthorizeAttribute>()
+            .FirstOrDefault();
+        auth.Should().NotBeNull();
+        auth!.Roles.Should()
+            .Contain(RoleName.Administrator)
+            .And.Contain(RoleName.Requerant)
+            .And.Contain(RoleName.RequerantPreleveur);
+
+        var roleList = (auth.Roles ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        roleList.Should().NotContain(RoleName.Preleveur);
+    }
+
     #endregion
 
     #region UpdatePlan

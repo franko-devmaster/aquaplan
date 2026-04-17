@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -16,6 +16,7 @@ import { MatSortModule, Sort } from '@angular/material/sort';
 import { DatePipe } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { SamplingRoundDatastore } from '../../datastore/sampling-round.datastore';
+import { AuthService } from '../../services/auth.service';
 import { DistributorApiService } from '../../services/distributor-api.service';
 import { DistributorListDto } from '../../models/distributor.model';
 import {
@@ -41,10 +42,12 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
   template: `
     <div class="page-header">
       <h2>{{ 'samplingRounds.title' | translate }}</h2>
-      <button mat-raised-button color="primary" (click)="createRound()">
-        <mat-icon>add</mat-icon>
-        {{ 'samplingRounds.createRound' | translate }}
-      </button>
+      @if (canCreate()) {
+        <button mat-raised-button color="primary" (click)="createRound()">
+          <mat-icon>add</mat-icon>
+          {{ 'samplingRounds.createRound' | translate }}
+        </button>
+      }
     </div>
 
     <div class="filters-row">
@@ -158,7 +161,10 @@ export class SamplingRoundListComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly dialog = inject(MatDialog);
+  private readonly authService = inject(AuthService);
   private readonly distributorApi = inject(DistributorApiService);
+
+  readonly canCreate = this.authService.canCreateOrders;
 
   readonly distributors = signal<DistributorListDto[]>([]);
   readonly searchValue = signal('');

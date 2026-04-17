@@ -48,6 +48,7 @@ public class SamplingRoundsController(
     }
 
     [HttpPost]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}")]
     public async Task<ActionResult<SamplingRoundDetailDto>> CreateRound(
         [FromBody] SamplingRoundCreateDto dto, CancellationToken cancellationToken)
     {
@@ -123,6 +124,7 @@ public class SamplingRoundsController(
     }
 
     [HttpPost("{id:guid}/orders")]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}")]
     public async Task<ActionResult<SamplingRoundDetailDto>> AddOrder(
         Guid id, [FromBody] SamplingRoundAddOrderDto dto, CancellationToken cancellationToken)
     {

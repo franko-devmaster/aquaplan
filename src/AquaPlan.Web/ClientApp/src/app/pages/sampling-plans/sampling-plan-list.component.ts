@@ -38,10 +38,12 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
   template: `
     <div class="page-header">
       <h2>{{ 'samplingPlans.title' | translate }}</h2>
-      <button mat-raised-button color="primary" (click)="openCreateDialog()">
-        <mat-icon>add</mat-icon>
-        {{ 'samplingPlans.createPlan' | translate }}
-      </button>
+      @if (canCreate()) {
+        <button mat-raised-button color="primary" (click)="openCreateDialog()">
+          <mat-icon>add</mat-icon>
+          {{ 'samplingPlans.createPlan' | translate }}
+        </button>
+      }
     </div>
 
     <div class="filters-row">
@@ -163,6 +165,7 @@ export class SamplingPlanListComponent implements OnInit {
   readonly isAdmin = computed(() =>
     this.authService.currentUser()?.roles.includes('Administrator') ?? false
   );
+  readonly canCreate = this.authService.canCreateOrders;
   readonly distributors = signal<DistributorListDto[]>([]);
   readonly searchValue = signal('');
   private searchTimeout: ReturnType<typeof setTimeout> | null = null;

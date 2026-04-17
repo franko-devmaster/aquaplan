@@ -93,6 +93,7 @@ public class OrdersController(
     }
 
     [HttpPost]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}")]
     public async Task<ActionResult<OrderDetailDto>> CreateOrder([FromBody] OrderCreateDto dto, CancellationToken cancellationToken)
     {
         var userId = GetUserId();

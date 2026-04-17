@@ -29,6 +29,24 @@ export class AuthService {
   readonly currentUser = signal<UserInfo | null>(null);
   readonly isAuthenticated = computed(() => this.accessToken() !== null);
 
+  /**
+   * True if the current user has at least one of the given roles.
+   * Returns false when the user is not loaded yet.
+   */
+  hasAnyRole(roles: string[]): boolean {
+    const userRoles = this.currentUser()?.roles ?? [];
+    return roles.some((r) => userRoles.includes(r));
+  }
+
+  /**
+   * Reactive computed — true when the user can create orders, rounds or plans.
+   * Mirrors the backend [Authorize(Roles = Administrator,Requérant,Requérant-Préleveur)].
+   */
+  readonly canCreateOrders = computed(() => {
+    const userRoles = this.currentUser()?.roles ?? [];
+    return ['Administrator', 'Requérant', 'Requérant-Préleveur'].some((r) => userRoles.includes(r));
+  });
+
   private _userLoaded: Promise<void> = Promise.resolve();
 
   constructor() {

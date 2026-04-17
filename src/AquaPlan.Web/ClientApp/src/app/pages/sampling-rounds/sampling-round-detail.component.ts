@@ -72,7 +72,7 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
               {{ 'samplingRounds.cancelRound' | translate }}
             </button>
           }
-          @if (isDraft()) {
+          @if (isDraft() && canCreate()) {
             <button mat-raised-button color="primary" (click)="assignSampler()" [disabled]="saving()">
               <mat-icon>person_add</mat-icon>
               {{ 'samplingRounds.assignSampler' | translate }}
@@ -346,6 +346,7 @@ export class SamplingRoundDetailComponent implements OnInit {
   readonly isAssigned = computed(() => this.round()?.status === SamplingRoundStatus.Assigned);
   readonly isInProgress = computed(() => this.round()?.status === SamplingRoundStatus.InProgress);
   readonly canSample = computed(() => this.isInProgress());
+  readonly canCreate = this.authService.canCreateOrders;
   readonly isAdmin = computed(() =>
     this.authService.currentUser()?.roles.includes('Administrator') ?? false
   );

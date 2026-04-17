@@ -498,4 +498,32 @@ public class OrdersControllerTest
         var auth = attributes.OfType<AuthorizeAttribute>().First();
         auth.Roles.Should().Contain("Administrator").And.Contain("Requérant");
     }
+
+    [Fact]
+    public void CreateOrder_ShouldHaveAuthorizeAttributeRestrictingPreleveur()
+    {
+        var method = typeof(OrdersController).GetMethod(nameof(OrdersController.CreateOrder));
+        method.Should().NotBeNull();
+        var auth = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true)
+            .OfType<AuthorizeAttribute>()
+            .FirstOrDefault();
+        auth.Should().NotBeNull();
+        auth!.Roles.Should()
+            .Contain(RoleName.Administrator)
+            .And.Contain(RoleName.Requerant)
+            .And.Contain(RoleName.RequerantPreleveur);
+
+        // Preleveur alone must NOT be in the allowed roles list (stand-alone, not as part of Requérant-Préleveur)
+        var roleList = (auth.Roles ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        roleList.Should().NotContain(RoleName.Preleveur);
+    }
+
+    [Fact]
+    public void CreateOrder_ShouldHaveHttpPostAttribute()
+    {
+        var method = typeof(OrdersController).GetMethod(nameof(OrdersController.CreateOrder));
+        method.Should().NotBeNull();
+        var attributes = method!.GetCustomAttributes(typeof(HttpPostAttribute), true);
+        attributes.Should().NotBeEmpty();
+    }
 }

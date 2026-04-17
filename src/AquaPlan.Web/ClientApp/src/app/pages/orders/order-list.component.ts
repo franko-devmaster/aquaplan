@@ -67,10 +67,12 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
             {{ 'orders.export' | translate }}
           </button>
         }
-        <button mat-raised-button color="primary" (click)="openCreateDialog()">
-          <mat-icon>add</mat-icon>
-          {{ 'orders.createOrder' | translate }}
-        </button>
+        @if (canCreate()) {
+          <button mat-raised-button color="primary" (click)="openCreateDialog()">
+            <mat-icon>add</mat-icon>
+            {{ 'orders.createOrder' | translate }}
+          </button>
+        }
       </div>
     </div>
 
@@ -225,6 +227,7 @@ export class OrderListComponent implements OnInit {
     return roles.includes('Requérant') || roles.includes('Requérant-Préleveur');
   });
   readonly canBulkActions = computed(() => this.isAdmin() || this.isRequerant());
+  readonly canCreate = this.authService.canCreateOrders;
   readonly distributors = signal<DistributorListDto[]>([]);
   readonly searchValue = signal('');
   readonly inProgressCount = signal(0);
