@@ -67,6 +67,19 @@
   "footer": {
     "developedBy": "Développé par"
   },
+  "header": {
+    "offline": "Hors ligne",
+    "offlineTooltip": "Vous travaillez hors ligne. Les données se synchroniseront au retour en ligne.",
+    "pendingActions": "en attente",
+    "pendingActionsTooltip": "{{count}} action(s) en attente de synchronisation",
+    "syncing": "Synchronisation..."
+  },
+  "sync": {
+    "success": "{{count}} action(s) synchronisée(s)",
+    "rejected": "Action rejetée par le serveur : {{reason}}",
+    "unlockedLost": "Votre tournée a été réinitialisée par un administrateur. Les saisies non synchronisées sont perdues.",
+    "error5xx": "Erreur serveur, réessayez plus tard"
+  },
   "users": {
     "title": "Gestion des utilisateurs",
     "firstName": "Prénom",
@@ -161,6 +174,8 @@
     "selectRound": "Sélectionner une tournée",
     "noRoundsAvailable": "Aucune tournée disponible pour ce distributeur",
     "transmit": "Transmettre",
+    "transmitNoNetwork": "Pas de réseau. Réessayez une fois connecté.",
+    "bulkTransmitNoNetwork": "Pas de réseau. Réessayez une fois connecté.",
     "transmitted": "Transmis avec succès",
     "confirmTransmit": "Confirmer la transmission de ce mandat ?"
   },

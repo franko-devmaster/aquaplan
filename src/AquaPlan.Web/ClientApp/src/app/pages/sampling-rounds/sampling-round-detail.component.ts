@@ -701,6 +701,19 @@ export class SamplingRoundDetailComponent implements OnInit {
   async transmitAll(): Promise<void> {
     const r = this.round();
     if (!r) return;
+
+    // AQ-377 — transmission talks to Limsophy: verify connectivity up-front and
+    // abort loudly rather than queue half-baked transmissions.
+    const online = await this.networkCheck.pingServer();
+    if (!online) {
+      this.snackBar.open(
+        this.translate.instant('orders.transmitNoNetwork'),
+        this.translate.instant('common.close'),
+        { duration: 5000 }
+      );
+      return;
+    }
+
     if (!confirm(this.translate.instant('samplingRounds.confirmTransmitAll'))) return;
 
     this.saving.set(true);
@@ -822,6 +835,18 @@ export class SamplingRoundDetailComponent implements OnInit {
 
   async transmitOrder(order: SamplingRoundOrderDto, event: Event): Promise<void> {
     event.stopPropagation();
+
+    // AQ-377 — unitary transmission also requires live connectivity.
+    const online = await this.networkCheck.pingServer();
+    if (!online) {
+      this.snackBar.open(
+        this.translate.instant('orders.transmitNoNetwork'),
+        this.translate.instant('common.close'),
+        { duration: 5000 }
+      );
+      return;
+    }
+
     if (!confirm(this.translate.instant('orders.confirmTransmit'))) return;
 
     try {

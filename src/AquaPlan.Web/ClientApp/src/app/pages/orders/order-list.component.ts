@@ -22,6 +22,7 @@ import { firstValueFrom } from 'rxjs';
 import { OrderDatastore } from '../../datastore/order.datastore';
 import { OrderApiService } from '../../services/order-api.service';
 import { AuthService } from '../../services/auth.service';
+import { NetworkCheckService } from '../../services/network-check.service';
 import { OrderListDto, OrderStatus, OrderStatusLabels } from '../../models/order.model';
 import { DistributorApiService } from '../../services/distributor-api.service';
 import { DistributorListDto } from '../../models/distributor.model';
@@ -218,6 +219,7 @@ export class OrderListComponent implements OnInit {
   private readonly orderApi = inject(OrderApiService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly translate = inject(TranslateService);
+  private readonly networkCheck = inject(NetworkCheckService);
 
   readonly isAdmin = computed(() =>
     this.authService.currentUser()?.roles.includes('Administrator') ?? false
@@ -307,11 +309,24 @@ export class OrderListComponent implements OnInit {
     });
   }
 
-  confirmBulkTransmit(): void {
+  async confirmBulkTransmit(): Promise<void> {
     const count = this.completedCount();
     if (count === 0) {
       return;
     }
+
+    // AQ-377 — bulk LIMS transmission must not be attempted offline; ping first,
+    // skip the confirm dialog entirely if the server is unreachable.
+    const online = await this.networkCheck.pingServer();
+    if (!online) {
+      this.snackBar.open(
+        this.translate.instant('orders.bulkTransmitNoNetwork'),
+        this.translate.instant('common.close'),
+        { duration: 5000 }
+      );
+      return;
+    }
+
     const ref = this.dialog.open(ConfirmDialogComponent, {
       width: '450px',
       panelClass: 'responsive-dialog',

@@ -62,6 +62,19 @@
   "footer": {
     "developedBy": "Entwickelt von"
   },
+  "header": {
+    "offline": "Offline",
+    "offlineTooltip": "Sie arbeiten offline. Die Daten werden synchronisiert, sobald Sie wieder online sind.",
+    "pendingActions": "ausstehend",
+    "pendingActionsTooltip": "{{count}} Aktion(en) warten auf Synchronisation",
+    "syncing": "Synchronisation..."
+  },
+  "sync": {
+    "success": "{{count}} Aktion(en) synchronisiert",
+    "rejected": "Aktion vom Server abgelehnt: {{reason}}",
+    "unlockedLost": "Ihre Tour wurde von einem Administrator zurückgesetzt. Nicht synchronisierte Einträge sind verloren.",
+    "error5xx": "Serverfehler, bitte später erneut versuchen"
+  },
   "analysisCatalog": {
     "categories": {
       "Bacteriology": "Bakteriologie",
@@ -192,7 +205,12 @@
     "deleteSuccess": "Auftrag erfolgreich gelöscht",
     "deleteError": "Fehler beim Löschen des Auftrags",
     "delegation": "Delegation",
-    "delegated": "Delegiert"
+    "delegated": "Delegiert",
+    "transmit": "Übermitteln",
+    "transmitNoNetwork": "Kein Netzwerk. Versuchen Sie es erneut, sobald Sie verbunden sind.",
+    "bulkTransmitNoNetwork": "Kein Netzwerk. Versuchen Sie es erneut, sobald Sie verbunden sind.",
+    "transmitted": "Erfolgreich übermittelt",
+    "confirmTransmit": "Übermittlung dieses Auftrags bestätigen?"
   },
   "delegations": {
     "title": "Delegationen",

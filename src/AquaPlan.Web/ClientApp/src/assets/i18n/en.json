@@ -62,6 +62,19 @@
   "footer": {
     "developedBy": "Developed by"
   },
+  "header": {
+    "offline": "Offline",
+    "offlineTooltip": "You are working offline. Data will sync once you are back online.",
+    "pendingActions": "pending",
+    "pendingActionsTooltip": "{{count}} action(s) pending synchronization",
+    "syncing": "Synchronizing..."
+  },
+  "sync": {
+    "success": "{{count}} action(s) synchronized",
+    "rejected": "Action rejected by server: {{reason}}",
+    "unlockedLost": "Your round was reset by an administrator. Unsynchronized entries are lost.",
+    "error5xx": "Server error, please try again later"
+  },
   "analysisCatalog": {
     "categories": {
       "Bacteriology": "Bacteriology",
@@ -193,7 +206,12 @@
     "deleteSuccess": "Order deleted successfully",
     "deleteError": "Error deleting order",
     "delegation": "Delegation",
-    "delegated": "Delegated"
+    "delegated": "Delegated",
+    "transmit": "Transmit",
+    "transmitNoNetwork": "No network. Try again once connected.",
+    "bulkTransmitNoNetwork": "No network. Try again once connected.",
+    "transmitted": "Transmitted successfully",
+    "confirmTransmit": "Confirm transmission of this order?"
   },
   "delegations": {
     "title": "Delegations",
