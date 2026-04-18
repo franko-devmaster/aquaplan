@@ -26,7 +26,10 @@ public record OrderDetailDto(
     DateTime CreatedAt,
     DateTime? UpdatedAt,
     SamplingDto? Sampling,
-    Guid? SamplingRoundId);
+    Guid? SamplingRoundId,
+    bool IsRoundLocked = false,
+    string? RoundLockedById = null,
+    string? RoundLockedByName = null);
 
 public record OrderAnalysisProgramDto(
     Guid AnalysisProgramId,

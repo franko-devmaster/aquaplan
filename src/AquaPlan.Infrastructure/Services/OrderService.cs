@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Orders;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Domain.Enums;
@@ -11,6 +12,7 @@ namespace AquaPlan.Infrastructure.Services;
 internal class OrderService(
     AquaPlanDbContext dbContext,
     IOrderAuditService auditService,
+    ISamplingRoundService samplingRoundService,
     ILogger<OrderService> logger) : IOrderService
 {
     public async Task<OrderPagedResultDto> GetOrdersFilteredAsync(
@@ -150,6 +152,8 @@ internal class OrderService(
                 .ThenInclude(s => s!.Preleveur)
             .Include(o => o.Sampling)
                 .ThenInclude(s => s!.Containers)
+            .Include(o => o.SamplingRound)
+                .ThenInclude(r => r!.LockedBy)
             .FirstOrDefaultAsync(o => o.Id == orderId && o.TenantId == tenantId, cancellationToken);
 
         if (order is null)
@@ -234,6 +238,9 @@ internal class OrderService(
             return null;
         }
 
+        // AQ-371 — reject writes when the parent round is locked by someone else.
+        await samplingRoundService.EnsureRoundNotLockedForWriteAsync(order.SamplingRoundId, updatedBy, isAdmin, tenantId, cancellationToken);
+
         // Business rule: admin can edit non-terminal orders; regular users only New
         var terminalStatuses = new[] { OrderStatus.Done, OrderStatus.Cancelled };
         if (isAdmin)
@@ -292,6 +299,9 @@ internal class OrderService(
         {
             return false;
         }
+
+        // AQ-371 — reject writes when the parent round is locked by someone else.
+        await samplingRoundService.EnsureRoundNotLockedForWriteAsync(order.SamplingRoundId, deletedBy, isAdmin, tenantId, cancellationToken);
 
         // Business rule: admin can delete non-completed orders (< Completed); regular users only New
         if (isAdmin)
@@ -519,6 +529,12 @@ internal class OrderService(
                 oap.AnalysisProgram.Name))
             .ToList();
 
+        var round = order.SamplingRound;
+        var isRoundLocked = round is not null && round.IsLocked;
+        var lockedByName = round?.LockedBy is not null
+            ? $"{round.LockedBy.FirstName} {round.LockedBy.LastName}"
+            : null;
+
         return new OrderDetailDto(
             order.Id, order.OrderNumber, order.Status, order.IsUnplanned,
             order.UnplannedReason, order.UnplannedReasonDetails,
@@ -536,7 +552,10 @@ internal class OrderService(
             order.IsDelegated,
             analysisPrograms,
             order.TenantId, order.CreatedAt, order.UpdatedAt, samplingDto,
-            order.SamplingRoundId);
+            order.SamplingRoundId,
+            isRoundLocked,
+            round?.LockedById,
+            lockedByName);
     }
 
     public async Task<BulkTransitionResultDto> BulkValidateAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default)
@@ -562,6 +581,20 @@ internal class OrderService(
         if (orders.Count == 0)
         {
             return new BulkTransitionResultDto(0);
+        }
+
+        // AQ-371 — skip orders whose parent round is locked by another user.
+        var lockedRoundIds = await dbContext.SamplingRounds
+            .Where(r => r.TenantId == tenantId && r.IsLocked && r.LockedById != userId)
+            .Select(r => (Guid?)r.Id)
+            .ToListAsync(cancellationToken);
+        if (lockedRoundIds.Count > 0)
+        {
+            orders = orders.Where(o => !lockedRoundIds.Contains(o.SamplingRoundId)).ToList();
+            if (orders.Count == 0)
+            {
+                return new BulkTransitionResultDto(0);
+            }
         }
 
         var now = DateTime.UtcNow;

@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.SamplingRounds;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Domain.Enums;
@@ -43,6 +44,7 @@ internal class SamplingRoundService(
             .Include(sr => sr.Preleveur)
             .Include(sr => sr.Distributor)
             .Include(sr => sr.CreatedBy)
+            .Include(sr => sr.LockedBy)
             .Include(sr => sr.Orders.OrderBy(o => o.SortOrder))
                 .ThenInclude(o => o.SamplingLocation)
                     .ThenInclude(l => l!.Sector)
@@ -139,7 +141,11 @@ internal class SamplingRoundService(
                 sr.Notes,
                 sr.Orders.Count,
                 sr.Orders.Count(o => o.Status >= OrderStatus.Completed && o.Status != OrderStatus.Cancelled),
-                sr.CreatedAt))
+                sr.CreatedAt,
+                sr.IsLocked,
+                sr.LockedById,
+                sr.LockedBy != null ? sr.LockedBy.FirstName + " " + sr.LockedBy.LastName : null,
+                sr.LockedAt))
             .ToListAsync(cancellationToken);
 
         return new SamplingRoundPagedResultDto(items, totalCount, filter.Page, filter.PageSize);
@@ -149,6 +155,9 @@ internal class SamplingRoundService(
         Guid id, SamplingRoundUpdateDto dto, string updatedBy, Guid tenantId,
         CancellationToken cancellationToken = default)
     {
+        // AQ-371 — reject updates on locked rounds with a structured 409.
+        await EnsureRoundNotLockedForWriteAsync(id, updatedBy, isAdmin: false, tenantId, cancellationToken);
+
         var round = await dbContext.SamplingRounds
             .Where(sr => sr.TenantId == tenantId && sr.Id == id)
             .FirstOrDefaultAsync(cancellationToken);
@@ -283,6 +292,10 @@ internal class SamplingRoundService(
         round.Status = SamplingRoundStatus.Cancelled;
         round.UpdatedAt = DateTime.UtcNow;
         round.UpdatedBy = updatedBy;
+        // AQ-370 — cancelling the round releases any pending lock.
+        round.IsLocked = false;
+        round.LockedById = null;
+        round.LockedAt = null;
 
         foreach (var order in round.Orders.Where(o => o.Status != OrderStatus.Cancelled))
         {
@@ -301,6 +314,10 @@ internal class SamplingRoundService(
         Guid roundId, Guid orderId, Guid tenantId,
         CancellationToken cancellationToken = default)
     {
+        // AQ-371 — reject order-management on locked rounds with a structured 409.
+        // currentUserId unknown here, so use empty to force lock failure when locked.
+        await EnsureRoundNotLockedForWriteAsync(roundId, currentUserId: string.Empty, isAdmin: false, tenantId, cancellationToken);
+
         var round = await dbContext.SamplingRounds
             .Include(sr => sr.Orders)
             .Where(sr => sr.TenantId == tenantId && sr.Id == roundId)
@@ -474,7 +491,11 @@ internal class SamplingRoundService(
 
         if (order.SamplingRound!.Status == SamplingRoundStatus.Assigned)
         {
+            // AQ-370 — starting the first order also locks the round for the préleveur.
             order.SamplingRound.Status = SamplingRoundStatus.InProgress;
+            order.SamplingRound.IsLocked = true;
+            order.SamplingRound.LockedById = userId;
+            order.SamplingRound.LockedAt = DateTime.UtcNow;
             order.SamplingRound.UpdatedAt = DateTime.UtcNow;
             order.SamplingRound.UpdatedBy = userId;
         }
@@ -548,6 +569,10 @@ internal class SamplingRoundService(
         {
             round.Status = SamplingRoundStatus.Completed;
             round.CompletedAt = DateTime.UtcNow;
+            // AQ-370 — completing the round releases the préleveur's lock.
+            round.IsLocked = false;
+            round.LockedById = null;
+            round.LockedAt = null;
         }
 
         round.UpdatedAt = DateTime.UtcNow;
@@ -555,6 +580,114 @@ internal class SamplingRoundService(
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return MapToDetailDto(round);
+    }
+
+    // --- AQ-370 / AQ-372 lock lifecycle ---
+
+    public async Task<SamplingRoundDetailDto?> StartAsync(
+        Guid id, string userId, Guid tenantId, bool isAdmin,
+        CancellationToken cancellationToken = default)
+    {
+        var round = await dbContext.SamplingRounds
+            .Where(sr => sr.TenantId == tenantId && sr.Id == id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (round is null) return null;
+
+        if (round.Status != SamplingRoundStatus.Assigned)
+        {
+            throw new InvalidOperationException($"Cannot start a sampling round in status {round.Status}. Round must be Assigned.");
+        }
+
+        if (!isAdmin && round.PreleveurId != userId)
+        {
+            throw new InvalidOperationException("Only the assigned préleveur can start the round.");
+        }
+
+        round.Status = SamplingRoundStatus.InProgress;
+        round.IsLocked = true;
+        round.LockedById = round.PreleveurId ?? userId;
+        round.LockedAt = DateTime.UtcNow;
+        round.UpdatedAt = DateTime.UtcNow;
+        round.UpdatedBy = userId;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation(
+            "Round {RoundId} started and locked by {LockedById}",
+            round.Id, round.LockedById);
+
+        return await GetByIdAsync(id, tenantId, cancellationToken);
+    }
+
+    public async Task<SamplingRoundDetailDto?> ForceUnlockAsync(
+        Guid id, string adminUserId, Guid tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        var round = await dbContext.SamplingRounds
+            .Where(sr => sr.TenantId == tenantId && sr.Id == id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (round is null) return null;
+
+        if (!round.IsLocked)
+        {
+            throw new InvalidOperationException("Sampling round is not locked.");
+        }
+
+        var previousLockedById = round.LockedById;
+
+        round.Status = SamplingRoundStatus.Assigned;
+        round.IsLocked = false;
+        round.LockedById = null;
+        round.LockedAt = null;
+        round.UpdatedAt = DateTime.UtcNow;
+        round.UpdatedBy = adminUserId;
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        logger.LogWarning(
+            "Admin {AdminId} force-unlocked round {RoundId} previously locked by {PreviousLockedById}",
+            adminUserId, round.Id, previousLockedById);
+
+        return await GetByIdAsync(id, tenantId, cancellationToken);
+    }
+
+    public async Task EnsureRoundNotLockedForWriteAsync(
+        Guid? roundId, string currentUserId, bool isAdmin, Guid tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        if (roundId is null || roundId == Guid.Empty)
+        {
+            return;
+        }
+
+        var round = await dbContext.SamplingRounds
+            .Include(sr => sr.LockedBy)
+            .Where(sr => sr.TenantId == tenantId && sr.Id == roundId.Value)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (round is null || !round.IsLocked)
+        {
+            return;
+        }
+
+        // The lock holder (and only them) can write. Admins are also blocked to keep
+        // the data consistent with the offline préleveur session (AQ-371 Option B).
+        if (round.LockedById == currentUserId)
+        {
+            return;
+        }
+
+        // Admins are explicitly blocked from standard write operations here; they must
+        // go through the dedicated force-unlock endpoint (AQ-372).
+        _ = isAdmin;
+
+        var lockedByName = round.LockedBy is not null
+            ? $"{round.LockedBy.FirstName} {round.LockedBy.LastName}"
+            : null;
+
+        throw new RoundLockedException(round.Id, round.LockedById, lockedByName, round.LockedAt);
     }
 
     private static SamplingRoundDetailDto MapToDetailDto(SamplingRound round)
@@ -594,7 +727,11 @@ internal class SamplingRoundService(
                 o.Notes,
                 o.OrderAnalysisPrograms.Select(oap => oap.AnalysisProgram?.Name ?? string.Empty).ToList()
             )).ToList(),
-            containerSummary);
+            containerSummary,
+            round.IsLocked,
+            round.LockedById,
+            round.LockedBy is not null ? $"{round.LockedBy.FirstName} {round.LockedBy.LastName}" : null,
+            round.LockedAt);
     }
 
     private static IList<RoundContainerSummaryDto> BuildContainerSummary(SamplingRound round)

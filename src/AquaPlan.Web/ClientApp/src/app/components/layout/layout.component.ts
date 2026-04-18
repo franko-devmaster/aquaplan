@@ -6,11 +6,12 @@ import { NavigationEnd, Router, RouterModule } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { HeaderComponent } from '../header/header.component';
 import { SidebarComponent } from '../sidebar/sidebar.component';
+import { FooterComponent } from '../footer/footer.component';
 
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [MatSidenavModule, RouterModule, HeaderComponent, SidebarComponent],
+  imports: [MatSidenavModule, RouterModule, HeaderComponent, SidebarComponent, FooterComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-header (menuToggle)="toggleSidenav()" [isMobile]="isMobile()" />
@@ -24,6 +25,7 @@ import { SidebarComponent } from '../sidebar/sidebar.component';
       </mat-sidenav>
       <mat-sidenav-content class="content" [class.content-mobile]="isMobile()">
         <router-outlet />
+        <app-footer />
       </mat-sidenav-content>
     </mat-sidenav-container>
   `,

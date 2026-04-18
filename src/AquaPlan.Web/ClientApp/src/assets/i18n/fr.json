@@ -64,6 +64,9 @@
     "createdAt": "Créé le",
     "error": "Erreur"
   },
+  "footer": {
+    "developedBy": "Développé par"
+  },
   "users": {
     "title": "Gestion des utilisateurs",
     "firstName": "Prénom",
@@ -407,7 +410,13 @@
     "replaceLocation": "Remplacer le LDP",
     "replacementReason": "Motif du remplacement",
     "locationReplaced": "Lieu de prélèvement remplacé",
-    "editComment": "Commentaire du préleveur :"
+    "editComment": "Commentaire du préleveur :",
+    "startRequiresNetwork": "Connexion requise pour démarrer la tournée",
+    "lockedByYou": "Tournée verrouillée par vous",
+    "lockedByOther": "Tournée verrouillée par {{name}}",
+    "forceUnlock": "Déverrouiller (admin)",
+    "confirmForceUnlock": "Forcer le déverrouillage ? Les saisies non synchronisées du préleveur seront perdues.",
+    "forceUnlocked": "Tournée déverrouillée"
   },
   "sectors": {
     "title": "Gestion des secteurs",

@@ -15,6 +15,7 @@ public class OrdersController(
     IOrderStatusService orderStatusService,
     IPermissionService permissionService,
     IOrderAuditService orderAuditService,
+    IDelegationService delegationService,
     ILogger<OrdersController> logger) : ControllerBase
 {
     [HttpGet]
@@ -102,8 +103,9 @@ public class OrdersController(
         var hasViewAll = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
         if (!hasViewAll)
         {
-            var hasAccess = await orderService.UserHasDistributorAccessAsync(userId, dto.DistributorId, cancellationToken);
-            if (!hasAccess)
+            // AQ-369 — user can only create on own distributor + distributors that delegated to him.
+            var authorizedIds = await delegationService.GetAuthorizedDistributorIdsForUserAsync(userId, cancellationToken);
+            if (!authorizedIds.Contains(dto.DistributorId))
             {
                 return Forbid();
             }

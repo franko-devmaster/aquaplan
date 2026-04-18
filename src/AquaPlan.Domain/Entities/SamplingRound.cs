@@ -22,5 +22,12 @@ public class SamplingRound
     public string? UpdatedBy { get; set; }
     public DateTime? CompletedAt { get; set; }
 
+    // AQ-370 — offline-session lock: set at Assigned → InProgress transition,
+    // cleared on Completed/Cancelled workflow or by Admin via force-unlock (AQ-372).
+    public bool IsLocked { get; set; }
+    public string? LockedById { get; set; }
+    public AppUser? LockedBy { get; set; }
+    public DateTime? LockedAt { get; set; }
+
     public ICollection<Order> Orders { get; set; } = new List<Order>();
 }

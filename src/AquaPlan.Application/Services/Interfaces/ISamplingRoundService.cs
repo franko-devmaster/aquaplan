@@ -19,4 +19,23 @@ public interface ISamplingRoundService
     Task<bool> UpdateSamplerCommentAsync(Guid orderId, SamplerCommentDto dto, string userId, Guid tenantId, CancellationToken cancellationToken = default);
     Task<SamplingRoundDetailDto?> RevertToDraftAsync(Guid id, string userId, Guid tenantId, CancellationToken cancellationToken = default);
     Task<SamplingRoundDetailDto?> TransmitAllAsync(Guid id, string userId, Guid tenantId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// AQ-370 — transitions a round from Assigned to InProgress, and locks it
+    /// so mandataries cannot modify it while the préleveur operates offline.
+    /// </summary>
+    Task<SamplingRoundDetailDto?> StartAsync(Guid id, string userId, Guid tenantId, bool isAdmin, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// AQ-372 — Admin-only: releases the lock on a round previously started by a
+    /// préleveur whose device is unreachable, moving the round back to Assigned.
+    /// </summary>
+    Task<SamplingRoundDetailDto?> ForceUnlockAsync(Guid id, string adminUserId, Guid tenantId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// AQ-371 — verifies that the round is not locked by someone else. Throws
+    /// RoundLockedException if locked by a different user and the caller is not admin.
+    /// Safe to call with a null roundId (no-op).
+    /// </summary>
+    Task EnsureRoundNotLockedForWriteAsync(Guid? roundId, string currentUserId, bool isAdmin, Guid tenantId, CancellationToken cancellationToken = default);
 }

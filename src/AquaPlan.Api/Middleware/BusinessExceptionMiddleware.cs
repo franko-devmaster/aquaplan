@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AquaPlan.Application.Exceptions;
 
 namespace AquaPlan.Api.Middleware;
 
@@ -9,6 +10,20 @@ public class BusinessExceptionMiddleware(RequestDelegate next, ILogger<BusinessE
         try
         {
             await next(context);
+        }
+        catch (RoundLockedException ex)
+        {
+            logger.LogWarning(ex, "Round {RoundId} locked by {LockedBy}", ex.RoundId, ex.LockedById);
+            context.Response.StatusCode = StatusCodes.Status409Conflict;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new
+            {
+                error = "round.locked",
+                roundId = ex.RoundId,
+                lockedById = ex.LockedById,
+                lockedByName = ex.LockedByName,
+                lockedAt = ex.LockedAt,
+            }));
         }
         catch (InvalidOperationException ex)
         {

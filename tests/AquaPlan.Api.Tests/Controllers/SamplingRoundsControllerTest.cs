@@ -14,6 +14,7 @@ public class SamplingRoundsControllerTest
 {
     private readonly Mock<ISamplingRoundService> _samplingRoundServiceMock = new();
     private readonly Mock<IPermissionService> _permissionServiceMock = new();
+    private readonly Mock<IDelegationService> _delegationServiceMock = new();
     private readonly Mock<ILogger<SamplingRoundsController>> _loggerMock = new();
     private readonly SamplingRoundsController _sut;
 
@@ -28,6 +29,7 @@ public class SamplingRoundsControllerTest
         _sut = new SamplingRoundsController(
             _samplingRoundServiceMock.Object,
             _permissionServiceMock.Object,
+            _delegationServiceMock.Object,
             _loggerMock.Object);
         _sut.ControllerContext = new ControllerContext
         {
@@ -45,7 +47,8 @@ public class SamplingRoundsControllerTest
     }
 
     private static SamplingRoundDetailDto CreateRoundDetailDto(
-        SamplingRoundStatus status = SamplingRoundStatus.Draft)
+        SamplingRoundStatus status = SamplingRoundStatus.Draft,
+        bool isLocked = false, string? lockedById = null, string? lockedByName = null, DateTime? lockedAt = null)
     {
         return new SamplingRoundDetailDto(
             RoundId, "Round 1", "Test round", null, status,
@@ -54,7 +57,8 @@ public class SamplingRoundsControllerTest
             null, UserId, "John Doe",
             DateTime.UtcNow, null, null,
             [],
-            []);
+            [],
+            isLocked, lockedById, lockedByName, lockedAt);
     }
 
     #region Controller attributes
@@ -220,6 +224,112 @@ public class SamplingRoundsControllerTest
         var method = typeof(SamplingRoundsController).GetMethod(nameof(SamplingRoundsController.TransmitAll));
         var postAttr = method!.GetCustomAttributes(typeof(HttpPostAttribute), true).OfType<HttpPostAttribute>().First();
         postAttr.Template.Should().Be("{id:guid}/transmit-all");
+    }
+
+    #endregion
+
+    #region StartRound (AQ-370)
+
+    [Fact]
+    public void StartRound_ShouldHaveHttpPostAttribute()
+    {
+        var method = typeof(SamplingRoundsController).GetMethod(nameof(SamplingRoundsController.StartRound));
+        var postAttr = method!.GetCustomAttributes(typeof(HttpPostAttribute), true).OfType<HttpPostAttribute>().First();
+        postAttr.Template.Should().Be("{id:guid}/start");
+    }
+
+    [Fact]
+    public void StartRound_ShouldHaveAuthorizeAttributeWithPreleveurRoles()
+    {
+        var method = typeof(SamplingRoundsController).GetMethod(nameof(SamplingRoundsController.StartRound));
+        var auth = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true).OfType<AuthorizeAttribute>().FirstOrDefault();
+        auth.Should().NotBeNull();
+        auth!.Roles.Should()
+            .Contain(RoleName.Administrator)
+            .And.Contain(RoleName.Preleveur)
+            .And.Contain(RoleName.RequerantPreleveur);
+    }
+
+    [Fact]
+    public async Task StartRound_ShouldReturnOk_WhenSuccess()
+    {
+        var started = CreateRoundDetailDto(SamplingRoundStatus.InProgress,
+            isLocked: true, lockedById: PreleveurId, lockedByName: "Pierre Martin",
+            lockedAt: DateTime.UtcNow);
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _samplingRoundServiceMock
+            .Setup(x => x.StartAsync(RoundId, UserId, TenantId, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(started);
+
+        var result = await _sut.StartRound(RoundId, CancellationToken.None);
+
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().Be(started);
+    }
+
+    [Fact]
+    public async Task StartRound_ShouldReturnNotFound_WhenRoundDoesNotExist()
+    {
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _samplingRoundServiceMock
+            .Setup(x => x.StartAsync(RoundId, UserId, TenantId, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SamplingRoundDetailDto?)null);
+
+        var result = await _sut.StartRound(RoundId, CancellationToken.None);
+
+        result.Result.Should().BeOfType<NotFoundResult>();
+    }
+
+    #endregion
+
+    #region ForceUnlock (AQ-372)
+
+    [Fact]
+    public void ForceUnlock_ShouldHaveHttpPostAttribute()
+    {
+        var method = typeof(SamplingRoundsController).GetMethod(nameof(SamplingRoundsController.ForceUnlock));
+        var postAttr = method!.GetCustomAttributes(typeof(HttpPostAttribute), true).OfType<HttpPostAttribute>().First();
+        postAttr.Template.Should().Be("{id:guid}/force-unlock");
+    }
+
+    [Fact]
+    public void ForceUnlock_ShouldHaveAuthorizeAttributeWithAdministrator()
+    {
+        var method = typeof(SamplingRoundsController).GetMethod(nameof(SamplingRoundsController.ForceUnlock));
+        var attributes = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true);
+        attributes.Should().NotBeEmpty();
+        var authorizeAttr = attributes.OfType<AuthorizeAttribute>().First();
+        authorizeAttr.Roles.Should().Be(RoleName.Administrator);
+    }
+
+    [Fact]
+    public async Task ForceUnlock_ShouldReturnOk_WhenSuccess()
+    {
+        var unlocked = CreateRoundDetailDto(SamplingRoundStatus.Assigned);
+        _samplingRoundServiceMock
+            .Setup(x => x.ForceUnlockAsync(RoundId, UserId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(unlocked);
+
+        var result = await _sut.ForceUnlock(RoundId, CancellationToken.None);
+
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().Be(unlocked);
+    }
+
+    [Fact]
+    public async Task ForceUnlock_ShouldReturnNotFound_WhenRoundDoesNotExist()
+    {
+        _samplingRoundServiceMock
+            .Setup(x => x.ForceUnlockAsync(RoundId, UserId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SamplingRoundDetailDto?)null);
+
+        var result = await _sut.ForceUnlock(RoundId, CancellationToken.None);
+
+        result.Result.Should().BeOfType<NotFoundResult>();
     }
 
     #endregion

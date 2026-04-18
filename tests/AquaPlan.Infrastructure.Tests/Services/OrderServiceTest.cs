@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Orders;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Domain.Enums;
@@ -14,6 +15,8 @@ public class OrderServiceTest : IDisposable
     private readonly AquaPlanDbContext _dbContext;
     private readonly Mock<IOrderAuditService> _auditServiceMock = new();
     private readonly Mock<ILogger<OrderService>> _loggerMock = new();
+    private readonly Mock<ILogger<SamplingRoundService>> _roundLoggerMock = new();
+    private readonly SamplingRoundService _roundService;
     private readonly OrderService _sut;
 
     private static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
@@ -27,7 +30,8 @@ public class OrderServiceTest : IDisposable
             .Options;
 
         _dbContext = new AquaPlanDbContext(options);
-        _sut = new OrderService(_dbContext, _auditServiceMock.Object, _loggerMock.Object);
+        _roundService = new SamplingRoundService(_dbContext, _roundLoggerMock.Object);
+        _sut = new OrderService(_dbContext, _auditServiceMock.Object, _roundService, _loggerMock.Object);
 
         SeedData().GetAwaiter().GetResult();
     }
@@ -757,6 +761,17 @@ public class OrderServiceTest : IDisposable
             IsActive = true,
         });
 
+        _dbContext.Users.Add(new AppUser
+        {
+            Id = "preleveur-lock",
+            UserName = "preleveur-lock@test.com",
+            Email = "preleveur-lock@test.com",
+            FirstName = "Lock",
+            LastName = "Holder",
+            TenantId = TenantId,
+            IsActive = true,
+        });
+
         _dbContext.Distributors.Add(new Distributor
         {
             Id = DistributorId,
@@ -772,5 +787,76 @@ public class OrderServiceTest : IDisposable
         });
 
         await _dbContext.SaveChangesAsync();
+    }
+
+    // --- AQ-371 lock guard integration ---
+
+    [Fact]
+    public async Task UpdateOrderAsync_WhenRoundLockedByOther_ShouldThrowRoundLockedException()
+    {
+        var order = await CreateOrderInLockedRound();
+        var dto = new OrderUpdateDto(null, null, null, null, "Attempt");
+
+        await _sut.Awaiting(s => s.UpdateOrderAsync(order.Id, dto, UserId, TenantId, isAdmin: false))
+            .Should().ThrowAsync<RoundLockedException>();
+    }
+
+    [Fact]
+    public async Task UpdateOrderAsync_WhenRoundLockedBySameUser_ShouldSucceed()
+    {
+        var order = await CreateOrderInLockedRound(lockedById: UserId);
+        var dto = new OrderUpdateDto(null, null, null, null, "By lock holder");
+
+        // Still will fail because Status is already In Progress for a locked round.
+        // So use a Draft-status order with user=UserId as lock holder then set status=New manually.
+        var orderEntity = await _dbContext.Orders.FindAsync(order.Id);
+        orderEntity!.Status = OrderStatus.New;
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.UpdateOrderAsync(order.Id, dto, UserId, TenantId, isAdmin: false);
+
+        result.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task DeleteOrderAsync_WhenRoundLockedByOther_ShouldThrowRoundLockedException()
+    {
+        var order = await CreateOrderInLockedRound();
+
+        await _sut.Awaiting(s => s.DeleteOrderAsync(order.Id, UserId, TenantId, isAdmin: false))
+            .Should().ThrowAsync<RoundLockedException>();
+    }
+
+    private async Task<Order> CreateOrderInLockedRound(string? lockedById = null)
+    {
+        var round = new SamplingRound
+        {
+            Id = Guid.NewGuid(),
+            Name = "Locked round",
+            DistributorId = DistributorId,
+            Status = SamplingRoundStatus.InProgress,
+            TenantId = TenantId,
+            CreatedById = UserId,
+            CreatedAt = DateTime.UtcNow,
+            IsLocked = true,
+            LockedById = lockedById ?? "preleveur-lock",
+            LockedAt = DateTime.UtcNow,
+        };
+        _dbContext.SamplingRounds.Add(round);
+
+        var order = new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = $"ORD-LCK-{Guid.NewGuid():N}".Substring(0, 20),
+            Status = OrderStatus.New,
+            IsUnplanned = false,
+            CreatedById = UserId,
+            DistributorId = DistributorId,
+            TenantId = TenantId,
+            SamplingRoundId = round.Id,
+        };
+        _dbContext.Orders.Add(order);
+        await _dbContext.SaveChangesAsync();
+        return order;
     }
 }

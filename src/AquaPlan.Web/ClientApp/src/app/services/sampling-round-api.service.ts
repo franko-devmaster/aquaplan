@@ -100,4 +100,14 @@ export class SamplingRoundApiService {
   updateSamplerComment(orderId: string, dto: SamplerCommentDto): Observable<void> {
     return this.http.put<void>(`/api/orders/${orderId}/sampler-comment`, dto);
   }
+
+  /** AQ-370 — starts the round (Assigned → InProgress) and poses the lock. */
+  start(roundId: string): Observable<SamplingRoundDetailDto> {
+    return this.http.post<SamplingRoundDetailDto>(`${this.baseUrl}/${roundId}/start`, {});
+  }
+
+  /** AQ-372 — admin force-unlock (InProgress → Assigned, clears lock fields). */
+  forceUnlock(roundId: string): Observable<SamplingRoundDetailDto> {
+    return this.http.post<SamplingRoundDetailDto>(`${this.baseUrl}/${roundId}/force-unlock`, {});
+  }
 }

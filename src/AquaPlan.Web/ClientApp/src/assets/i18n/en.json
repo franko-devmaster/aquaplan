@@ -59,6 +59,9 @@
     "toggleStatus": "Toggle status",
     "error": "Error"
   },
+  "footer": {
+    "developedBy": "Developed by"
+  },
   "analysisCatalog": {
     "categories": {
       "Bacteriology": "Bacteriology",
@@ -324,7 +327,13 @@
     "sector": "Sector",
     "location": "Sampling location",
     "materialToPrepare": "Material to prepare",
-    "noMaterial": "No container required"
+    "noMaterial": "No container required",
+    "startRequiresNetwork": "Network connection required to start the round",
+    "lockedByYou": "Round locked by you",
+    "lockedByOther": "Round locked by {{name}}",
+    "forceUnlock": "Force unlock (admin)",
+    "confirmForceUnlock": "Force unlock? Unsynchronised sampler inputs will be lost.",
+    "forceUnlocked": "Round unlocked"
   },
   "dashboard": {
     "title": "Dashboard",

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using AquaPlan.Application.DTOs.Delegations;
+using AquaPlan.Application.DTOs.Distributors;
 using AquaPlan.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,12 +9,14 @@ namespace AquaPlan.Api.Controllers.Api;
 
 [Route("api/[controller]")]
 [ApiController]
-[Authorize(Roles = "Administrator")]
+[Authorize]
 public class DelegationsController(
     IDelegationService delegationService,
+    IPermissionService permissionService,
     ILogger<DelegationsController> logger) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Roles = "Administrator")]
     public async Task<ActionResult<List<DistributorDelegationDto>>> GetAll(CancellationToken cancellationToken)
     {
         var tenantId = GetTenantId();
@@ -22,6 +25,7 @@ public class DelegationsController(
     }
 
     [HttpPost]
+    [Authorize(Roles = "Administrator")]
     public async Task<ActionResult<DistributorDelegationDto>> Create([FromBody] DistributorDelegationCreateDto dto, CancellationToken cancellationToken)
     {
         var tenantId = GetTenantId();
@@ -30,6 +34,7 @@ public class DelegationsController(
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Administrator")]
     public async Task<ActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
         var tenantId = GetTenantId();
@@ -39,6 +44,25 @@ public class DelegationsController(
             return NotFound();
         }
         return NoContent();
+    }
+
+    /// <summary>
+    /// AQ-369 — returns distributors on which the current user is authorized to create
+    /// orders/rounds (own + those that delegated to the user). Admins get all tenant distributors.
+    /// </summary>
+    [HttpGet("my-authorized-distributors")]
+    public async Task<ActionResult<List<DistributorDto>>> GetMyAuthorizedDistributors(CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+        var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        var result = await delegationService.GetAuthorizedDistributorsForUserAsync(userId, tenantId, isAdmin, cancellationToken);
+        return Ok(result);
+    }
+
+    private string GetUserId()
+    {
+        return User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new UnauthorizedAccessException();
     }
 
     private Guid GetTenantId()

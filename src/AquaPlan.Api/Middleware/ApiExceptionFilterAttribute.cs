@@ -1,3 +1,4 @@
+using AquaPlan.Application.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
@@ -16,6 +17,26 @@ public class ApiExceptionFilterAttribute : ExceptionFilterAttribute
 
     public override void OnException(ExceptionContext context)
     {
+        // AQ-371 — round locked → 409 Conflict with structured payload
+        if (context.Exception is RoundLockedException rlx)
+        {
+            _logger.LogWarning(rlx, "Round {RoundId} locked by {LockedBy}", rlx.RoundId, rlx.LockedById);
+
+            context.Result = new ObjectResult(new
+            {
+                error = "round.locked",
+                roundId = rlx.RoundId,
+                lockedById = rlx.LockedById,
+                lockedByName = rlx.LockedByName,
+                lockedAt = rlx.LockedAt,
+            })
+            {
+                StatusCode = StatusCodes.Status409Conflict,
+            };
+            context.ExceptionHandled = true;
+            return;
+        }
+
         // Map known business exceptions to appropriate HTTP status codes
         if (context.Exception is InvalidOperationException)
         {

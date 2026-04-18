@@ -16,6 +16,7 @@ public class OrdersControllerTest
     private readonly Mock<IOrderStatusService> _orderStatusServiceMock = new();
     private readonly Mock<IPermissionService> _permissionServiceMock = new();
     private readonly Mock<IOrderAuditService> _orderAuditServiceMock = new();
+    private readonly Mock<IDelegationService> _delegationServiceMock = new();
     private readonly Mock<ILogger<OrdersController>> _loggerMock = new();
     private readonly OrdersController _sut;
 
@@ -26,7 +27,7 @@ public class OrdersControllerTest
 
     public OrdersControllerTest()
     {
-        _sut = new OrdersController(_orderServiceMock.Object, _orderStatusServiceMock.Object, _permissionServiceMock.Object, _orderAuditServiceMock.Object, _loggerMock.Object);
+        _sut = new OrdersController(_orderServiceMock.Object, _orderStatusServiceMock.Object, _permissionServiceMock.Object, _orderAuditServiceMock.Object, _delegationServiceMock.Object, _loggerMock.Object);
         _sut.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext { User = CreateUser() }
@@ -177,13 +178,34 @@ public class OrdersControllerTest
         _permissionServiceMock
             .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
-        _orderServiceMock
-            .Setup(x => x.UserHasDistributorAccessAsync(UserId, DistributorId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+        // AQ-369 — user's authorized distributors do not include DistributorId
+        _delegationServiceMock
+            .Setup(x => x.GetAuthorizedDistributorIdsForUserAsync(UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Guid>());
 
         var result = await _sut.CreateOrder(createDto, CancellationToken.None);
 
         result.Result.Should().BeOfType<ForbidResult>();
+    }
+
+    [Fact]
+    public async Task CreateOrder_ShouldReturnCreated_WhenUserIsAuthorizedOnDelegatingDistributor()
+    {
+        var createDto = new OrderCreateDto(DistributorId, null, null, null, null, null, false);
+        var createdOrder = CreateOrderDetail(orderNumber: "ORD-003");
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _delegationServiceMock
+            .Setup(x => x.GetAuthorizedDistributorIdsForUserAsync(UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([DistributorId]);
+        _orderServiceMock
+            .Setup(x => x.CreateOrderAsync(createDto, UserId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(createdOrder);
+
+        var result = await _sut.CreateOrder(createDto, CancellationToken.None);
+
+        result.Result.Should().BeOfType<CreatedAtActionResult>();
     }
 
     // ─── UpdateOrder ───────────────────────────────────────────

@@ -9,8 +9,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TranslateModule } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { SamplingRoundApiService } from '../../services/sampling-round-api.service';
-import { DistributorApiService } from '../../services/distributor-api.service';
-import { DistributorListDto } from '../../models/distributor.model';
+import { DelegationApiService } from '../../services/delegation-api.service';
+import { DistributorDto } from '../../models/distributor.model';
 import { SamplingRoundDetailDto } from '../../models/sampling-round.model';
 
 @Component({
@@ -72,9 +72,9 @@ import { SamplingRoundDetailDto } from '../../models/sampling-round.model';
 export class SamplingRoundCreateDialogComponent implements OnInit {
   private readonly dialogRef = inject(MatDialogRef<SamplingRoundCreateDialogComponent>);
   private readonly roundApi = inject(SamplingRoundApiService);
-  private readonly distributorApi = inject(DistributorApiService);
+  private readonly delegationApi = inject(DelegationApiService);
 
-  readonly distributors = signal<DistributorListDto[]>([]);
+  readonly distributors = signal<DistributorDto[]>([]);
   readonly saving = signal(false);
   readonly error = signal('');
 
@@ -84,8 +84,12 @@ export class SamplingRoundCreateDialogComponent implements OnInit {
   deadline: string = '';
 
   async ngOnInit(): Promise<void> {
-    const dists = await firstValueFrom(this.distributorApi.getAll({ isActive: true }));
+    // AQ-369 — only distributors the user is authorized to create on
+    const dists = await firstValueFrom(this.delegationApi.getMyAuthorizedDistributors());
     this.distributors.set(dists);
+    if (dists.length === 1) {
+      this.selectedDistributorId = dists[0].id;
+    }
   }
 
   async create(): Promise<void> {

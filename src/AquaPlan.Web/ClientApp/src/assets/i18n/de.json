@@ -59,6 +59,9 @@
     "toggleStatus": "Aktivieren / Deaktivieren",
     "error": "Fehler"
   },
+  "footer": {
+    "developedBy": "Entwickelt von"
+  },
   "analysisCatalog": {
     "categories": {
       "Bacteriology": "Bakteriologie",
@@ -317,7 +320,13 @@
     "sector": "Sektor",
     "location": "Probenahmeort",
     "materialToPrepare": "Vorzubereitendes Material",
-    "noMaterial": "Kein Behälter erforderlich"
+    "noMaterial": "Kein Behälter erforderlich",
+    "startRequiresNetwork": "Verbindung erforderlich, um die Tour zu starten",
+    "lockedByYou": "Tour von Ihnen gesperrt",
+    "lockedByOther": "Tour gesperrt von {{name}}",
+    "forceUnlock": "Entsperren (Admin)",
+    "confirmForceUnlock": "Entsperrung erzwingen? Nicht synchronisierte Eingaben des Probenehmers gehen verloren.",
+    "forceUnlocked": "Tour entsperrt"
   },
   "dashboard": {
     "title": "Dashboard",

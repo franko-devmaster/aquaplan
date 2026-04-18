@@ -30,5 +30,13 @@ public class SamplingRoundConfiguration : IEntityTypeConfiguration<SamplingRound
             .WithMany()
             .HasForeignKey(sr => sr.CreatedById)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // AQ-370 — lock fields
+        builder.Property(sr => sr.IsLocked).HasDefaultValue(false);
+        builder.HasOne(sr => sr.LockedBy)
+            .WithMany()
+            .HasForeignKey(sr => sr.LockedById)
+            .OnDelete(DeleteBehavior.SetNull);
+        builder.HasIndex(sr => sr.LockedById);
     }
 }

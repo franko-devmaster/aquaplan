@@ -14,6 +14,7 @@ import { OrderDatastore } from '../../datastore/order.datastore';
 import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
 import { AnalysisProgramApiService } from '../../services/analysis-program-api.service';
 import { SamplingRoundApiService } from '../../services/sampling-round-api.service';
+import { DelegationApiService } from '../../services/delegation-api.service';
 import { SamplingLocationDto } from '../../models/sampling-location.model';
 import { AnalysisProgramListDto } from '../../models/analysis-program.model';
 import { SamplingRoundListDto, SamplingRoundStatus } from '../../models/sampling-round.model';
@@ -153,6 +154,7 @@ export class OrderCreateDialogComponent implements OnInit {
   private readonly locationApi = inject(SamplingLocationApiService);
   private readonly programApi = inject(AnalysisProgramApiService);
   private readonly roundApi = inject(SamplingRoundApiService);
+  private readonly delegationApi = inject(DelegationApiService);
 
   readonly distributors = signal<DistributorOption[]>([]);
   readonly locations = signal<SamplingLocationDto[]>([]);
@@ -183,16 +185,14 @@ export class OrderCreateDialogComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    const allLocations = await firstValueFrom(this.locationApi.getForCurrentUser());
-    const uniqueDistributors = new Map<string, string>();
-    for (const loc of allLocations) {
-      if (!uniqueDistributors.has(loc.distributorId)) {
-        uniqueDistributors.set(loc.distributorId, loc.distributorName ?? '');
-      }
+    // AQ-369 — only distributors the user is authorized to create on
+    const authorized = await firstValueFrom(this.delegationApi.getMyAuthorizedDistributors());
+    this.distributors.set(authorized.map(d => ({ id: d.id, name: d.name })));
+
+    if (authorized.length === 1) {
+      this.form.patchValue({ distributorId: authorized[0].id });
+      await this.onDistributorChange();
     }
-    this.distributors.set(
-      Array.from(uniqueDistributors, ([id, name]) => ({ id, name }))
-    );
 
     const programs = await firstValueFrom(this.programApi.getAll({ isActive: true }));
     this.analysisPrograms.set(programs);

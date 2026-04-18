@@ -13,6 +13,7 @@ namespace AquaPlan.Api.Controllers.Api;
 public class SamplingRoundsController(
     ISamplingRoundService samplingRoundService,
     IPermissionService permissionService,
+    IDelegationService delegationService,
     ILogger<SamplingRoundsController> logger) : ControllerBase
 {
     [HttpGet]
@@ -54,6 +55,18 @@ public class SamplingRoundsController(
     {
         var userId = GetUserId();
         var tenantId = GetTenantId();
+
+        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        if (!hasViewAll)
+        {
+            // AQ-369 — user can only create on own distributor + distributors that delegated to him.
+            var authorizedIds = await delegationService.GetAuthorizedDistributorIdsForUserAsync(userId, cancellationToken);
+            if (!authorizedIds.Contains(dto.DistributorId))
+            {
+                return Forbid();
+            }
+        }
+
         var result = await samplingRoundService.CreateAsync(dto, userId, tenantId, cancellationToken);
         return CreatedAtAction(nameof(GetRound), new { id = result.Id }, result);
     }
@@ -108,6 +121,33 @@ public class SamplingRoundsController(
         var userId = GetUserId();
         var tenantId = GetTenantId();
         var result = await samplingRoundService.TransmitAllAsync(id, userId, tenantId, cancellationToken);
+        if (result is null) return NotFound();
+        return Ok(result);
+    }
+
+    /// <summary>AQ-370 — starts the round (Assigned → InProgress) and poses the lock.</summary>
+    [HttpPost("{id:guid}/start")]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Preleveur},{RoleName.RequerantPreleveur}")]
+    public async Task<ActionResult<SamplingRoundDetailDto>> StartRound(
+        Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+        var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        var result = await samplingRoundService.StartAsync(id, userId, tenantId, isAdmin, cancellationToken);
+        if (result is null) return NotFound();
+        return Ok(result);
+    }
+
+    /// <summary>AQ-372 — admin force-unlock: releases the préleveur lock and reverts InProgress → Assigned.</summary>
+    [HttpPost("{id:guid}/force-unlock")]
+    [Authorize(Roles = RoleName.Administrator)]
+    public async Task<ActionResult<SamplingRoundDetailDto>> ForceUnlock(
+        Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+        var result = await samplingRoundService.ForceUnlockAsync(id, userId, tenantId, cancellationToken);
         if (result is null) return NotFound();
         return Ok(result);
     }

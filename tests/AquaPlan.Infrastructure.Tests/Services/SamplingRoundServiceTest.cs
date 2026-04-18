@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.SamplingRounds;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Domain.Enums;
 using AquaPlan.Infrastructure.Data;
@@ -621,6 +622,132 @@ public class SamplingRoundServiceTest : IDisposable
 
         result.Should().NotBeNull();
         result!.ContainerSummary.Should().BeEmpty();
+    }
+
+    // --- AQ-370 StartAsync ---
+
+    [Fact]
+    public async Task StartAsync_ShouldSetIsLockedAndLockedBy()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+        await TransitionToAssigned(round.Id);
+
+        var result = await _sut.StartAsync(round.Id, PreleveurId, TenantId, isAdmin: false);
+
+        result.Should().NotBeNull();
+        result!.Status.Should().Be(SamplingRoundStatus.InProgress);
+        result.IsLocked.Should().BeTrue();
+        result.LockedById.Should().Be(PreleveurId);
+        result.LockedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task StartAsync_WhenNotAssigned_ShouldThrow()
+    {
+        var round = await CreateDraftRound("Not assigned");
+
+        await _sut.Awaiting(s => s.StartAsync(round.Id, PreleveurId, TenantId, isAdmin: false))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Cannot start*");
+    }
+
+    [Fact]
+    public async Task StartAsync_WhenNotAssignedPreleveur_ShouldThrow()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+        await TransitionToAssigned(round.Id);
+
+        await _sut.Awaiting(s => s.StartAsync(round.Id, "other-user", TenantId, isAdmin: false))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Only the assigned préleveur*");
+    }
+
+    [Fact]
+    public async Task StartAsync_AsAdmin_ShouldSucceedEvenIfNotAssignedUser()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+        await TransitionToAssigned(round.Id);
+
+        var result = await _sut.StartAsync(round.Id, "admin-id", TenantId, isAdmin: true);
+
+        result.Should().NotBeNull();
+        result!.IsLocked.Should().BeTrue();
+        // LockedById should be the preleveur (assignee), not the admin who triggered start
+        result.LockedById.Should().Be(PreleveurId);
+    }
+
+    // --- AQ-372 ForceUnlockAsync ---
+
+    [Fact]
+    public async Task ForceUnlockAsync_WhenLocked_ShouldResetLockAndRevertToAssigned()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+        await TransitionToAssigned(round.Id);
+        await _sut.StartAsync(round.Id, PreleveurId, TenantId, isAdmin: false);
+
+        var result = await _sut.ForceUnlockAsync(round.Id, "admin-id", TenantId);
+
+        result.Should().NotBeNull();
+        result!.Status.Should().Be(SamplingRoundStatus.Assigned);
+        result.IsLocked.Should().BeFalse();
+        result.LockedById.Should().BeNull();
+        result.LockedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ForceUnlockAsync_WhenNotLocked_ShouldThrow()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+        await TransitionToAssigned(round.Id);
+
+        await _sut.Awaiting(s => s.ForceUnlockAsync(round.Id, "admin-id", TenantId))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*not locked*");
+    }
+
+    [Fact]
+    public async Task ForceUnlockAsync_WhenNotFound_ShouldReturnNull()
+    {
+        var result = await _sut.ForceUnlockAsync(Guid.NewGuid(), "admin-id", TenantId);
+
+        result.Should().BeNull();
+    }
+
+    // --- AQ-371 EnsureRoundNotLockedForWriteAsync ---
+
+    [Fact]
+    public async Task EnsureRoundNotLockedForWriteAsync_WhenLockedByOtherUser_ShouldThrow()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+        await TransitionToAssigned(round.Id);
+        await _sut.StartAsync(round.Id, PreleveurId, TenantId, isAdmin: false);
+
+        await _sut.Awaiting(s => s.EnsureRoundNotLockedForWriteAsync(round.Id, "other-user", isAdmin: false, TenantId))
+            .Should().ThrowAsync<RoundLockedException>();
+    }
+
+    [Fact]
+    public async Task EnsureRoundNotLockedForWriteAsync_WhenLockedBySameUser_ShouldNotThrow()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+        await TransitionToAssigned(round.Id);
+        await _sut.StartAsync(round.Id, PreleveurId, TenantId, isAdmin: false);
+
+        await _sut.EnsureRoundNotLockedForWriteAsync(round.Id, PreleveurId, isAdmin: false, TenantId);
+    }
+
+    [Fact]
+    public async Task EnsureRoundNotLockedForWriteAsync_WhenRoundNotLocked_ShouldNotThrow()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+
+        await _sut.EnsureRoundNotLockedForWriteAsync(round.Id, "other-user", isAdmin: false, TenantId);
+    }
+
+    [Fact]
+    public async Task EnsureRoundNotLockedForWriteAsync_WithNullRoundId_ShouldNotThrow()
+    {
+        await _sut.EnsureRoundNotLockedForWriteAsync(null, "any-user", isAdmin: false, TenantId);
     }
 
     private async Task<(AnalysisProgram Program, Container ContainerA, Container ContainerB)> CreateAnalysisProgramWithTwoContainers()

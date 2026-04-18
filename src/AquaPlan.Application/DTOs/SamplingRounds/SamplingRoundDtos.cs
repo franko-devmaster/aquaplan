@@ -50,7 +50,11 @@ public record SamplingRoundListDto(
     string? Notes,
     int OrderCount,
     int CompletedOrderCount,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    bool IsLocked,
+    string? LockedById,
+    string? LockedByName,
+    DateTime? LockedAt);
 
 public record SamplingRoundDetailDto(
     Guid Id,
@@ -70,7 +74,11 @@ public record SamplingRoundDetailDto(
     DateTime? UpdatedAt,
     DateTime? CompletedAt,
     List<SamplingRoundOrderDto> Orders,
-    IList<RoundContainerSummaryDto> ContainerSummary);
+    IList<RoundContainerSummaryDto> ContainerSummary,
+    bool IsLocked,
+    string? LockedById,
+    string? LockedByName,
+    DateTime? LockedAt);
 
 public record RoundContainerSummaryDto(
     Guid ContainerId,

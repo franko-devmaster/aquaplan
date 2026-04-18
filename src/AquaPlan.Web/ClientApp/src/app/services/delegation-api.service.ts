@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { DistributorDto } from '../models/distributor.model';
 
 export interface DistributorDelegationDto {
   id: string;
@@ -36,5 +37,10 @@ export class DelegationApiService {
 
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
+
+  /** AQ-369 — distributors on which the current user is authorized to create orders/rounds. */
+  getMyAuthorizedDistributors(): Observable<DistributorDto[]> {
+    return this.http.get<DistributorDto[]>(`${this.baseUrl}/my-authorized-distributors`);
   }
 }

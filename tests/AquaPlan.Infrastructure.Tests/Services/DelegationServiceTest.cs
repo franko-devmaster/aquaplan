@@ -151,6 +151,98 @@ public class DelegationServiceTest : IDisposable
         result.Should().NotContain(DistributorAId);
     }
 
+    // --- AQ-369 GetAuthorizedDistributorIdsForUserAsync ---
+
+    [Fact]
+    public async Task GetAuthorizedDistributorIdsForUserAsync_ForUserWithoutDelegation_ShouldReturnOnlyOwnDistributor()
+    {
+        var result = await _sut.GetAuthorizedDistributorIdsForUserAsync(UserId);
+
+        result.Should().Contain(DistributorBId);
+        result.Should().NotContain(DistributorAId);
+    }
+
+    [Fact]
+    public async Task GetAuthorizedDistributorIdsForUserAsync_WithActiveDelegation_ShouldReturnOwnPlusDelegating()
+    {
+        await SeedDelegation(DistributorAId, DistributorBId);
+
+        var result = await _sut.GetAuthorizedDistributorIdsForUserAsync(UserId);
+
+        result.Should().Contain(DistributorBId);
+        result.Should().Contain(DistributorAId);
+    }
+
+    [Fact]
+    public async Task GetAuthorizedDistributorIdsForUserAsync_WithExpiredDelegation_ShouldReturnOnlyOwn()
+    {
+        _dbContext.DistributorDelegations.Add(new DistributorDelegation
+        {
+            Id = Guid.NewGuid(),
+            DelegatingDistributorId = DistributorAId,
+            DelegatedToDistributorId = DistributorBId,
+            ValidFrom = DateTime.UtcNow.AddDays(-30),
+            ValidTo = DateTime.UtcNow.AddDays(-1),
+            IsActive = true,
+            TenantId = TenantId,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetAuthorizedDistributorIdsForUserAsync(UserId);
+
+        result.Should().Contain(DistributorBId);
+        result.Should().NotContain(DistributorAId);
+    }
+
+    [Fact]
+    public async Task GetAuthorizedDistributorIdsForUserAsync_WithInactiveDelegation_ShouldReturnOnlyOwn()
+    {
+        _dbContext.DistributorDelegations.Add(new DistributorDelegation
+        {
+            Id = Guid.NewGuid(),
+            DelegatingDistributorId = DistributorAId,
+            DelegatedToDistributorId = DistributorBId,
+            ValidFrom = DateTime.UtcNow.AddDays(-1),
+            IsActive = false,
+            TenantId = TenantId,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetAuthorizedDistributorIdsForUserAsync(UserId);
+
+        result.Should().Contain(DistributorBId);
+        result.Should().NotContain(DistributorAId);
+    }
+
+    [Fact]
+    public async Task GetAuthorizedDistributorsForUserAsync_WhenAdmin_ShouldReturnAllTenantDistributors()
+    {
+        var result = await _sut.GetAuthorizedDistributorsForUserAsync(UserId, TenantId, isAdmin: true);
+
+        result.Should().HaveCount(2);
+        result.Select(d => d.Id).Should().Contain([DistributorAId, DistributorBId]);
+    }
+
+    [Fact]
+    public async Task GetAuthorizedDistributorsForUserAsync_WhenNotAdmin_ShouldReturnOnlyAuthorized()
+    {
+        var result = await _sut.GetAuthorizedDistributorsForUserAsync(UserId, TenantId, isAdmin: false);
+
+        result.Should().HaveCount(1);
+        result[0].Id.Should().Be(DistributorBId);
+    }
+
+    [Fact]
+    public async Task GetAuthorizedDistributorsForUserAsync_WhenNotAdmin_WithDelegation_ShouldIncludeDelegating()
+    {
+        await SeedDelegation(DistributorAId, DistributorBId);
+
+        var result = await _sut.GetAuthorizedDistributorsForUserAsync(UserId, TenantId, isAdmin: false);
+
+        result.Should().HaveCount(2);
+        result.Select(d => d.Id).Should().Contain([DistributorAId, DistributorBId]);
+    }
+
     private async Task<DistributorDelegation> SeedDelegation(Guid delegatingId, Guid delegatedToId)
     {
         var delegation = new DistributorDelegation

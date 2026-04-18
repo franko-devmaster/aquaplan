@@ -36,6 +36,11 @@ export interface SamplingRoundListDto {
   orderCount: number;
   completedOrderCount: number;
   createdAt: string;
+  // AQ-370 — offline lock fields
+  isLocked: boolean;
+  lockedById: string | null;
+  lockedByName: string | null;
+  lockedAt: string | null;
 }
 
 export interface SamplingRoundOrderDto {
@@ -79,6 +84,11 @@ export interface SamplingRoundDetailDto {
   createdAt: string;
   updatedAt: string | null;
   containerSummary: RoundContainerSummaryDto[];
+  // AQ-370 — offline lock fields
+  isLocked: boolean;
+  lockedById: string | null;
+  lockedByName: string | null;
+  lockedAt: string | null;
 }
 
 export interface SamplingRoundCreateDto {

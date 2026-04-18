@@ -20,6 +20,7 @@ import { SamplingRoundApiService } from '../../services/sampling-round-api.servi
 import { SamplingApiService } from '../../services/sampling-api.service';
 import { OrderApiService } from '../../services/order-api.service';
 import { AuthService } from '../../services/auth.service';
+import { NetworkCheckService } from '../../services/network-check.service';
 import {
   SamplingRoundDetailDto,
   SamplingRoundOrderDto,
@@ -100,8 +101,30 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
               {{ 'samplingRounds.transmitAll' | translate }}
             </button>
           }
+          @if (isLocked() && isAdmin()) {
+            <button mat-stroked-button color="warn" (click)="forceUnlockRound()" [disabled]="saving()">
+              <mat-icon>lock_open</mat-icon>
+              {{ 'samplingRounds.forceUnlock' | translate }}
+            </button>
+          }
         </div>
       </div>
+
+      @if (isLocked()) {
+        <div class="lock-banner" [class.lock-banner-self]="isLockedByCurrentUser()">
+          <mat-icon>{{ isLockedByCurrentUser() ? 'lock_outline' : 'lock' }}</mat-icon>
+          <span>
+            @if (isLockedByCurrentUser()) {
+              {{ 'samplingRounds.lockedByYou' | translate }}
+            } @else {
+              {{ 'samplingRounds.lockedByOther' | translate:{ name: round()?.lockedByName ?? '' } }}
+            }
+            @if (round()?.lockedAt) {
+              — {{ round()!.lockedAt | date:'short' }}
+            }
+          </span>
+        </div>
+      }
 
       <!-- Round info -->
       <mat-card class="round-info-card">
@@ -294,6 +317,9 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
   `,
   styles: [`
     .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+    .lock-banner { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #FFF3E0; border-left: 4px solid #FB8C00; border-radius: 4px; color: #E65100; font-size: 14px; margin-bottom: 16px; }
+    .lock-banner.lock-banner-self { background: #E8F5E9; border-left-color: #43A047; color: #1B5E20; }
+    .lock-banner mat-icon { font-size: 20px; width: 20px; height: 20px; }
     .header-info { display: flex; align-items: center; gap: 8px; }
     .header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .loading-container { display: flex; justify-content: center; padding: 48px; }
@@ -334,6 +360,7 @@ export class SamplingRoundDetailComponent implements OnInit {
   private readonly translate = inject(TranslateService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
+  private readonly networkCheck = inject(NetworkCheckService);
 
   readonly round = signal<SamplingRoundDetailDto | null>(null);
   readonly loading = signal(true);
@@ -350,6 +377,14 @@ export class SamplingRoundDetailComponent implements OnInit {
   readonly isAdmin = computed(() =>
     this.authService.currentUser()?.roles.includes('Administrator') ?? false
   );
+  // AQ-370/AQ-371 — round lock awareness
+  readonly isLocked = computed(() => this.round()?.isLocked === true);
+  readonly isLockedByCurrentUser = computed(() => {
+    const r = this.round();
+    const currentId = this.authService.currentUser()?.id;
+    return r?.isLocked === true && r.lockedById === currentId;
+  });
+  readonly isLockedByOther = computed(() => this.isLocked() && !this.isLockedByCurrentUser());
 
   readonly allOrdersCompleted = computed(() => {
     const r = this.round();
@@ -603,19 +638,51 @@ export class SamplingRoundDetailComponent implements OnInit {
     const r = this.round();
     if (!r) return;
 
-    // Start all "New" orders in the round to transition them (and the round) to InProgress
-    const newOrders = r.orders.filter(o => o.status === 'New');
-    if (newOrders.length === 0) return;
+    // AQ-370 — require network for the Assigned → InProgress transition (lock is posed).
+    const online = await this.networkCheck.pingServer();
+    if (!online) {
+      this.snackBar.open(
+        this.translate.instant('samplingRounds.startRequiresNetwork'),
+        this.translate.instant('common.close'),
+        { duration: 5000 }
+      );
+      return;
+    }
 
     this.saving.set(true);
     try {
-      for (const order of newOrders) {
-        await firstValueFrom(this.roundApi.startOrder(order.id));
-      }
-      const refreshed = await firstValueFrom(this.roundApi.getById(r.id));
-      this.round.set(refreshed);
+      const updated = await firstValueFrom(this.roundApi.start(r.id));
+      this.round.set(updated);
       this.snackBar.open(
         this.translate.instant('samplingRounds.started'),
+        this.translate.instant('common.close'),
+        { duration: 3000 }
+      );
+    } catch (err: unknown) {
+      const apiError = err as { error?: { error?: string } };
+      this.snackBar.open(
+        apiError?.error?.error ?? 'Error',
+        this.translate.instant('common.close'),
+        { duration: 5000 }
+      );
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  /** AQ-372 — admin force-unlocks a round currently held by a préleveur. */
+  async forceUnlockRound(): Promise<void> {
+    const r = this.round();
+    if (!r) return;
+
+    if (!confirm(this.translate.instant('samplingRounds.confirmForceUnlock'))) return;
+
+    this.saving.set(true);
+    try {
+      const updated = await firstValueFrom(this.roundApi.forceUnlock(r.id));
+      this.round.set(updated);
+      this.snackBar.open(
+        this.translate.instant('samplingRounds.forceUnlocked'),
         this.translate.instant('common.close'),
         { duration: 3000 }
       );

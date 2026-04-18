@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Delegations;
+using AquaPlan.Application.DTOs.Distributors;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Infrastructure.Data;
@@ -103,5 +104,49 @@ internal class DelegationService(
             .ToListAsync(cancellationToken);
 
         return delegatedIds;
+    }
+
+    public async Task<List<Guid>> GetAuthorizedDistributorIdsForUserAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        // AQ-369 — own distributors + distributors that delegated to user's distributors
+        var userDistributorIds = await dbContext.UserDistributors
+            .Where(ud => ud.UserId == userId)
+            .Select(ud => ud.DistributorId)
+            .ToListAsync(cancellationToken);
+
+        var delegatedIds = await dbContext.DistributorDelegations
+            .Where(d => d.IsActive
+                && userDistributorIds.Contains(d.DelegatedToDistributorId)
+                && d.ValidFrom <= DateTime.UtcNow
+                && (d.ValidTo == null || d.ValidTo >= DateTime.UtcNow))
+            .Select(d => d.DelegatingDistributorId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return userDistributorIds.Union(delegatedIds).ToList();
+    }
+
+    public async Task<List<DistributorDto>> GetAuthorizedDistributorsForUserAsync(string userId, Guid tenantId, bool isAdmin, CancellationToken cancellationToken = default)
+    {
+        // AQ-369 — admin sees all distributors of the tenant; others get own + delegating ones
+        if (isAdmin)
+        {
+            return await dbContext.Distributors
+                .Where(d => d.TenantId == tenantId && d.IsActive)
+                .OrderBy(d => d.Name)
+                .Select(d => new DistributorDto(
+                    d.Id, d.Name, d.ShortName, d.CantonRegion, d.DistributionNetwork,
+                    d.IsActive, d.CreatedAt))
+                .ToListAsync(cancellationToken);
+        }
+
+        var authorizedIds = await GetAuthorizedDistributorIdsForUserAsync(userId, cancellationToken);
+        return await dbContext.Distributors
+            .Where(d => d.TenantId == tenantId && d.IsActive && authorizedIds.Contains(d.Id))
+            .OrderBy(d => d.Name)
+            .Select(d => new DistributorDto(
+                d.Id, d.Name, d.ShortName, d.CantonRegion, d.DistributionNetwork,
+                d.IsActive, d.CreatedAt))
+            .ToListAsync(cancellationToken);
     }
 }
