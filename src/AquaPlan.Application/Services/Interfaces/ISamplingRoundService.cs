@@ -38,4 +38,15 @@ public interface ISamplingRoundService
     /// Safe to call with a null roundId (no-op).
     /// </summary>
     Task EnsureRoundNotLockedForWriteAsync(Guid? roundId, string currentUserId, bool isAdmin, Guid tenantId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// AQ-373 — returns a complete offline-ready snapshot of the round: the round
+    /// itself, all its orders (with samplings and containers), the distributor's
+    /// active+validated sampling locations, and the deduplicated catalog fragments
+    /// (programs, profiles, containers). Authorized only for the assigned préleveur
+    /// and administrators. Returns null when the round does not exist.
+    /// Throws UnauthorizedAccessException when the current user is neither the
+    /// assigned préleveur nor an administrator.
+    /// </summary>
+    Task<OfflineSnapshotDto?> GetOfflineSnapshotAsync(Guid roundId, string currentUserId, bool isAdmin, Guid tenantId, CancellationToken cancellationToken = default);
 }

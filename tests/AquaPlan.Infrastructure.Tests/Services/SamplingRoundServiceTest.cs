@@ -750,6 +750,108 @@ public class SamplingRoundServiceTest : IDisposable
         await _sut.EnsureRoundNotLockedForWriteAsync(null, "any-user", isAdmin: false, TenantId);
     }
 
+    // --- AQ-373 GetOfflineSnapshotAsync ---
+
+    [Fact]
+    public async Task GetOfflineSnapshotAsync_AsAssignedPreleveur_ShouldReturnCompleteSnapshot()
+    {
+        var (program, containerA, containerB) = await CreateAnalysisProgramWithTwoContainers();
+        var round = await CreateDraftRound("Snapshot round");
+        await CreateOrderInRoundWithProgram(round.Id, program.Id, sortOrder: 0);
+        await TransitionToAssigned(round.Id);
+
+        var result = await _sut.GetOfflineSnapshotAsync(
+            round.Id, PreleveurId, isAdmin: false, TenantId);
+
+        result.Should().NotBeNull();
+        result!.Round.Id.Should().Be(round.Id);
+        result.Orders.Should().HaveCount(1);
+        result.Orders[0].AnalysisPrograms.Should().ContainSingle(p => p.AnalysisProgramId == program.Id);
+        result.AnalysisPrograms.Should().ContainSingle(p => p.Id == program.Id);
+        result.AnalysisProfiles.Should().HaveCount(2);
+        result.Containers.Select(c => c.Id).Should().BeEquivalentTo(new[] { containerA.Id, containerB.Id });
+        result.SamplingLocations.Should().OnlyContain(sl => sl.DistributorId == DistributorId);
+        result.SnapshotedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task GetOfflineSnapshotAsync_AsAdmin_ShouldSucceed()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+        await TransitionToAssigned(round.Id);
+
+        var result = await _sut.GetOfflineSnapshotAsync(
+            round.Id, "some-admin", isAdmin: true, TenantId);
+
+        result.Should().NotBeNull();
+        result!.Round.Id.Should().Be(round.Id);
+    }
+
+    [Fact]
+    public async Task GetOfflineSnapshotAsync_AsOtherPreleveur_ShouldThrowUnauthorized()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+        await TransitionToAssigned(round.Id);
+
+        await _sut.Awaiting(s => s.GetOfflineSnapshotAsync(
+                round.Id, "other-preleveur", isAdmin: false, TenantId))
+            .Should().ThrowAsync<UnauthorizedAccessException>();
+    }
+
+    [Fact]
+    public async Task GetOfflineSnapshotAsync_WhenRoundNotExists_ShouldReturnNull()
+    {
+        var result = await _sut.GetOfflineSnapshotAsync(
+            Guid.NewGuid(), PreleveurId, isAdmin: false, TenantId);
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetOfflineSnapshotAsync_ShouldOnlyIncludeActiveValidatedLocations()
+    {
+        // Add an inactive and a non-validated location to the same distributor.
+        _dbContext.SamplingLocations.Add(new SamplingLocation
+        {
+            Id = Guid.NewGuid(), Name = "Inactive source", LocationCode = "INACTIVE",
+            DistributorId = DistributorId, IsActive = false, IsValidated = true,
+        });
+        _dbContext.SamplingLocations.Add(new SamplingLocation
+        {
+            Id = Guid.NewGuid(), Name = "Not validated", LocationCode = "UNVAL",
+            DistributorId = DistributorId, IsActive = true, IsValidated = false,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+        await TransitionToAssigned(round.Id);
+
+        var result = await _sut.GetOfflineSnapshotAsync(
+            round.Id, PreleveurId, isAdmin: false, TenantId);
+
+        result.Should().NotBeNull();
+        result!.SamplingLocations.Should().OnlyContain(sl => sl.IsActive && sl.IsValidated);
+    }
+
+    [Fact]
+    public async Task GetOfflineSnapshotAsync_ShouldBeJsonSerializable()
+    {
+        // AQ-373 — the DTO must round-trip through System.Text.Json so it can be
+        // persisted in IndexedDB and re-hydrated by the Angular offline service.
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+        await TransitionToAssigned(round.Id);
+
+        var snapshot = await _sut.GetOfflineSnapshotAsync(
+            round.Id, PreleveurId, isAdmin: false, TenantId);
+
+        var json = System.Text.Json.JsonSerializer.Serialize(snapshot);
+        json.Should().NotBeNullOrWhiteSpace();
+        var rehydrated = System.Text.Json.JsonSerializer.Deserialize<OfflineSnapshotDto>(json);
+        rehydrated.Should().NotBeNull();
+        rehydrated!.Round.Id.Should().Be(snapshot!.Round.Id);
+        rehydrated.Orders.Should().HaveCount(snapshot.Orders.Count);
+    }
+
     private async Task<(AnalysisProgram Program, Container ContainerA, Container ContainerB)> CreateAnalysisProgramWithTwoContainers()
     {
         var containerA = new Container

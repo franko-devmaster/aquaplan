@@ -1,3 +1,8 @@
+using AquaPlan.Application.DTOs.AnalysisPrograms;
+using AquaPlan.Application.DTOs.AnalysisProfiles;
+using AquaPlan.Application.DTOs.Containers;
+using AquaPlan.Application.DTOs.Orders;
+using AquaPlan.Application.DTOs.SamplingLocations;
 using AquaPlan.Application.DTOs.SamplingRounds;
 using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
@@ -688,6 +693,238 @@ internal class SamplingRoundService(
             : null;
 
         throw new RoundLockedException(round.Id, round.LockedById, lockedByName, round.LockedAt);
+    }
+
+    // --- AQ-373 offline snapshot ---
+
+    public async Task<OfflineSnapshotDto?> GetOfflineSnapshotAsync(
+        Guid roundId, string currentUserId, bool isAdmin, Guid tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        // Load the round first (minimal projection) so we can authorize before
+        // running the more expensive joins.
+        var authRound = await dbContext.SamplingRounds
+            .AsNoTracking()
+            .Where(sr => sr.TenantId == tenantId && sr.Id == roundId)
+            .Select(sr => new { sr.Id, sr.PreleveurId, sr.DistributorId })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (authRound is null)
+        {
+            return null;
+        }
+
+        if (!isAdmin && authRound.PreleveurId != currentUserId)
+        {
+            throw new UnauthorizedAccessException(
+                "Only the assigned préleveur or an administrator can download a round snapshot.");
+        }
+
+        // Round detail — reuse existing loader that already includes all the
+        // graphs we need (orders, locations, programs, profiles, containers,
+        // locked-by).
+        var roundDto = await GetByIdAsync(roundId, tenantId, cancellationToken);
+        if (roundDto is null)
+        {
+            return null;
+        }
+
+        // Orders with their full graph for offline rendering.
+        var orders = await dbContext.Orders
+            .AsNoTracking()
+            .Include(o => o.CreatedBy)
+            .Include(o => o.Preleveur)
+            .Include(o => o.Distributor)
+            .Include(o => o.SamplingLocation)
+                .ThenInclude(sl => sl!.Sector)
+            .Include(o => o.OrderAnalysisPrograms)
+                .ThenInclude(oap => oap.AnalysisProgram)
+            .Include(o => o.Sampling)
+                .ThenInclude(s => s!.Preleveur)
+            .Include(o => o.Sampling)
+                .ThenInclude(s => s!.Containers)
+            .Include(o => o.SamplingRound)
+                .ThenInclude(r => r!.LockedBy)
+            .Where(o => o.TenantId == tenantId && o.SamplingRoundId == roundId)
+            .OrderBy(o => o.SortOrder)
+            .ToListAsync(cancellationToken);
+
+        var orderDtos = orders.Select(MapOrderToDetailDto).ToList();
+
+        // Distributor's active + validated sampling locations for on-field
+        // replacement. Include distributor/sector for display.
+        var samplingLocations = await dbContext.SamplingLocations
+            .AsNoTracking()
+            .Include(sl => sl.Distributor)
+            .Include(sl => sl.Sector)
+            .Where(sl => sl.DistributorId == authRound.DistributorId
+                && sl.IsActive
+                && sl.IsValidated
+                && sl.Distributor!.TenantId == tenantId)
+            .OrderBy(sl => sl.Name)
+            .ToListAsync(cancellationToken);
+
+        var locationDtos = samplingLocations.Select(sl => new SamplingLocationDto(
+            sl.Id, sl.Name, sl.LocationCode,
+            sl.Description, sl.Address, sl.AccessDescription,
+            sl.IsActive, sl.IsValidated, sl.DistributorId,
+            sl.Distributor?.Name,
+            sl.SectorId,
+            sl.Sector?.Name,
+            sl.CreatedAt)).ToList();
+
+        // Only the analysis programs referenced by the round's orders (KISS —
+        // limits payload size even on large tenants). Dedup by Id.
+        var programIds = orders
+            .SelectMany(o => o.OrderAnalysisPrograms)
+            .Select(oap => oap.AnalysisProgramId)
+            .Distinct()
+            .ToList();
+
+        var programs = await dbContext.AnalysisPrograms
+            .AsNoTracking()
+            .Include(p => p.AnalysisProgramProfiles)
+                .ThenInclude(pp => pp.AnalysisProfile!)
+                    .ThenInclude(profile => profile.Container)
+            .Where(p => p.TenantId == tenantId && programIds.Contains(p.Id))
+            .OrderBy(p => p.Code)
+            .ToListAsync(cancellationToken);
+
+        var programDtos = programs.Select(MapAnalysisProgramToDto).ToList();
+
+        // Distinct profiles referenced by those programs.
+        var profiles = programs
+            .SelectMany(p => p.AnalysisProgramProfiles)
+            .Where(pp => pp.AnalysisProfile is not null)
+            .Select(pp => pp.AnalysisProfile!)
+            .GroupBy(p => p.Id)
+            .Select(g => g.First())
+            .OrderBy(p => p.Code)
+            .ToList();
+
+        var profileDtos = profiles.Select(p => new AnalysisProfileDto(
+            p.Id, p.Code, p.Name, p.Description,
+            p.Category, p.IsActive,
+            p.ContainerId,
+            p.Container?.Code ?? string.Empty,
+            p.Container?.Name ?? string.Empty,
+            p.CreatedAt)).ToList();
+
+        // Distinct containers referenced by those profiles.
+        var containers = profiles
+            .Where(p => p.Container is not null)
+            .Select(p => p.Container!)
+            .GroupBy(c => c.Id)
+            .Select(g => g.First())
+            .OrderBy(c => c.Code)
+            .ToList();
+
+        var containerDtos = containers.Select(c => new ContainerDto(
+            c.Id, c.Code, c.Name, c.Material, c.VolumeMl, c.Color,
+            c.IsActive, c.CreatedAt, c.UpdatedAt)).ToList();
+
+        logger.LogInformation(
+            "Offline snapshot built for round {RoundId} — {OrderCount} orders, {LocationCount} locations, {ProgramCount} programs",
+            roundId, orderDtos.Count, locationDtos.Count, programDtos.Count);
+
+        return new OfflineSnapshotDto(
+            roundDto,
+            orderDtos,
+            locationDtos,
+            programDtos,
+            profileDtos,
+            containerDtos,
+            DateTime.UtcNow);
+    }
+
+    private static OrderDetailDto MapOrderToDetailDto(Order order)
+    {
+        SamplingDto? samplingDto = null;
+        if (order.Sampling is not null)
+        {
+            var s = order.Sampling;
+            var sContainers = s.Containers
+                .Select(c => new SamplingContainerDto(c.Id, c.ContainerId, s.SampleBarcode, c.BarcodeScannedAt))
+                .ToList();
+            samplingDto = new SamplingDto(
+                s.Id, s.OrderId, s.PreleveurId,
+                s.Preleveur is not null ? s.Preleveur.FirstName + " " + s.Preleveur.LastName : null,
+                s.SamplingDateTime, s.Temperature, s.Weather,
+                s.Notes, s.HasWaterSoftener, s.IsChlorinated,
+                s.SampleBarcode, s.BarcodeScannedAt,
+                s.IsValidated, s.ValidatedAt, s.CreatedAt,
+                sContainers);
+        }
+
+        var programs = order.OrderAnalysisPrograms
+            .Where(oap => oap.AnalysisProgram is not null)
+            .Select(oap => new OrderAnalysisProgramDto(
+                oap.AnalysisProgramId,
+                oap.AnalysisProgram!.Code,
+                oap.AnalysisProgram.Name))
+            .ToList();
+
+        var round = order.SamplingRound;
+        var isRoundLocked = round is not null && round.IsLocked;
+        var lockedByName = round?.LockedBy is not null
+            ? $"{round.LockedBy.FirstName} {round.LockedBy.LastName}"
+            : null;
+
+        return new OrderDetailDto(
+            order.Id, order.OrderNumber, order.Status, order.IsUnplanned,
+            order.UnplannedReason, order.UnplannedReasonDetails,
+            order.CreatedById,
+            order.CreatedBy is not null ? order.CreatedBy.FirstName + " " + order.CreatedBy.LastName : null,
+            order.PreleveurId,
+            order.Preleveur is not null ? order.Preleveur.FirstName + " " + order.Preleveur.LastName : null,
+            order.DistributorId,
+            order.Distributor is not null ? order.Distributor.Name : string.Empty,
+            order.SamplingLocationId,
+            order.SamplingLocation is not null ? order.SamplingLocation.Name : null,
+            order.SamplingLocation?.Sector?.Name,
+            order.PlannedDate,
+            order.Notes,
+            order.IsDelegated,
+            programs,
+            order.TenantId, order.CreatedAt, order.UpdatedAt, samplingDto,
+            order.SamplingRoundId,
+            isRoundLocked,
+            round?.LockedById,
+            lockedByName);
+    }
+
+    private static AnalysisProgramDto MapAnalysisProgramToDto(AnalysisProgram program)
+    {
+        var profiles = program.AnalysisProgramProfiles
+            .Where(pp => pp.AnalysisProfile is not null)
+            .Select(pp => new AnalysisProfileListDto(
+                pp.AnalysisProfile!.Id,
+                pp.AnalysisProfile.Code,
+                pp.AnalysisProfile.Name,
+                pp.AnalysisProfile.Category,
+                pp.AnalysisProfile.IsActive,
+                pp.AnalysisProfile.ContainerId,
+                pp.AnalysisProfile.Container?.Code ?? string.Empty))
+            .OrderBy(p => p.Code)
+            .ToList();
+
+        var requiredContainers = program.AnalysisProgramProfiles
+            .Where(pp => pp.AnalysisProfile?.Container is not null)
+            .GroupBy(pp => pp.AnalysisProfile!.ContainerId)
+            .Select(g =>
+            {
+                var container = g.First().AnalysisProfile!.Container!;
+                return new ProgramContainerDto(
+                    container.Id, container.Code, container.Name,
+                    container.Material, container.VolumeMl, g.Count());
+            })
+            .OrderBy(c => c.Code)
+            .ToList();
+
+        return new AnalysisProgramDto(
+            program.Id, program.Code, program.Name, program.Description,
+            program.IsActive, program.CreatedAt,
+            profiles, requiredContainers);
     }
 
     private static SamplingRoundDetailDto MapToDetailDto(SamplingRound round)

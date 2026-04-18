@@ -152,6 +152,27 @@ public class SamplingRoundsController(
         return Ok(result);
     }
 
+    /// <summary>AQ-373 — aggregated offline snapshot for the préleveur (round + orders + locations + catalog).</summary>
+    [HttpGet("{id:guid}/offline-snapshot")]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Preleveur},{RoleName.RequerantPreleveur}")]
+    public async Task<ActionResult<OfflineSnapshotDto>> GetOfflineSnapshot(
+        Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+        var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        try
+        {
+            var result = await samplingRoundService.GetOfflineSnapshotAsync(id, userId, isAdmin, tenantId, cancellationToken);
+            if (result is null) return NotFound();
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
     [HttpPost("{id:guid}/cancel")]
     public async Task<ActionResult<SamplingRoundDetailDto>> CancelRound(
         Guid id, CancellationToken cancellationToken)

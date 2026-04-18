@@ -333,4 +333,78 @@ public class SamplingRoundsControllerTest
     }
 
     #endregion
+
+    #region GetOfflineSnapshot (AQ-373)
+
+    [Fact]
+    public void GetOfflineSnapshot_ShouldHaveHttpGetAttribute()
+    {
+        var method = typeof(SamplingRoundsController).GetMethod(nameof(SamplingRoundsController.GetOfflineSnapshot));
+        var getAttr = method!.GetCustomAttributes(typeof(HttpGetAttribute), true).OfType<HttpGetAttribute>().First();
+        getAttr.Template.Should().Be("{id:guid}/offline-snapshot");
+    }
+
+    [Fact]
+    public void GetOfflineSnapshot_ShouldHaveAuthorizeAttributeWithPreleveurRoles()
+    {
+        var method = typeof(SamplingRoundsController).GetMethod(nameof(SamplingRoundsController.GetOfflineSnapshot));
+        var auth = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true).OfType<AuthorizeAttribute>().FirstOrDefault();
+        auth.Should().NotBeNull();
+        auth!.Roles.Should()
+            .Contain(RoleName.Administrator)
+            .And.Contain(RoleName.Preleveur)
+            .And.Contain(RoleName.RequerantPreleveur);
+    }
+
+    [Fact]
+    public async Task GetOfflineSnapshot_ShouldReturnOk_WhenSuccess()
+    {
+        var roundDto = CreateRoundDetailDto(SamplingRoundStatus.InProgress);
+        var snapshot = new OfflineSnapshotDto(
+            roundDto, [], [], [], [], [], DateTime.UtcNow);
+
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _samplingRoundServiceMock
+            .Setup(x => x.GetOfflineSnapshotAsync(RoundId, UserId, false, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(snapshot);
+
+        var result = await _sut.GetOfflineSnapshot(RoundId, CancellationToken.None);
+
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().Be(snapshot);
+    }
+
+    [Fact]
+    public async Task GetOfflineSnapshot_ShouldReturnNotFound_WhenRoundDoesNotExist()
+    {
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _samplingRoundServiceMock
+            .Setup(x => x.GetOfflineSnapshotAsync(RoundId, UserId, false, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OfflineSnapshotDto?)null);
+
+        var result = await _sut.GetOfflineSnapshot(RoundId, CancellationToken.None);
+
+        result.Result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task GetOfflineSnapshot_ShouldReturnForbid_WhenServiceThrowsUnauthorized()
+    {
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _samplingRoundServiceMock
+            .Setup(x => x.GetOfflineSnapshotAsync(RoundId, UserId, false, TenantId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new UnauthorizedAccessException());
+
+        var result = await _sut.GetOfflineSnapshot(RoundId, CancellationToken.None);
+
+        result.Result.Should().BeOfType<ForbidResult>();
+    }
+
+    #endregion
 }

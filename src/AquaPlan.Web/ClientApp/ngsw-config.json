@@ -1,0 +1,57 @@
+{
+  "$schema": "./node_modules/@angular/service-worker/config/schema.json",
+  "index": "/index.html",
+  "assetGroups": [
+    {
+      "name": "app",
+      "installMode": "prefetch",
+      "updateMode": "prefetch",
+      "resources": {
+        "files": [
+          "/favicon.ico",
+          "/index.html",
+          "/manifest.webmanifest",
+          "/*.css",
+          "/*.js"
+        ]
+      }
+    },
+    {
+      "name": "assets",
+      "installMode": "prefetch",
+      "updateMode": "prefetch",
+      "resources": {
+        "files": [
+          "/assets/**",
+          "/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf|woff|woff2)"
+        ]
+      }
+    }
+  ],
+  "dataGroups": [
+    {
+      "name": "api-health",
+      "urls": [
+        "/api/health"
+      ],
+      "cacheConfig": {
+        "maxSize": 1,
+        "maxAge": "10s",
+        "timeout": "3s",
+        "strategy": "performance"
+      }
+    },
+    {
+      "name": "api-offline-snapshot",
+      "urls": [
+        "/api/sampling-rounds/*/offline-snapshot"
+      ],
+      "cacheConfig": {
+        "maxSize": 20,
+        "maxAge": "1d",
+        "timeout": "5s",
+        "strategy": "freshness"
+      }
+    }
+  ]
+}
