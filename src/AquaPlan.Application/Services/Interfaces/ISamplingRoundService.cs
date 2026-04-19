@@ -6,7 +6,16 @@ public interface ISamplingRoundService
 {
     Task<SamplingRoundDetailDto> CreateAsync(SamplingRoundCreateDto dto, string createdById, Guid tenantId, CancellationToken cancellationToken = default);
     Task<SamplingRoundDetailDto?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default);
-    Task<SamplingRoundPagedResultDto> GetFilteredAsync(string userId, Guid tenantId, SamplingRoundFilterDto filter, bool isAdmin, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Returns sampling rounds visible to the calling user.
+    /// AQ-398 — Visibility rules:
+    ///   • Administrators see every round of the tenant.
+    ///   • Préleveurs (sole role) only see rounds where they are the assigned <c>PreleveurId</c>.
+    ///   • Mandataires (Requérant / Requérant-Préleveur) see every round of the
+    ///     distributors they are authorized on (own + active delegations) — they
+    ///     are NOT restricted to rounds they created themselves.
+    /// </summary>
+    Task<SamplingRoundPagedResultDto> GetFilteredAsync(string userId, Guid tenantId, SamplingRoundFilterDto filter, bool isAdmin, bool isPreleveurOnly, CancellationToken cancellationToken = default);
     Task<SamplingRoundDetailDto?> UpdateAsync(Guid id, SamplingRoundUpdateDto dto, string updatedBy, Guid tenantId, CancellationToken cancellationToken = default);
     Task<bool> DeleteAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default);
     Task<SamplingRoundDetailDto?> AssignPreleveurAsync(Guid id, SamplingRoundAssignDto dto, string updatedBy, Guid tenantId, CancellationToken cancellationToken = default);

@@ -14,6 +14,7 @@ public class OrderServiceTest : IDisposable
 {
     private readonly AquaPlanDbContext _dbContext;
     private readonly Mock<IOrderAuditService> _auditServiceMock = new();
+    private readonly Mock<IDelegationService> _delegationServiceMock = new();
     private readonly Mock<ILogger<OrderService>> _loggerMock = new();
     private readonly Mock<ILogger<SamplingRoundService>> _roundLoggerMock = new();
     private readonly SamplingRoundService _roundService;
@@ -30,7 +31,7 @@ public class OrderServiceTest : IDisposable
             .Options;
 
         _dbContext = new AquaPlanDbContext(options);
-        _roundService = new SamplingRoundService(_dbContext, _roundLoggerMock.Object);
+        _roundService = new SamplingRoundService(_dbContext, _delegationServiceMock.Object, _roundLoggerMock.Object);
         _sut = new OrderService(_dbContext, _auditServiceMock.Object, _roundService, _loggerMock.Object);
 
         SeedData().GetAwaiter().GetResult();

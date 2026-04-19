@@ -32,10 +32,17 @@ public class SamplingRoundsController(
         var tenantId = GetTenantId();
         var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
 
+        // AQ-398 — A user is "préleveur only" when they hold the Préleveur role and
+        // none of the requérant roles. Such users only see rounds they are assigned to.
+        var isPreleveurOnly = User.IsInRole(RoleName.Preleveur)
+            && !User.IsInRole(RoleName.Requerant)
+            && !User.IsInRole(RoleName.RequerantPreleveur)
+            && !User.IsInRole(RoleName.Administrator);
+
         var filter = new SamplingRoundFilterDto(
             statuses, distributorId, preleveurId, deadlineFrom, deadlineTo, search, page, pageSize);
 
-        var result = await samplingRoundService.GetFilteredAsync(userId, tenantId, filter, isAdmin, cancellationToken);
+        var result = await samplingRoundService.GetFilteredAsync(userId, tenantId, filter, isAdmin, isPreleveurOnly, cancellationToken);
         return Ok(result);
     }
 

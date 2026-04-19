@@ -1,5 +1,6 @@
 using AquaPlan.Application.DTOs.SamplingRounds;
 using AquaPlan.Application.Exceptions;
+using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Domain.Enums;
 using AquaPlan.Infrastructure.Data;
@@ -12,6 +13,7 @@ namespace AquaPlan.Infrastructure.Tests.Services;
 public class SamplingRoundServiceTest : IDisposable
 {
     private readonly AquaPlanDbContext _dbContext;
+    private readonly Mock<IDelegationService> _delegationServiceMock = new();
     private readonly Mock<ILogger<SamplingRoundService>> _loggerMock = new();
     private readonly SamplingRoundService _sut;
 
@@ -31,7 +33,14 @@ public class SamplingRoundServiceTest : IDisposable
             .Options;
 
         _dbContext = new AquaPlanDbContext(options);
-        _sut = new SamplingRoundService(_dbContext, _loggerMock.Object);
+
+        // AQ-398 — by default the delegation service returns the user's primary distributor only.
+        // Tests that need delegation behaviour override this setup explicitly.
+        _delegationServiceMock
+            .Setup(d => d.GetAuthorizedDistributorIdsForUserAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([DistributorId]);
+
+        _sut = new SamplingRoundService(_dbContext, _delegationServiceMock.Object, _loggerMock.Object);
 
         SeedData().GetAwaiter().GetResult();
     }
@@ -97,7 +106,7 @@ public class SamplingRoundServiceTest : IDisposable
         await TransitionToAssigned(round2.Id);
 
         var filter = new SamplingRoundFilterDto(Statuses: new[] { SamplingRoundStatus.Assigned });
-        var result = await _sut.GetFilteredAsync(UserId, TenantId, filter, isAdmin: true);
+        var result = await _sut.GetFilteredAsync(UserId, TenantId, filter, isAdmin: true, isPreleveurOnly: false);
 
         result.Items.Should().AllSatisfy(r => r.Status.Should().Be(SamplingRoundStatus.Assigned));
     }
@@ -120,7 +129,7 @@ public class SamplingRoundServiceTest : IDisposable
             SamplingRoundStatus.Assigned,
             SamplingRoundStatus.InProgress,
         });
-        var result = await _sut.GetFilteredAsync(UserId, TenantId, filter, isAdmin: true);
+        var result = await _sut.GetFilteredAsync(UserId, TenantId, filter, isAdmin: true, isPreleveurOnly: false);
 
         var ids = result.Items.Select(r => r.Id).ToList();
         ids.Should().Contain(draft.Id);
@@ -152,9 +161,171 @@ public class SamplingRoundServiceTest : IDisposable
         await _dbContext.SaveChangesAsync();
 
         var filter = new SamplingRoundFilterDto();
-        var result = await _sut.GetFilteredAsync(UserId, TenantId, filter, isAdmin: false);
+        var result = await _sut.GetFilteredAsync(UserId, TenantId, filter, isAdmin: false, isPreleveurOnly: false);
 
         result.Items.Should().AllSatisfy(r => r.DistributorId.Should().Be(DistributorId));
+    }
+
+    // --- AQ-398: Role-based visibility ---
+
+    [Fact]
+    public async Task GetFilteredAsync_WhenUserIsAdmin_ShouldReturnAllTenantRounds()
+    {
+        // AQ-398 — administrators see every round of the tenant, regardless of distributor or assignment.
+        await CreateDraftRound("Round on user's distributor");
+        var otherDistributorRound = new SamplingRound
+        {
+            Id = Guid.NewGuid(),
+            Name = "Round on other distributor",
+            DistributorId = OtherDistributorId,
+            Status = SamplingRoundStatus.Draft,
+            TenantId = TenantId,
+            CreatedById = UserId,
+            CreatedAt = DateTime.UtcNow,
+        };
+        _dbContext.SamplingRounds.Add(otherDistributorRound);
+        await _dbContext.SaveChangesAsync();
+
+        var filter = new SamplingRoundFilterDto();
+        var result = await _sut.GetFilteredAsync(UserId, TenantId, filter, isAdmin: true, isPreleveurOnly: false);
+
+        result.Items.Should().HaveCount(2);
+        result.Items.Select(r => r.DistributorId).Should().Contain([DistributorId, OtherDistributorId]);
+    }
+
+    [Fact]
+    public async Task GetFilteredAsync_WhenUserIsPreleveur_ShouldOnlyReturnOwnAssignedRounds()
+    {
+        // AQ-398 — a sole-Préleveur user only sees the rounds where PreleveurId matches.
+        // Even rounds on his distributor that are assigned to someone else must be hidden.
+        var ownRound = await CreateDraftRoundWithOrders(orderCount: 1);
+        await TransitionToAssigned(ownRound.Id); // assigned to PreleveurId
+
+        // Round on the same distributor but assigned to someone else.
+        var otherPreleveurRound = new SamplingRound
+        {
+            Id = Guid.NewGuid(),
+            Name = "Assigned to another préleveur",
+            DistributorId = DistributorId,
+            PreleveurId = "other-preleveur",
+            Status = SamplingRoundStatus.Assigned,
+            TenantId = TenantId,
+            CreatedById = UserId,
+            CreatedAt = DateTime.UtcNow,
+        };
+        _dbContext.SamplingRounds.Add(otherPreleveurRound);
+        await _dbContext.SaveChangesAsync();
+
+        var filter = new SamplingRoundFilterDto();
+        var result = await _sut.GetFilteredAsync(PreleveurId, TenantId, filter, isAdmin: false, isPreleveurOnly: true);
+
+        result.Items.Should().HaveCount(1);
+        result.Items[0].Id.Should().Be(ownRound.Id);
+        result.Items[0].PreleveurId.Should().Be(PreleveurId);
+    }
+
+    [Fact]
+    public async Task GetFilteredAsync_WhenUserIsRequerant_ShouldReturnAllRoundsOfAuthorizedDistributors()
+    {
+        // AQ-398 — a Mandataire / Requérant sees every round of his authorized distributors,
+        // regardless of who created it or who is the assigned préleveur.
+        var roundCreatedByMe = await CreateDraftRound("Created by me");
+
+        // A round on the same distributor, but created by someone else.
+        var roundCreatedByOther = new SamplingRound
+        {
+            Id = Guid.NewGuid(),
+            Name = "Created by other requérant",
+            DistributorId = DistributorId,
+            Status = SamplingRoundStatus.Draft,
+            TenantId = TenantId,
+            CreatedById = "another-requerant",
+            CreatedAt = DateTime.UtcNow,
+        };
+        _dbContext.SamplingRounds.Add(roundCreatedByOther);
+
+        // A round on a distributor the user is NOT authorized on must be hidden.
+        var roundOnForbiddenDistributor = new SamplingRound
+        {
+            Id = Guid.NewGuid(),
+            Name = "Forbidden distributor",
+            DistributorId = OtherDistributorId,
+            Status = SamplingRoundStatus.Draft,
+            TenantId = TenantId,
+            CreatedById = UserId,
+            CreatedAt = DateTime.UtcNow,
+        };
+        _dbContext.SamplingRounds.Add(roundOnForbiddenDistributor);
+        await _dbContext.SaveChangesAsync();
+
+        var filter = new SamplingRoundFilterDto();
+        var result = await _sut.GetFilteredAsync(UserId, TenantId, filter, isAdmin: false, isPreleveurOnly: false);
+
+        result.Items.Should().HaveCount(2);
+        result.Items.Select(r => r.Id).Should().Contain([roundCreatedByMe.Id, roundCreatedByOther.Id]);
+        result.Items.Should().AllSatisfy(r => r.DistributorId.Should().Be(DistributorId));
+    }
+
+    [Fact]
+    public async Task GetFilteredAsync_WhenUserIsRequerantPreleveur_ShouldReturnAllRoundsOfAuthorizedDistributors()
+    {
+        // AQ-398 — a Requérant-Préleveur is treated like a Requérant for visibility:
+        // he sees every round of his authorized distributors, NOT only the ones assigned to him.
+        var assignedToMe = await CreateDraftRoundWithOrders(orderCount: 1);
+        await TransitionToAssigned(assignedToMe.Id); // assigned to PreleveurId
+
+        // Round on the same distributor, never assigned to him.
+        var notAssignedToMe = new SamplingRound
+        {
+            Id = Guid.NewGuid(),
+            Name = "Not mine",
+            DistributorId = DistributorId,
+            Status = SamplingRoundStatus.Draft,
+            TenantId = TenantId,
+            CreatedById = "someone-else",
+            CreatedAt = DateTime.UtcNow,
+        };
+        _dbContext.SamplingRounds.Add(notAssignedToMe);
+        await _dbContext.SaveChangesAsync();
+
+        // The user is a Requérant-Préleveur — isPreleveurOnly = false.
+        var filter = new SamplingRoundFilterDto();
+        var result = await _sut.GetFilteredAsync(PreleveurId, TenantId, filter, isAdmin: false, isPreleveurOnly: false);
+
+        result.Items.Should().HaveCount(2);
+        result.Items.Select(r => r.Id).Should().Contain([assignedToMe.Id, notAssignedToMe.Id]);
+    }
+
+    [Fact]
+    public async Task GetFilteredAsync_WithDelegatedDistributor_ShouldIncludeDelegatedRounds()
+    {
+        // AQ-398 — a Mandataire whose distributor is the target of an active delegation
+        // must also see the rounds of the delegating distributor.
+        await CreateDraftRound("Round on own distributor");
+
+        var delegatedRound = new SamplingRound
+        {
+            Id = Guid.NewGuid(),
+            Name = "Round on delegated distributor",
+            DistributorId = OtherDistributorId,
+            Status = SamplingRoundStatus.Draft,
+            TenantId = TenantId,
+            CreatedById = UserId,
+            CreatedAt = DateTime.UtcNow,
+        };
+        _dbContext.SamplingRounds.Add(delegatedRound);
+        await _dbContext.SaveChangesAsync();
+
+        // Delegation: OtherDistributor → user's primary DistributorId.
+        _delegationServiceMock
+            .Setup(d => d.GetAuthorizedDistributorIdsForUserAsync(UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([DistributorId, OtherDistributorId]);
+
+        var filter = new SamplingRoundFilterDto();
+        var result = await _sut.GetFilteredAsync(UserId, TenantId, filter, isAdmin: false, isPreleveurOnly: false);
+
+        result.Items.Should().HaveCount(2);
+        result.Items.Select(r => r.DistributorId).Should().Contain([DistributorId, OtherDistributorId]);
     }
 
     // --- UpdateAsync ---

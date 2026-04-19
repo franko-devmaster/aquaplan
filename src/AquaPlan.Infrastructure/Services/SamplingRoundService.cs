@@ -16,6 +16,7 @@ namespace AquaPlan.Infrastructure.Services;
 
 internal class SamplingRoundService(
     AquaPlanDbContext dbContext,
+    IDelegationService delegationService,
     ILogger<SamplingRoundService> logger) : ISamplingRoundService
 {
     public async Task<SamplingRoundDetailDto> CreateAsync(
@@ -70,7 +71,7 @@ internal class SamplingRoundService(
     }
 
     public async Task<SamplingRoundPagedResultDto> GetFilteredAsync(
-        string userId, Guid tenantId, SamplingRoundFilterDto filter, bool isAdmin,
+        string userId, Guid tenantId, SamplingRoundFilterDto filter, bool isAdmin, bool isPreleveurOnly,
         CancellationToken cancellationToken = default)
     {
         var query = dbContext.SamplingRounds
@@ -79,16 +80,23 @@ internal class SamplingRoundService(
             .Include(sr => sr.Orders)
             .Where(sr => sr.TenantId == tenantId);
 
+        // AQ-398 — Role-based visibility:
+        //   • Admin: full tenant view (no extra filter).
+        //   • Préleveur (sole role): only rounds where they are the assigned préleveur.
+        //   • Mandataire (Requérant / Requérant-Préleveur): every round of the
+        //     distributors they are authorized on (own + active delegations).
         if (!isAdmin)
         {
-            var distributorIds = await dbContext.UserDistributors
-                .Where(ud => ud.UserId == userId)
-                .Select(ud => ud.DistributorId)
-                .ToListAsync(cancellationToken);
-
-            query = query.Where(sr =>
-                distributorIds.Contains(sr.DistributorId) ||
-                (sr.PreleveurId == userId && sr.Status != SamplingRoundStatus.Draft));
+            if (isPreleveurOnly)
+            {
+                query = query.Where(sr => sr.PreleveurId == userId);
+            }
+            else
+            {
+                var authorizedDistributorIds = await delegationService
+                    .GetAuthorizedDistributorIdsForUserAsync(userId, cancellationToken);
+                query = query.Where(sr => authorizedDistributorIds.Contains(sr.DistributorId));
+            }
         }
 
         if (filter.Statuses is { Count: > 0 })
