@@ -54,6 +54,7 @@ interface ContainerFormGroup {
     <p class="location-subtitle">{{ data.locationName }}</p>
 
     <mat-dialog-content>
+      <!-- AQ-403 — mobile-first form: single column by default, two columns only on tablet+. -->
       <form [formGroup]="form" class="sampling-form">
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>{{ 'sampling.samplingDateTime' | translate }}</mat-label>
@@ -61,13 +62,13 @@ interface ContainerFormGroup {
         </mat-form-field>
 
         <div class="row">
-          <mat-form-field appearance="outline" class="half-width">
+          <mat-form-field appearance="outline" class="col">
             <mat-label>{{ 'sampling.temperature' | translate }}</mat-label>
-            <input matInput type="number" formControlName="temperature" step="0.1">
+            <input matInput type="number" formControlName="temperature" step="0.1" inputmode="decimal">
             <span matSuffix>&deg;C</span>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="half-width">
+          <mat-form-field appearance="outline" class="col">
             <mat-label>{{ 'sampling.weather3days' | translate }}</mat-label>
             <mat-select formControlName="weather">
               @for (option of weatherOptions; track option) {
@@ -147,24 +148,34 @@ interface ContainerFormGroup {
     </mat-dialog-actions>
   `,
   styles: [`
+    /* AQ-403 — mobile-first: stack everything, expand to 2 columns at >= 768px. */
     .location-subtitle { margin: -8px 24px 8px; color: #666; font-size: 14px; }
-    .sampling-form { display: flex; flex-direction: column; min-width: 480px; }
-    .row { display: flex; gap: 16px; }
-    .half-width { flex: 1; }
+    .sampling-form { display: flex; flex-direction: column; min-width: 0; width: 100%; }
+    .row { display: flex; flex-direction: column; gap: 0; }
+    .col { flex: 1; width: 100%; }
     .full-width { width: 100%; }
-    .checkbox-row { display: flex; gap: 24px; margin: 8px 0 16px; }
+    .checkbox-row { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 16px; }
     mat-dialog-content { max-height: 70vh; }
     .section-title { margin: 8px 0; font-size: 14px; font-weight: 600; color: #555; }
     .loading-containers { display: flex; justify-content: center; padding: 16px; }
     .empty-containers { color: #888; font-style: italic; padding: 8px 0; }
     .containers-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
-    .container-row { display: flex; align-items: center; gap: 12px; padding: 8px; border: 1px solid #eee; border-radius: 4px; }
+    .container-row { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 8px; border: 1px solid #eee; border-radius: 4px; }
     .container-info { flex: 1; min-width: 0; }
     .container-name { font-weight: 500; }
     .container-specs { font-size: 12px; color: #777; }
-    .container-barcode { width: 220px; }
-    .scan-btn { flex-shrink: 0; }
+    .container-barcode { width: 100%; }
+    .scan-btn { flex-shrink: 0; align-self: flex-end; }
     .error-message { color: #c62828; font-size: 13px; margin-top: 4px; }
+
+    @media (min-width: 768px) {
+      .sampling-form { min-width: 480px; }
+      .row { flex-direction: row; gap: 16px; }
+      .checkbox-row { flex-direction: row; gap: 24px; }
+      .container-row { flex-direction: row; align-items: center; gap: 12px; }
+      .container-barcode { width: 220px; }
+      .scan-btn { align-self: auto; }
+    }
   `],
 })
 export class SamplingFormDialogComponent implements OnInit {

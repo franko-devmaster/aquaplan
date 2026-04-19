@@ -312,7 +312,10 @@
     "title": "Barcode scannen",
     "instruction": "Platzieren Sie den Barcode im Rahmen.",
     "cancel": "Abbrechen",
-    "permissionDenied": "Kein Kamerazugriff möglich. Bitte Berechtigungen prüfen.",
+    "permissionDenied": "Kein Kamerazugriff möglich. Erlauben Sie den Zugriff unter Einstellungen > Safari > Kamera und laden Sie die Seite neu.",
+    "httpsRequired": "Das Scannen per Kamera erfordert eine sichere (HTTPS) Verbindung. Bitte Administrator kontaktieren.",
+    "noCamera": "Keine Kamera auf diesem Gerät erkannt.",
+    "unsupported": "Dieser Browser unterstützt keinen Kamerazugriff.",
     "success": "Barcode erfasst: {{value}}"
   },
   "sampling": {

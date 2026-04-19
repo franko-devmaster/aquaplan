@@ -319,7 +319,10 @@
     "title": "Scan a barcode",
     "instruction": "Position the barcode within the frame.",
     "cancel": "Cancel",
-    "permissionDenied": "Unable to access the camera. Please check permissions.",
+    "permissionDenied": "Unable to access the camera. Allow access in Settings > Safari > Camera and reload the page.",
+    "httpsRequired": "Camera scanning requires a secure (HTTPS) connection. Contact your administrator.",
+    "noCamera": "No camera detected on this device.",
+    "unsupported": "This browser does not support camera access.",
     "success": "Barcode captured: {{value}}"
   },
   "sampling": {

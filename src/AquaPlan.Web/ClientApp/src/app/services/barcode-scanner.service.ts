@@ -14,7 +14,27 @@ type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => Barc
 export class BarcodeScannerService {
   /** Returns true when the native `BarcodeDetector` API is available. */
   isNativeSupported(): boolean {
-    return typeof window !== 'undefined' && 'BarcodeDetector' in (window as unknown as Record<string, unknown>);
+    // AQ-402 — Safari on iOS advertises no BarcodeDetector anyway, but even
+    // desktop Safari sometimes exposes a partial implementation that throws
+    // on detect(). Feature-detect + exclude WebKit/iOS to stay on ZXing there.
+    if (typeof window === 'undefined') return false;
+    if (!('BarcodeDetector' in (window as unknown as Record<string, unknown>))) {
+      return false;
+    }
+    if (this.isIosSafari()) {
+      return false;
+    }
+    return true;
+  }
+
+  /** AQ-402 — rough UA sniff used to bypass the (missing) native API on iOS. */
+  private isIosSafari(): boolean {
+    if (typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent ?? '';
+    const isIos = /iPad|iPhone|iPod/.test(ua) ||
+      (ua.includes('Mac') && typeof document !== 'undefined' && 'ontouchend' in document);
+    const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
+    return isIos && isSafari;
   }
 
   /**

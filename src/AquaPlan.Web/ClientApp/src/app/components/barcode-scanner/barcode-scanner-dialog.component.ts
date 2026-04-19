@@ -21,12 +21,13 @@ export interface BarcodeScanResult {
       @if (error()) {
         <div class="scanner-error">
           <mat-icon>videocam_off</mat-icon>
-          <p>{{ 'scan.permissionDenied' | translate }}</p>
+          <p>{{ errorKey() | translate }}</p>
         </div>
       } @else {
         <p class="scanner-instruction">{{ 'scan.instruction' | translate }}</p>
         <div class="scanner-wrapper">
-          <video #video autoplay playsinline muted class="scanner-video"></video>
+          <video #video autoplay playsinline muted class="scanner-video"
+                 webkit-playsinline></video>
           <div class="scanner-overlay"></div>
         </div>
       }
@@ -61,6 +62,8 @@ export class BarcodeScannerDialogComponent implements OnDestroy {
   private subscription: Subscription | null = null;
 
   readonly error = signal(false);
+  /** AQ-402 — pick a translated label tailored to the failure mode (HTTPS vs. permission vs. hardware). */
+  readonly errorKey = signal<string>('scan.permissionDenied');
 
   ngAfterViewInit(): void {
     void this.startCamera();
@@ -79,6 +82,21 @@ export class BarcodeScannerDialogComponent implements OnDestroy {
     if (!this.videoRef) {
       return;
     }
+    // AQ-402 — getUserMedia requires a secure context. Fail early with an
+    // actionable message instead of a generic permission error.
+    if (typeof window !== 'undefined'
+        && window.isSecureContext === false
+        && window.location.hostname !== 'localhost'
+        && window.location.hostname !== '127.0.0.1') {
+      this.errorKey.set('scan.httpsRequired');
+      this.error.set(true);
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      this.errorKey.set('scan.unsupported');
+      this.error.set(true);
+      return;
+    }
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' } },
@@ -86,18 +104,35 @@ export class BarcodeScannerDialogComponent implements OnDestroy {
       });
       const video = this.videoRef.nativeElement;
       video.srcObject = this.stream;
-      await video.play();
+      // AQ-402 — iOS Safari needs the explicit playsinline attribute (set in
+      // the template) and may reject play() promises if called without user
+      // gesture. The dialog itself is opened via user click so this is safe.
+      try {
+        await video.play();
+      } catch {
+        // Older iOS versions resolve play() lazily; swallow and keep going.
+      }
       this.subscription = this.scanner.startScan(video).subscribe({
         next: (barcode) => {
           this.stop();
           this.dialogRef.close({ barcode });
         },
         error: () => {
+          this.errorKey.set('scan.permissionDenied');
           this.error.set(true);
           this.stop();
         },
       });
-    } catch {
+    } catch (err: unknown) {
+      // AQ-402 — differentiate denial vs. missing device vs. other.
+      const name = (err as { name?: string } | null)?.name;
+      if (name === 'NotAllowedError' || name === 'SecurityError') {
+        this.errorKey.set('scan.permissionDenied');
+      } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+        this.errorKey.set('scan.noCamera');
+      } else {
+        this.errorKey.set('scan.permissionDenied');
+      }
       this.error.set(true);
     }
   }

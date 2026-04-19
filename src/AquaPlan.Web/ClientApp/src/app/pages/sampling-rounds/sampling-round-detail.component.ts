@@ -22,6 +22,8 @@ import { SamplingApiService } from '../../services/sampling-api.service';
 import { OrderApiService } from '../../services/order-api.service';
 import { AuthService } from '../../services/auth.service';
 import { NetworkCheckService } from '../../services/network-check.service';
+import { SyncService } from '../../services/sync.service';
+import { OfflineStorageService } from '../../services/offline-storage.service';
 import {
   SamplingRoundDetailDto,
   SamplingRoundOrderDto,
@@ -381,6 +383,8 @@ export class SamplingRoundDetailComponent implements OnInit {
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
   private readonly networkCheck = inject(NetworkCheckService);
+  private readonly syncService = inject(SyncService);
+  private readonly offlineStorage = inject(OfflineStorageService);
 
   readonly round = signal<SamplingRoundDetailDto | null>(null);
   readonly loading = signal(true);
@@ -858,25 +862,52 @@ export class SamplingRoundDetailComponent implements OnInit {
     // AQ-399 — if the order is still in New status, transition it to InProgress
     // before opening the sampling form. This is what the sampler expects when
     // clicking the Treat button on an unstarted order in an InProgress round.
+    // AQ-401 — when the browser is offline, do NOT block on the backend call.
+    // Queue the transition for replay on reconnect, optimistically flip the
+    // local order status, and open the dialog immediately so the préleveur can
+    // still fill the sampling form in the field.
     let workingOrder = order;
     if (order.status === 'New') {
-      try {
-        await firstValueFrom(this.orderApi.transition(order.id, 'InProgress'));
+      if (!this.syncService.onlineStatus()) {
         const r = this.round();
         if (r) {
-          const refreshed = await firstValueFrom(this.roundApi.getById(r.id));
-          this.round.set(refreshed);
-          const reloaded = refreshed.orders.find(o => o.id === order.id);
+          try {
+            await this.offlineStorage.queueAction({
+              roundId: r.id,
+              actionType: 'COMPLETE_ORDER',
+              payload: { orderId: order.id, newStatus: 'InProgress' },
+            });
+            await this.syncService.refreshPendingCount();
+          } catch {
+            // Storage failure is best-effort; dialog still opens.
+          }
+          // Optimistic local update so the badge/row reflects InProgress.
+          const updatedOrders = r.orders.map(o =>
+            o.id === order.id ? { ...o, status: 'InProgress' } : o
+          );
+          this.round.set({ ...r, orders: updatedOrders });
+          const reloaded = updatedOrders.find(o => o.id === order.id);
           if (reloaded) workingOrder = reloaded;
         }
-      } catch (err: unknown) {
-        const apiError = err as { error?: { error?: string } };
-        this.snackBar.open(
-          apiError?.error?.error ?? 'Error',
-          this.translate.instant('common.close'),
-          { duration: 5000 }
-        );
-        return;
+      } else {
+        try {
+          await firstValueFrom(this.orderApi.transition(order.id, 'InProgress'));
+          const r = this.round();
+          if (r) {
+            const refreshed = await firstValueFrom(this.roundApi.getById(r.id));
+            this.round.set(refreshed);
+            const reloaded = refreshed.orders.find(o => o.id === order.id);
+            if (reloaded) workingOrder = reloaded;
+          }
+        } catch (err: unknown) {
+          const apiError = err as { error?: { error?: string } };
+          this.snackBar.open(
+            apiError?.error?.error ?? 'Error',
+            this.translate.instant('common.close'),
+            { duration: 5000 }
+          );
+          return;
+        }
       }
     }
 
@@ -889,9 +920,12 @@ export class SamplingRoundDetailComponent implements OnInit {
       locationName: `${workingOrder.samplingLocationCode} — ${workingOrder.samplingLocationName}`,
     };
 
+    // AQ-403 — responsive sizing; let CSS media queries inside the dialog drive the layout.
     const dialogRef = this.dialog.open(SamplingFormDialogComponent, {
       data: dialogData,
-      width: '560px',
+      width: '95vw',
+      maxWidth: '560px',
+      panelClass: 'responsive-dialog',
     });
 
     const result = await firstValueFrom(dialogRef.afterClosed());

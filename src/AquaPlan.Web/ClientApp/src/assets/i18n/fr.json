@@ -495,7 +495,10 @@
     "title": "Scanner un code-barres",
     "instruction": "Placez le code-barres dans le cadre.",
     "cancel": "Annuler",
-    "permissionDenied": "Impossible d'accéder à la caméra. Vérifiez les autorisations.",
+    "permissionDenied": "Impossible d'accéder à la caméra. Autorisez l'accès dans Réglages > Safari > Caméra, puis rechargez la page.",
+    "httpsRequired": "Le scan caméra nécessite une connexion sécurisée (HTTPS). Contactez votre administrateur.",
+    "noCamera": "Aucune caméra détectée sur cet appareil.",
+    "unsupported": "Ce navigateur ne supporte pas l'accès caméra.",
     "success": "Code-barres capturé : {{value}}"
   },
   "sampling": {
