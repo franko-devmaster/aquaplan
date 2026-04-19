@@ -431,7 +431,12 @@
     "lockedByOther": "Tournée verrouillée par {{name}}",
     "forceUnlock": "Déverrouiller (admin)",
     "confirmForceUnlock": "Forcer le déverrouillage ? Les saisies non synchronisées du préleveur seront perdues.",
-    "forceUnlocked": "Tournée déverrouillée"
+    "forceUnlocked": "Tournée déverrouillée",
+    "actions": {
+      "view": "Afficher",
+      "edit": "Modifier",
+      "delete": "Supprimer"
+    }
   },
   "sectors": {
     "title": "Gestion des secteurs",

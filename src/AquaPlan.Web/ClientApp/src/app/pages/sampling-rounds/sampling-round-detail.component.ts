@@ -7,6 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
@@ -32,13 +33,14 @@ import { SamplingFormDialogComponent, SamplingFormDialogData } from './sampling-
 import { RoundAddOrderDialogComponent, RoundAddOrderDialogData } from './round-add-order-dialog.component';
 import { AssignSamplerDialogComponent, AssignSamplerDialogData } from './assign-sampler-dialog.component';
 import { ReplaceLocationDialogComponent, ReplaceLocationDialogData } from './replace-location-dialog.component';
+import { OrderEditDialogComponent } from '../orders/order-edit-dialog.component';
 import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
 
 @Component({
   selector: 'app-sampling-round-detail',
   standalone: true,
   imports: [
-    FormsModule, MatButtonModule, MatIconModule,
+    FormsModule, MatButtonModule, MatIconModule, MatMenuModule,
     MatFormFieldModule, MatInputModule, MatSelectModule, MatTableModule,
     MatProgressSpinnerModule, MatTooltipModule, MatDialogModule,
     MatCardModule, MatSnackBarModule, DragDropModule,
@@ -246,41 +248,30 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
             </ng-container>
 
             <ng-container matColumnDef="actions">
-              <th mat-header-cell *matHeaderCellDef></th>
+              <th mat-header-cell *matHeaderCellDef>{{ 'common.actions' | translate }}</th>
               <td mat-cell *matCellDef="let order">
                 <div class="action-buttons">
-                  @if (isDraft()) {
-                    <button mat-icon-button color="warn" (click)="removeOrder(order, $event)"
-                            [matTooltip]="'samplingRounds.removeOrder' | translate">
-                      <mat-icon>remove_circle_outline</mat-icon>
-                    </button>
-                  }
-                  @if (isDraft()) {
-                    <button mat-icon-button (click)="editOrder(order, $event)"
-                            [matTooltip]="'common.edit' | translate">
-                      <mat-icon>edit</mat-icon>
-                    </button>
-                  }
-                  @if ((isInProgress() || isAssigned()) && (order.status === 'New' || order.status === 'InProgress')) {
-                    <button mat-icon-button (click)="replaceLocation(order, $event)"
-                            [matTooltip]="'samplingRounds.replaceLocation' | translate">
-                      <mat-icon>swap_horiz</mat-icon>
-                    </button>
-                  }
-                  @if (canSample() && order.status === 'InProgress' && !orderSamplings()[order.id]) {
+                  <!-- AQ-399 — dedicated Treat button (InProgress + admin or assigned preleveur) -->
+                  @if (canTreat(order) && !orderSamplings()[order.id]) {
                     <button mat-icon-button color="primary" (click)="openSamplingForm(order, $event)"
                             [matTooltip]="'sampling.enter' | translate">
                       <mat-icon>edit_note</mat-icon>
                     </button>
                   }
-                  @if (canSample() && order.status === 'InProgress' && orderSamplings()[order.id]) {
+                  @if (canTreat(order) && orderSamplings()[order.id]) {
                     <button mat-icon-button color="primary" (click)="openSamplingForm(order, $event)"
-                            [matTooltip]="'common.edit' | translate">
-                      <mat-icon>edit</mat-icon>
+                            [matTooltip]="'sampling.enter' | translate">
+                      <mat-icon>edit_note</mat-icon>
                     </button>
                     <button mat-icon-button color="accent" (click)="completeSampling(order, $event)"
                             [matTooltip]="'sampling.complete' | translate">
                       <mat-icon>task_alt</mat-icon>
+                    </button>
+                  }
+                  @if ((isInProgress() || isAssigned()) && (order.status === 'New' || order.status === 'InProgress') && (isAdmin() || canTreat(order))) {
+                    <button mat-icon-button (click)="replaceLocation(order, $event)"
+                            [matTooltip]="'samplingRounds.replaceLocation' | translate">
+                      <mat-icon>swap_horiz</mat-icon>
                     </button>
                   }
                   @if (order.status === 'Completed') {
@@ -289,7 +280,7 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
                       check_circle
                     </mat-icon>
                   }
-                  @if (isInProgress() && order.status === 'Completed') {
+                  @if (isInProgress() && order.status === 'Completed' && (isAdmin() || canTreat(order))) {
                     <button mat-icon-button color="primary" (click)="transmitOrder(order, $event)"
                             [matTooltip]="'orders.transmit' | translate">
                       <mat-icon>send</mat-icon>
@@ -301,9 +292,38 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
                       check_circle
                     </mat-icon>
                   }
+
+                  <!-- AQ-399 — kebab menu for View/Edit/Delete (pattern LDP AQ-334) -->
+                  <button mat-icon-button (click)="$event.stopPropagation()"
+                          [matMenuTriggerFor]="rowMenu"
+                          [matMenuTriggerData]="{ order: order }"
+                          [attr.aria-label]="'common.actions' | translate">
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
                 </div>
               </td>
             </ng-container>
+
+            <mat-menu #rowMenu="matMenu">
+              <ng-template matMenuContent let-order="order">
+                <button mat-menu-item (click)="onView(order)">
+                  <mat-icon>visibility</mat-icon>
+                  <span>{{ 'samplingRounds.actions.view' | translate }}</span>
+                </button>
+                @if (canEditOrder(order)) {
+                  <button mat-menu-item (click)="onEdit(order)">
+                    <mat-icon>edit</mat-icon>
+                    <span>{{ 'samplingRounds.actions.edit' | translate }}</span>
+                  </button>
+                }
+                @if (canDeleteOrder(order)) {
+                  <button mat-menu-item (click)="onDelete(order)">
+                    <mat-icon color="warn">delete</mat-icon>
+                    <span>{{ 'samplingRounds.actions.delete' | translate }}</span>
+                  </button>
+                }
+              </ng-template>
+            </mat-menu>
 
             <tr mat-header-row *matHeaderRowDef="orderColumns"></tr>
             <tr mat-row *matRowDef="let row; columns: orderColumns;"
@@ -377,6 +397,20 @@ export class SamplingRoundDetailComponent implements OnInit {
   readonly isAdmin = computed(() =>
     this.authService.currentUser()?.roles.includes('Administrator') ?? false
   );
+  // AQ-399 — distinguish preleveur from mandataire to scope menu actions.
+  readonly isPreleveur = computed(() => {
+    const user = this.authService.currentUser();
+    if (!user) return false;
+    if (user.roles.includes('Administrator')) return false;
+    // Match either the project role "Préleveur" or the compound "Requérant-Préleveur"
+    // accepting the ASCII-mangled variants that exist in some tenants.
+    return user.roles.some(r => /pr[eéè]leveur/i.test(r));
+  });
+  readonly isAssignedToCurrentUser = computed(() => {
+    const r = this.round();
+    const user = this.authService.currentUser();
+    return !!r && !!user && r.preleveurId === user.id;
+  });
   // AQ-370/AQ-371 — round lock awareness
   readonly isLocked = computed(() => this.round()?.isLocked === true);
   readonly isLockedByCurrentUser = computed(() => {
@@ -483,8 +517,63 @@ export class SamplingRoundDetailComponent implements OnInit {
     }
   }
 
-  async removeOrder(order: SamplingRoundOrderDto, event: Event): Promise<void> {
-    event.stopPropagation();
+  // AQ-399 — role-scoped action guards for the row kebab menu.
+  /**
+   * Sampler can treat when round is InProgress AND user is admin OR the assigned préleveur.
+   * Accepts order status New (will be auto-started on click) and InProgress.
+   */
+  canTreat(order: SamplingRoundOrderDto): boolean {
+    if (!this.isInProgress()) return false;
+    if (order.status !== 'InProgress' && order.status !== 'New') return false;
+    return this.isAdmin() || this.isAssignedToCurrentUser();
+  }
+
+  /** Edit allowed: Admin always (except terminal statuses); Mandataire only when round not locked. Préleveurs never. */
+  canEditOrder(order: SamplingRoundOrderDto): boolean {
+    if (this.isPreleveur()) return false;
+    if (order.status === 'Completed' || order.status === 'Transmitted' ||
+        order.status === 'Done' || order.status === 'Cancelled') {
+      return false;
+    }
+    if (this.isAdmin()) return true;
+    // Mandataire / Requérant — only on rounds that are not yet locked (Draft / Assigned)
+    return this.isDraft() || this.isAssigned();
+  }
+
+  /** Delete: Admin anytime while order is not terminal; Mandataire only when round not locked. Préleveurs never. */
+  canDeleteOrder(order: SamplingRoundOrderDto): boolean {
+    if (this.isPreleveur()) return false;
+    if (order.status === 'Transmitted' || order.status === 'Done' || order.status === 'Cancelled') {
+      return false;
+    }
+    if (this.isAdmin()) return true;
+    return this.isDraft() || this.isAssigned();
+  }
+
+  onView(order: SamplingRoundOrderDto): void {
+    this.router.navigate(['/orders', order.id]);
+  }
+
+  async onEdit(order: SamplingRoundOrderDto): Promise<void> {
+    // AQ-399 — open the edit dialog directly (same form as creation) instead of
+    // routing to the detail page which is perceived as read-only.
+    const detail = await firstValueFrom(this.orderApi.getById(order.id));
+    const dialogRef = this.dialog.open(OrderEditDialogComponent, {
+      width: '550px',
+      panelClass: 'responsive-dialog',
+      data: detail,
+    });
+    const changed = await firstValueFrom(dialogRef.afterClosed());
+    if (changed) {
+      const r = this.round();
+      if (r) {
+        const refreshed = await firstValueFrom(this.roundApi.getById(r.id));
+        this.round.set(refreshed);
+      }
+    }
+  }
+
+  async onDelete(order: SamplingRoundOrderDto): Promise<void> {
     const r = this.round();
     if (!r) return;
 
@@ -502,11 +591,6 @@ export class SamplingRoundDetailComponent implements OnInit {
         { duration: 5000 }
       );
     }
-  }
-
-  editOrder(order: SamplingRoundOrderDto, event: Event): void {
-    event.stopPropagation();
-    this.router.navigate(['/orders', order.id]);
   }
 
   async replaceLocation(order: SamplingRoundOrderDto, event: Event): Promise<void> {
@@ -770,13 +854,39 @@ export class SamplingRoundDetailComponent implements OnInit {
 
   async openSamplingForm(order: SamplingRoundOrderDto, event: Event): Promise<void> {
     event.stopPropagation();
-    const existingSampling = this.orderSamplings()[order.id] ?? null;
+
+    // AQ-399 — if the order is still in New status, transition it to InProgress
+    // before opening the sampling form. This is what the sampler expects when
+    // clicking the Treat button on an unstarted order in an InProgress round.
+    let workingOrder = order;
+    if (order.status === 'New') {
+      try {
+        await firstValueFrom(this.orderApi.transition(order.id, 'InProgress'));
+        const r = this.round();
+        if (r) {
+          const refreshed = await firstValueFrom(this.roundApi.getById(r.id));
+          this.round.set(refreshed);
+          const reloaded = refreshed.orders.find(o => o.id === order.id);
+          if (reloaded) workingOrder = reloaded;
+        }
+      } catch (err: unknown) {
+        const apiError = err as { error?: { error?: string } };
+        this.snackBar.open(
+          apiError?.error?.error ?? 'Error',
+          this.translate.instant('common.close'),
+          { duration: 5000 }
+        );
+        return;
+      }
+    }
+
+    const existingSampling = this.orderSamplings()[workingOrder.id] ?? null;
 
     const dialogData: SamplingFormDialogData = {
-      orderId: order.id,
+      orderId: workingOrder.id,
       sampling: existingSampling,
-      orderNumber: order.orderNumber,
-      locationName: `${order.samplingLocationCode} — ${order.samplingLocationName}`,
+      orderNumber: workingOrder.orderNumber,
+      locationName: `${workingOrder.samplingLocationCode} — ${workingOrder.samplingLocationName}`,
     };
 
     const dialogRef = this.dialog.open(SamplingFormDialogComponent, {
@@ -786,7 +896,7 @@ export class SamplingRoundDetailComponent implements OnInit {
 
     const result = await firstValueFrom(dialogRef.afterClosed());
     if (result) {
-      this.orderSamplings.update(current => ({ ...current, [order.id]: result }));
+      this.orderSamplings.update(current => ({ ...current, [workingOrder.id]: result }));
     }
   }
 

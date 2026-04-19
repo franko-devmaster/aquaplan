@@ -351,7 +351,12 @@
     "lockedByOther": "Round locked by {{name}}",
     "forceUnlock": "Force unlock (admin)",
     "confirmForceUnlock": "Force unlock? Unsynchronised sampler inputs will be lost.",
-    "forceUnlocked": "Round unlocked"
+    "forceUnlocked": "Round unlocked",
+    "actions": {
+      "view": "View",
+      "edit": "Edit",
+      "delete": "Delete"
+    }
   },
   "dashboard": {
     "title": "Dashboard",

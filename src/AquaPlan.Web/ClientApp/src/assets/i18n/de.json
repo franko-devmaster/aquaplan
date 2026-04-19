@@ -344,7 +344,12 @@
     "lockedByOther": "Tour gesperrt von {{name}}",
     "forceUnlock": "Entsperren (Admin)",
     "confirmForceUnlock": "Entsperrung erzwingen? Nicht synchronisierte Eingaben des Probenehmers gehen verloren.",
-    "forceUnlocked": "Tour entsperrt"
+    "forceUnlocked": "Tour entsperrt",
+    "actions": {
+      "view": "Anzeigen",
+      "edit": "Bearbeiten",
+      "delete": "Löschen"
+    }
   },
   "dashboard": {
     "title": "Dashboard",
