@@ -16,4 +16,5 @@ public interface IOrderService
     Task<IList<RequiredContainerDto>?> GetRequiredContainersAsync(Guid orderId, Guid tenantId, CancellationToken cancellationToken = default);
     Task<BulkTransitionResultDto> BulkValidateAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default);
     Task<BulkTransitionResultDto> BulkTransmitAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default);
+    Task<BulkFinalizeResultDto> BulkFinalizeAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default);
 }

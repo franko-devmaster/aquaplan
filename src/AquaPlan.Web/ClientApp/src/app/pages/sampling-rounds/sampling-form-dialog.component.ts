@@ -99,8 +99,7 @@ interface ContainerFormGroup {
                 <mat-form-field appearance="outline" class="container-barcode">
                   <mat-label>{{ 'sampling.containerBarcode' | translate }}</mat-label>
                   <input matInput formControlName="barcode" autocomplete="off"
-                         [matTooltip]="'sampling.barcodeSharedHint' | translate"
-                         (input)="onBarcodeInput(i)">
+                         [matTooltip]="'sampling.barcodeSharedHint' | translate">
                 </mat-form-field>
                 <button type="button" mat-icon-button
                         class="scan-btn"
@@ -261,11 +260,11 @@ export class SamplingFormDialogComponent implements OnInit {
     });
     ref.afterClosed().subscribe((result: BarcodeScanResult | null | undefined) => {
       if (result?.barcode) {
+        // AQ-405 — the scan fills ONLY the field that opened the scanner.
+        // Every bottle must be scanned individually (physical confirmation),
+        // even when the resulting codes are identical.
         const group = this.containersFormArray.at(index);
         group?.patchValue({ barcode: result.barcode });
-        // AQ-363 — every container of a mandate shares the SAME barcode.
-        // Auto-fill empty peer fields to match.
-        this.propagateBarcodeToEmptyPeers(index, result.barcode);
         this.snackBar.open(
           this.translate.instant('scan.success', { value: result.barcode }),
           this.translate.instant('common.close'),
@@ -275,41 +274,22 @@ export class SamplingFormDialogComponent implements OnInit {
     });
   }
 
-  /**
-   * AQ-363 — When the user types/scans a barcode in one row, propagate the value
-   * to every other row that is still empty. Rows already containing a value are
-   * left untouched (divergence will be surfaced by validateBarcodesIdentical at save).
-   */
-  onBarcodeInput(index: number): void {
-    const source = this.containersFormArray.at(index);
-    const value = source?.value.barcode?.trim();
-    if (!value) return;
-    this.propagateBarcodeToEmptyPeers(index, value);
-  }
-
-  private propagateBarcodeToEmptyPeers(sourceIndex: number, barcode: string): void {
-    const trimmed = barcode.trim();
-    if (!trimmed) return;
-    this.containersFormArray.controls.forEach((ctrl, i) => {
-      if (i === sourceIndex) return;
-      const current = ctrl.value.barcode?.trim();
-      if (!current) {
-        ctrl.patchValue({ barcode: trimmed }, { emitEvent: false });
-      }
-    });
-  }
-
   async save(): Promise<void> {
     this.errorMessage.set(null);
 
-    // AQ-363 — all non-empty barcodes of a mandate MUST be identical.
+    // AQ-363 / AQ-405 — all non-empty barcodes of a mandate MUST be identical.
+    // Surface the divergence as a toast (scanning is per-bottle, so the user
+    // can just re-scan the offending row to reconcile).
     const raw = this.containersFormArray.controls
       .map(ctrl => (ctrl.value.barcode ?? '').trim())
       .filter(v => v !== '');
     const distinct = Array.from(new Set(raw));
     if (distinct.length > 1) {
-      this.errorMessage.set(
-        this.translate.instant('sampling.errors.barcodesMustBeIdentical'));
+      this.snackBar.open(
+        this.translate.instant('sampling.errors.barcodesMustBeIdentical'),
+        this.translate.instant('common.close'),
+        { duration: 4000 },
+      );
       return;
     }
     const canonicalBarcode = distinct[0] ?? null;

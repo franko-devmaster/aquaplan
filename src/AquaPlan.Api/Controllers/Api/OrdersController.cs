@@ -267,6 +267,22 @@ public class OrdersController(
         return Ok(result);
     }
 
+    /// <summary>
+    /// AQ-406 — atomic "finalize all" action: validate every InProgress order
+    /// then transmit every Completed order in one call. Used by the
+    /// "Tout finaliser" button so users don't have to click twice.
+    /// </summary>
+    [HttpPost("bulk-finalize")]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}")]
+    public async Task<ActionResult<BulkFinalizeResultDto>> BulkFinalize(CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+
+        var result = await orderService.BulkFinalizeAsync(userId, tenantId, cancellationToken);
+        return Ok(result);
+    }
+
     [HttpGet("{id:guid}/audit-log")]
     public async Task<ActionResult<List<OrderAuditLogDto>>> GetAuditLog(Guid id, CancellationToken cancellationToken)
     {

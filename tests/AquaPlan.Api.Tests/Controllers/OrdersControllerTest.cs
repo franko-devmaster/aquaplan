@@ -521,6 +521,41 @@ public class OrdersControllerTest
         auth.Roles.Should().Contain("Administrator").And.Contain("Requérant");
     }
 
+    // ─── BulkFinalize (AQ-406) ─────────────────────────────────
+    [Fact]
+    public async Task BulkFinalize_ShouldReturnOkWithValidatedAndTransmittedCounts()
+    {
+        _orderServiceMock
+            .Setup(x => x.BulkFinalizeAsync(UserId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new BulkFinalizeResultDto(3, 5));
+
+        var result = await _sut.BulkFinalize(CancellationToken.None);
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeEquivalentTo(new BulkFinalizeResultDto(3, 5));
+    }
+
+    [Fact]
+    public void BulkFinalize_ShouldHaveHttpPostAttributeWithRoute()
+    {
+        var method = typeof(OrdersController).GetMethod(nameof(OrdersController.BulkFinalize));
+        method.Should().NotBeNull();
+        var attributes = method!.GetCustomAttributes(typeof(HttpPostAttribute), true);
+        attributes.Should().NotBeEmpty();
+        attributes.OfType<HttpPostAttribute>().First().Template.Should().Be("bulk-finalize");
+    }
+
+    [Fact]
+    public void BulkFinalize_ShouldHaveAuthorizeAttributeWithRoles()
+    {
+        var method = typeof(OrdersController).GetMethod(nameof(OrdersController.BulkFinalize));
+        method.Should().NotBeNull();
+        var attributes = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true);
+        attributes.Should().NotBeEmpty();
+        var auth = attributes.OfType<AuthorizeAttribute>().First();
+        auth.Roles.Should().Contain("Administrator").And.Contain("Requérant");
+    }
+
     [Fact]
     public void CreateOrder_ShouldHaveAuthorizeAttributeRestrictingPreleveur()
     {

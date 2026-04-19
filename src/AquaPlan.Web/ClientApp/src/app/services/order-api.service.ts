@@ -9,6 +9,7 @@ import {
   OrderFilterDto,
   OrderPagedResultDto,
   BulkTransitionResultDto,
+  BulkFinalizeResultDto,
 } from '../models/order.model';
 import { RequiredContainerDto } from '../models/sampling.model';
 
@@ -94,6 +95,11 @@ export class OrderApiService {
 
   bulkTransmit(): Observable<BulkTransitionResultDto> {
     return this.http.post<BulkTransitionResultDto>(`${this.baseUrl}/bulk-transmit`, {});
+  }
+
+  /** AQ-406 — atomic validate + transmit. */
+  bulkFinalize(): Observable<BulkFinalizeResultDto> {
+    return this.http.post<BulkFinalizeResultDto>(`${this.baseUrl}/bulk-finalize`, {});
   }
 
   exportCsv(filter: OrderFilterDto): Observable<Blob> {

@@ -143,3 +143,8 @@ export interface OrderPagedResultDto {
 export interface BulkTransitionResultDto {
   affected: number;
 }
+
+export interface BulkFinalizeResultDto {
+  validated: number;
+  transmitted: number;
+}

@@ -97,33 +97,54 @@ export class BarcodeScannerDialogComponent implements OnDestroy {
       this.error.set(true);
       return;
     }
+
+    // AQ-404 — Safari iOS is picky about autoplay. Explicitly set the
+    // properties on the element (the template attributes alone are sometimes
+    // not enough when the element has just been attached).
+    const video = this.videoRef.nativeElement;
+    video.setAttribute('playsinline', 'true');
+    video.setAttribute('webkit-playsinline', 'true');
+    video.setAttribute('muted', 'true');
+    video.muted = true;
+    video.playsInline = true;
+
+    // AQ-404 — use constraints that Safari iOS accepts. `facingMode: environment`
+    // as a plain string can throw OverconstrainedError on front-camera-only
+    // iPhones; the `ideal` variant lets Safari fall back gracefully.
+    const constraints: MediaStreamConstraints = {
+      video: { facingMode: { ideal: 'environment' } },
+      audio: false,
+    };
+
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' } },
-        audio: false,
-      });
-      const video = this.videoRef.nativeElement;
+      this.stream = await this.acquireStream(constraints);
       video.srcObject = this.stream;
-      // AQ-402 — iOS Safari needs the explicit playsinline attribute (set in
-      // the template) and may reject play() promises if called without user
-      // gesture. The dialog itself is opened via user click so this is safe.
+      // AQ-404 — Safari iOS sometimes requires a small wait before play()
+      // resolves; wrap in try/catch and keep going even on rejection.
       try {
         await video.play();
-      } catch {
-        // Older iOS versions resolve play() lazily; swallow and keep going.
+      } catch (playErr) {
+        // eslint-disable-next-line no-console
+        console.warn('[scanner] video.play() rejected:', playErr);
       }
       this.subscription = this.scanner.startScan(video).subscribe({
         next: (barcode) => {
           this.stop();
           this.dialogRef.close({ barcode });
         },
-        error: () => {
+        error: (err: unknown) => {
+          // eslint-disable-next-line no-console
+          console.error('[scanner] decode pipeline error:', err);
           this.errorKey.set('scan.permissionDenied');
           this.error.set(true);
           this.stop();
         },
       });
     } catch (err: unknown) {
+      // AQ-404 — log the actual failure so it can be diagnosed on iPhone via
+      // Safari remote debug (no way to see a silent catch otherwise).
+      // eslint-disable-next-line no-console
+      console.error('[scanner] getUserMedia failed:', err);
       // AQ-402 — differentiate denial vs. missing device vs. other.
       const name = (err as { name?: string } | null)?.name;
       if (name === 'NotAllowedError' || name === 'SecurityError') {
@@ -134,6 +155,25 @@ export class BarcodeScannerDialogComponent implements OnDestroy {
         this.errorKey.set('scan.permissionDenied');
       }
       this.error.set(true);
+    }
+  }
+
+  /**
+   * AQ-404 — Try the preferred constraints first, then fall back to the most
+   * permissive (`video: true`) so Safari iOS still gets a stream even when it
+   * rejects `facingMode` (seen on some older iPads / front-camera contexts).
+   */
+  private async acquireStream(constraints: MediaStreamConstraints): Promise<MediaStream> {
+    try {
+      return await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (err: unknown) {
+      const name = (err as { name?: string } | null)?.name;
+      if (name === 'OverconstrainedError' || name === 'NotReadableError') {
+        // eslint-disable-next-line no-console
+        console.warn('[scanner] retrying with permissive constraints after', name);
+        return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+      throw err;
     }
   }
 

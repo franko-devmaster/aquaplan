@@ -570,6 +570,27 @@ internal class OrderService(
             userId, tenantId, OrderStatus.Completed, OrderStatus.Transmitted, cancellationToken);
     }
 
+    /// <summary>
+    /// AQ-406 — finalize every eligible order of the tenant in a single step:
+    /// first InProgress → Completed (validation), then Completed → Transmitted
+    /// (LIMS transmission). Chaining the two transitions means orders that
+    /// were InProgress at call time end up Transmitted when the call returns,
+    /// matching the user's expectation that "Tout transmettre" also validates.
+    /// </summary>
+    public async Task<BulkFinalizeResultDto> BulkFinalizeAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        var validated = await BulkTransitionAsync(
+            userId, tenantId, OrderStatus.InProgress, OrderStatus.Completed, cancellationToken);
+        var transmitted = await BulkTransitionAsync(
+            userId, tenantId, OrderStatus.Completed, OrderStatus.Transmitted, cancellationToken);
+
+        logger.LogInformation(
+            "Bulk finalize by {UserId} in tenant {TenantId}: {Validated} validated, {Transmitted} transmitted",
+            userId, tenantId, validated.Affected, transmitted.Affected);
+
+        return new BulkFinalizeResultDto(validated.Affected, transmitted.Affected);
+    }
+
     private async Task<BulkTransitionResultDto> BulkTransitionAsync(
         string userId, Guid tenantId, OrderStatus fromStatus, OrderStatus toStatus,
         CancellationToken cancellationToken)

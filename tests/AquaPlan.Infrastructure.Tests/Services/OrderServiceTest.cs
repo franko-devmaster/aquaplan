@@ -563,6 +563,86 @@ public class OrderServiceTest : IDisposable
         result.Affected.Should().Be(0);
     }
 
+    // ─── BulkFinalize (AQ-406) ─────────────────────────────────
+    [Fact]
+    public async Task BulkFinalizeAsync_WithMixedStatuses_ShouldValidateThenTransmit()
+    {
+        await CreateSeedOrder(OrderStatus.InProgress);
+        await CreateSeedOrder(OrderStatus.InProgress);
+        await CreateSeedOrder(OrderStatus.Completed);
+        await CreateSeedOrder(OrderStatus.New); // must stay untouched
+
+        var result = await _sut.BulkFinalizeAsync(UserId, TenantId);
+
+        // 2 InProgress → Completed, then all 3 Completed (2 newly + 1 original) → Transmitted
+        result.Validated.Should().Be(2);
+        result.Transmitted.Should().Be(3);
+        var transmittedCount = await _dbContext.Orders
+            .CountAsync(o => o.TenantId == TenantId && o.Status == OrderStatus.Transmitted);
+        transmittedCount.Should().Be(3);
+        var untouched = await _dbContext.Orders
+            .CountAsync(o => o.TenantId == TenantId && o.Status == OrderStatus.New);
+        untouched.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task BulkFinalizeAsync_WithNoEligibleOrders_ShouldReturnZeros()
+    {
+        await CreateSeedOrder(OrderStatus.New);
+        await CreateSeedOrder(OrderStatus.Transmitted);
+
+        var result = await _sut.BulkFinalizeAsync(UserId, TenantId);
+
+        result.Validated.Should().Be(0);
+        result.Transmitted.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task BulkFinalizeAsync_WithOnlyInProgress_ShouldValidateAndTransmitAll()
+    {
+        await CreateSeedOrder(OrderStatus.InProgress);
+        await CreateSeedOrder(OrderStatus.InProgress);
+
+        var result = await _sut.BulkFinalizeAsync(UserId, TenantId);
+
+        result.Validated.Should().Be(2);
+        result.Transmitted.Should().Be(2);
+        var transmittedCount = await _dbContext.Orders
+            .CountAsync(o => o.TenantId == TenantId && o.Status == OrderStatus.Transmitted);
+        transmittedCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task BulkFinalizeAsync_ShouldRespectTenantIsolation()
+    {
+        var otherTenant = Guid.Parse("00000000-0000-0000-0000-000000000097");
+        await CreateSeedOrder(OrderStatus.InProgress);
+        _dbContext.Distributors.Add(new Distributor
+        {
+            Id = Guid.Parse("00000000-0000-0000-0000-000000000997"),
+            Name = "Other Tenant Distributor 3",
+            TenantId = otherTenant,
+            IsActive = true,
+        });
+        _dbContext.Orders.Add(new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = "ORD-OTHER-03",
+            Status = OrderStatus.InProgress,
+            CreatedById = UserId,
+            DistributorId = Guid.Parse("00000000-0000-0000-0000-000000000997"),
+            TenantId = otherTenant,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.BulkFinalizeAsync(UserId, TenantId);
+
+        result.Validated.Should().Be(1);
+        result.Transmitted.Should().Be(1);
+        var otherOrder = await _dbContext.Orders.FirstAsync(o => o.TenantId == otherTenant);
+        otherOrder.Status.Should().Be(OrderStatus.InProgress);
+    }
+
     [Fact]
     public async Task BulkTransmitAsync_ShouldRespectTenantIsolation()
     {

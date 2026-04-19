@@ -55,11 +55,11 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
             {{ 'orders.bulkValidate' | translate }}
           </button>
           <button mat-stroked-button
-                  [disabled]="completedCount() === 0 || bulkLoading()"
-                  [matTooltip]="'orders.bulkTransmitTooltip' | translate"
-                  (click)="confirmBulkTransmit()">
+                  [disabled]="finalizableCount() === 0 || bulkLoading()"
+                  [matTooltip]="'orders.bulkFinalizeTooltip' | translate"
+                  (click)="confirmBulkFinalize()">
             <mat-icon>send</mat-icon>
-            {{ 'orders.bulkTransmit' | translate }}
+            {{ 'orders.bulkFinalize' | translate }}
           </button>
         }
         @if (isAdmin()) {
@@ -235,6 +235,9 @@ export class OrderListComponent implements OnInit {
   readonly inProgressCount = signal(0);
   readonly completedCount = signal(0);
   readonly bulkLoading = signal(false);
+  /** AQ-406 — button "Tout finaliser" is enabled whenever any order is eligible
+   * for validation OR transmission (InProgress + Completed together). */
+  readonly finalizableCount = computed(() => this.inProgressCount() + this.completedCount());
   private searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
   readonly displayedColumns = [
@@ -309,14 +312,20 @@ export class OrderListComponent implements OnInit {
     });
   }
 
-  async confirmBulkTransmit(): Promise<void> {
-    const count = this.completedCount();
-    if (count === 0) {
+  /**
+   * AQ-406 — atomic "validate + transmit": transitions every InProgress order
+   * to Completed and every Completed order to Transmitted in one server call.
+   * Offline-safe: ping first, refuse the action (and skip the confirm dialog)
+   * if the server is unreachable since LIMS transmission requires connectivity.
+   */
+  async confirmBulkFinalize(): Promise<void> {
+    const toValidate = this.inProgressCount();
+    const toTransmit = this.completedCount();
+    if (toValidate + toTransmit === 0) {
       return;
     }
 
-    // AQ-377 — bulk LIMS transmission must not be attempted offline; ping first,
-    // skip the confirm dialog entirely if the server is unreachable.
+    // AQ-377 / AQ-406 — LIMS transmission must not be attempted offline.
     const online = await this.networkCheck.pingServer();
     if (!online) {
       this.snackBar.open(
@@ -332,7 +341,10 @@ export class OrderListComponent implements OnInit {
       panelClass: 'responsive-dialog',
       data: {
         title: this.translate.instant('orders.bulkConfirmTitle'),
-        message: this.translate.instant('orders.bulkTransmitConfirmMessage', { count }),
+        message: this.translate.instant('orders.bulkFinalizeConfirmMessage', {
+          validate: toValidate,
+          transmit: toTransmit + toValidate,
+        }),
       },
     });
     ref.afterClosed().subscribe(async (confirmed) => {
@@ -341,9 +353,12 @@ export class OrderListComponent implements OnInit {
       }
       this.bulkLoading.set(true);
       try {
-        const result = await firstValueFrom(this.orderApi.bulkTransmit());
+        const result = await firstValueFrom(this.orderApi.bulkFinalize());
         this.snackBar.open(
-          this.translate.instant('orders.bulkSuccess', { count: result.affected }),
+          this.translate.instant('orders.bulkFinalizeSuccess', {
+            validated: result.validated,
+            transmitted: result.transmitted,
+          }),
           this.translate.instant('common.close'),
           { duration: 4000 },
         );
