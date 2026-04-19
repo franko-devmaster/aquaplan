@@ -599,14 +599,18 @@ internal class SamplingRoundService(
 
         if (round is null) return null;
 
-        if (round.Status != SamplingRoundStatus.Assigned)
-        {
-            throw new InvalidOperationException($"Cannot start a sampling round in status {round.Status}. Round must be Assigned.");
-        }
-
+        // AQ-394 — auth check must come first so a non-assigned préleveur is
+        // told 403 (forbidden), not 409 (state conflict).
         if (!isAdmin && round.PreleveurId != userId)
         {
-            throw new InvalidOperationException("Only the assigned préleveur can start the round.");
+            throw new ForbiddenOperationException("Vous n'êtes pas assigné à cette tournée.");
+        }
+
+        // AQ-394 — second /start on the same round is a state conflict (409),
+        // not a generic bad request.
+        if (round.Status != SamplingRoundStatus.Assigned)
+        {
+            throw new ConflictOperationException($"La tournée ne peut pas être démarrée dans son statut actuel ({round.Status}). Elle doit être Assignée.");
         }
 
         round.Status = SamplingRoundStatus.InProgress;

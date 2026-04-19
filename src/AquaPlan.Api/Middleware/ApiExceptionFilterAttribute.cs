@@ -37,6 +37,32 @@ public class ApiExceptionFilterAttribute : ExceptionFilterAttribute
             return;
         }
 
+        // AQ-394 — forbidden operation → 403 Forbidden
+        if (context.Exception is ForbiddenOperationException fox)
+        {
+            _logger.LogWarning(fox, "Forbidden operation: {Message}", fox.Message);
+
+            context.Result = new ObjectResult(new { error = fox.Message })
+            {
+                StatusCode = StatusCodes.Status403Forbidden,
+            };
+            context.ExceptionHandled = true;
+            return;
+        }
+
+        // AQ-394 — conflict operation → 409 Conflict
+        if (context.Exception is ConflictOperationException cox)
+        {
+            _logger.LogWarning(cox, "Conflict operation: {Message}", cox.Message);
+
+            context.Result = new ObjectResult(new { error = cox.Message })
+            {
+                StatusCode = StatusCodes.Status409Conflict,
+            };
+            context.ExceptionHandled = true;
+            return;
+        }
+
         // Map known business exceptions to appropriate HTTP status codes
         if (context.Exception is InvalidOperationException)
         {

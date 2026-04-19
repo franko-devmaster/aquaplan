@@ -25,6 +25,22 @@ public class BusinessExceptionMiddleware(RequestDelegate next, ILogger<BusinessE
                 lockedAt = ex.LockedAt,
             }));
         }
+        catch (ForbiddenOperationException ex)
+        {
+            // AQ-394 — forbidden operation → 403 Forbidden
+            logger.LogWarning(ex, "Forbidden operation: {Message}", ex.Message);
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message }));
+        }
+        catch (ConflictOperationException ex)
+        {
+            // AQ-394 — conflict with current state → 409 Conflict
+            logger.LogWarning(ex, "Conflict operation: {Message}", ex.Message);
+            context.Response.StatusCode = StatusCodes.Status409Conflict;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message }));
+        }
         catch (InvalidOperationException ex)
         {
             logger.LogWarning(ex, "Business rule violation: {Message}", ex.Message);

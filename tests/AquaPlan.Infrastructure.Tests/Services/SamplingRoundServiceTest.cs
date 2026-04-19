@@ -642,24 +642,39 @@ public class SamplingRoundServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task StartAsync_WhenNotAssigned_ShouldThrow()
+    public async Task StartAsync_WhenNotAssigned_ShouldThrowConflict()
     {
+        // AQ-394 — starting a round in Draft/other status is a state conflict (409).
         var round = await CreateDraftRound("Not assigned");
 
-        await _sut.Awaiting(s => s.StartAsync(round.Id, PreleveurId, TenantId, isAdmin: false))
-            .Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Cannot start*");
+        await _sut.Awaiting(s => s.StartAsync(round.Id, PreleveurId, TenantId, isAdmin: true))
+            .Should().ThrowAsync<ConflictOperationException>()
+            .WithMessage("*ne peut pas être démarrée*");
     }
 
     [Fact]
-    public async Task StartAsync_WhenNotAssignedPreleveur_ShouldThrow()
+    public async Task StartAsync_WhenAlreadyInProgress_ShouldThrowConflict()
     {
+        // AQ-394 — second /start call on an InProgress round must raise 409 Conflict.
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+        await TransitionToAssigned(round.Id);
+        await _sut.StartAsync(round.Id, PreleveurId, TenantId, isAdmin: false);
+
+        await _sut.Awaiting(s => s.StartAsync(round.Id, PreleveurId, TenantId, isAdmin: false))
+            .Should().ThrowAsync<ConflictOperationException>()
+            .WithMessage("*ne peut pas être démarrée*");
+    }
+
+    [Fact]
+    public async Task StartAsync_WhenNotAssignedPreleveur_ShouldThrowForbidden()
+    {
+        // AQ-394 — a préleveur not assigned to the round must receive 403 Forbidden.
         var round = await CreateDraftRoundWithOrders(orderCount: 1);
         await TransitionToAssigned(round.Id);
 
         await _sut.Awaiting(s => s.StartAsync(round.Id, "other-user", TenantId, isAdmin: false))
-            .Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Only the assigned préleveur*");
+            .Should().ThrowAsync<ForbiddenOperationException>()
+            .WithMessage("*pas assigné*");
     }
 
     [Fact]
