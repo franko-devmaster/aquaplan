@@ -87,11 +87,10 @@ internal class DelegationService(
 
     public async Task<List<Guid>> GetDelegatedDistributorIdsAsync(string userId, CancellationToken cancellationToken = default)
     {
-        // Get distributors the user belongs to
-        var userDistributorIds = await dbContext.UserDistributors
-            .Where(ud => ud.UserId == userId)
-            .Select(ud => ud.DistributorId)
-            .ToListAsync(cancellationToken);
+        // Get all distributors the user belongs to:
+        //   - primary link via AppUser.DistributorId (seeded in AspNetUsers)
+        //   - additional links via UserDistributors (many-to-many)
+        var userDistributorIds = await GetOwnDistributorIdsAsync(userId, cancellationToken);
 
         // Get distributors that have delegated to the user's distributors
         var delegatedIds = await dbContext.DistributorDelegations
@@ -108,11 +107,11 @@ internal class DelegationService(
 
     public async Task<List<Guid>> GetAuthorizedDistributorIdsForUserAsync(string userId, CancellationToken cancellationToken = default)
     {
-        // AQ-369 — own distributors + distributors that delegated to user's distributors
-        var userDistributorIds = await dbContext.UserDistributors
-            .Where(ud => ud.UserId == userId)
-            .Select(ud => ud.DistributorId)
-            .ToListAsync(cancellationToken);
+        // AQ-369 — own distributors + distributors that delegated to user's distributors.
+        // Own distributors include both AppUser.DistributorId (primary) and UserDistributors
+        // (secondary many-to-many). Bug fix: we previously ignored AppUser.DistributorId, so
+        // users with only the primary link saw no data.
+        var userDistributorIds = await GetOwnDistributorIdsAsync(userId, cancellationToken);
 
         var delegatedIds = await dbContext.DistributorDelegations
             .Where(d => d.IsActive
@@ -124,6 +123,26 @@ internal class DelegationService(
             .ToListAsync(cancellationToken);
 
         return userDistributorIds.Union(delegatedIds).ToList();
+    }
+
+    private async Task<List<Guid>> GetOwnDistributorIdsAsync(string userId, CancellationToken cancellationToken)
+    {
+        var primaryDistributorId = await dbContext.Users
+            .Where(u => u.Id == userId)
+            .Select(u => u.DistributorId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var linkedDistributorIds = await dbContext.UserDistributors
+            .Where(ud => ud.UserId == userId)
+            .Select(ud => ud.DistributorId)
+            .ToListAsync(cancellationToken);
+
+        if (primaryDistributorId.HasValue && !linkedDistributorIds.Contains(primaryDistributorId.Value))
+        {
+            linkedDistributorIds.Add(primaryDistributorId.Value);
+        }
+
+        return linkedDistributorIds;
     }
 
     public async Task<List<DistributorDto>> GetAuthorizedDistributorsForUserAsync(string userId, Guid tenantId, bool isAdmin, CancellationToken cancellationToken = default)

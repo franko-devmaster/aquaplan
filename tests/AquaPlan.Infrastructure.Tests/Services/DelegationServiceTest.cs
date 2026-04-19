@@ -243,6 +243,68 @@ public class DelegationServiceTest : IDisposable
         result.Select(d => d.Id).Should().Contain([DistributorAId, DistributorBId]);
     }
 
+    // --- AQ-395 AppUser.DistributorId primary link must also be considered ---
+
+    [Fact]
+    public async Task GetAuthorizedDistributorIdsForUserAsync_WhenUserOnlyHasPrimaryDistributorId_ShouldReturnIt()
+    {
+        // francisuster case: user has DistributorId on AppUser but no row in UserDistributors.
+        const string userOnlyPrimaryId = "user-primary-only";
+        _dbContext.Users.Add(new AppUser
+        {
+            Id = userOnlyPrimaryId,
+            UserName = "primary@test.com",
+            Email = "primary@test.com",
+            FirstName = "Primary",
+            LastName = "User",
+            TenantId = TenantId,
+            IsActive = true,
+            DistributorId = DistributorAId,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetAuthorizedDistributorIdsForUserAsync(userOnlyPrimaryId);
+
+        result.Should().Contain(DistributorAId);
+    }
+
+    [Fact]
+    public async Task GetAuthorizedDistributorIdsForUserAsync_WhenUserHasPrimaryAndLink_ShouldReturnDistinct()
+    {
+        // User has DistributorB via both AppUser.DistributorId and UserDistributors — no duplicate.
+        var user = await _dbContext.Users.FirstAsync(u => u.Id == UserId);
+        user.DistributorId = DistributorBId;
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetAuthorizedDistributorIdsForUserAsync(UserId);
+
+        result.Should().ContainSingle(id => id == DistributorBId);
+    }
+
+    [Fact]
+    public async Task GetDelegatedDistributorIdsAsync_WhenUserOnlyHasPrimaryDistributorId_ShouldReturnDelegatingIds()
+    {
+        // User has only AppUser.DistributorId (no UserDistributors), a delegation targets that distributor.
+        const string userOnlyPrimaryId = "user-primary-delegation";
+        _dbContext.Users.Add(new AppUser
+        {
+            Id = userOnlyPrimaryId,
+            UserName = "delegation@test.com",
+            Email = "delegation@test.com",
+            FirstName = "Delegation",
+            LastName = "User",
+            TenantId = TenantId,
+            IsActive = true,
+            DistributorId = DistributorBId,
+        });
+        await _dbContext.SaveChangesAsync();
+        await SeedDelegation(DistributorAId, DistributorBId);
+
+        var result = await _sut.GetDelegatedDistributorIdsAsync(userOnlyPrimaryId);
+
+        result.Should().Contain(DistributorAId);
+    }
+
     private async Task<DistributorDelegation> SeedDelegation(Guid delegatingId, Guid delegatedToId)
     {
         var delegation = new DistributorDelegation

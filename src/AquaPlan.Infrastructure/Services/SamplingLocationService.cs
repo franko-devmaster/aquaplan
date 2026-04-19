@@ -12,6 +12,7 @@ namespace AquaPlan.Infrastructure.Services;
 
 internal class SamplingLocationService(
     AquaPlanDbContext dbContext,
+    IDelegationService delegationService,
     ILogger<SamplingLocationService> logger) : ISamplingLocationService
 {
     public async Task<IList<SamplingLocationDto>> GetAllAsync(Guid tenantId, CancellationToken cancellationToken = default)
@@ -81,13 +82,15 @@ internal class SamplingLocationService(
 
     public async Task<IList<SamplingLocationDto>> GetForUserAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default)
     {
-        var userDistributorIds = await dbContext.UserDistributors
-            .Where(ud => ud.UserId == userId)
-            .Select(ud => ud.DistributorId)
-            .ToListAsync(cancellationToken);
+        // Include the user's primary distributor (AppUser.DistributorId), the many-to-many
+        // UserDistributors links, and any DistributorDelegation the user benefits from.
+        // Bug fix: we previously only looked at UserDistributors, hiding LDP from users
+        // whose sole link was the primary AppUser.DistributorId.
+        var authorizedDistributorIds = await delegationService
+            .GetAuthorizedDistributorIdsForUserAsync(userId, cancellationToken);
 
         return await dbContext.SamplingLocations
-            .Where(sl => userDistributorIds.Contains(sl.DistributorId) && sl.Distributor!.TenantId == tenantId)
+            .Where(sl => authorizedDistributorIds.Contains(sl.DistributorId) && sl.Distributor!.TenantId == tenantId)
             .Include(sl => sl.Distributor)
             .Include(sl => sl.Sector)
             .OrderBy(sl => sl.Name)
