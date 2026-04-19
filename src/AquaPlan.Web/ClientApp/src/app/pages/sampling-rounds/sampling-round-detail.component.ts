@@ -921,10 +921,11 @@ export class SamplingRoundDetailComponent implements OnInit {
     };
 
     // AQ-403 — responsive sizing; let CSS media queries inside the dialog drive the layout.
+    // AQ-86 — widen max on tablet/iPad for comfortable data entry.
     const dialogRef = this.dialog.open(SamplingFormDialogComponent, {
       data: dialogData,
       width: '95vw',
-      maxWidth: '560px',
+      maxWidth: '720px',
       panelClass: 'responsive-dialog',
     });
 

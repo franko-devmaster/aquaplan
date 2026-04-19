@@ -4,14 +4,21 @@
 
 // Breakpoints
 $breakpoint-mobile: 768px;
+$breakpoint-ipad: 1024px;    // AQ-86: iPad portrait ceiling (iPad Mini 768, Air 820, Pro 11" 834)
 $breakpoint-tablet: 1200px;
 
 // Usage: @include responsive(mobile) { ... }
 @mixin responsive($size) {
   @if $size == mobile {
     @media (max-width: #{$breakpoint-mobile - 1}) { @content; }
+  } @else if $size == ipad {
+    // AQ-86: iPad range (portrait + narrow landscape). Covers 768–1023px.
+    @media (min-width: $breakpoint-mobile) and (max-width: #{$breakpoint-ipad - 1}) { @content; }
   } @else if $size == tablet {
     @media (min-width: $breakpoint-mobile) and (max-width: #{$breakpoint-tablet - 1}) { @content; }
+  } @else if $size == mobile-ipad {
+    // Combined mobile + iPad portrait for shared touch-friendly rules
+    @media (max-width: #{$breakpoint-ipad - 1}) { @content; }
   } @else if $size == mobile-tablet {
     @media (max-width: #{$breakpoint-tablet - 1}) { @content; }
   } @else if $size == desktop {
@@ -272,5 +279,80 @@ mat-sidenav-content.content-mobile {
   @include responsive(mobile) {
     padding: 0;
     align-items: stretch;
+  }
+}
+
+// =============================================================================
+// AQ-86 — iPad / Tablet (768–1023px) touch-friendly overrides
+// Target devices: iPad Mini (768×1024), iPad Air (820×1180), iPad Pro 11" (834×1194)
+// =============================================================================
+
+@include responsive(ipad) {
+  // Apple HIG + Material Design tap targets (≥44×44px)
+  .mat-mdc-icon-button {
+    width: 48px !important;
+    height: 48px !important;
+    padding: 12px !important;
+  }
+
+  .mat-mdc-raised-button,
+  .mat-mdc-outlined-button,
+  .mat-mdc-button,
+  button[mat-button],
+  button[mat-raised-button],
+  button[mat-stroked-button] {
+    min-height: 44px;
+  }
+
+  // Lists and tables: roomier rows for tap
+  tr.mat-mdc-row,
+  .mat-mdc-list-item {
+    min-height: 56px;
+  }
+
+  // Dialogs: 90vw on iPad (vs 80vw desktop) for comfort
+  .mat-mdc-dialog-surface {
+    max-width: 90vw !important;
+  }
+
+  // Form fields: readable body size (Safari iOS auto-zooms <16px inputs)
+  .mat-mdc-form-field,
+  input,
+  textarea {
+    font-size: 16px;
+  }
+
+  // Page header stays horizontal on iPad but keeps buttons tappable
+  .page-header button {
+    min-height: 44px;
+  }
+
+  // Filters stay horizontal (enough width) but gap increased for touch
+  .filters-row,
+  .filters {
+    gap: 12px;
+  }
+
+  // Home dashboard: 2 columns in portrait (portrait iPad is 768–834px)
+  .home-tiles,
+  .dashboard-tiles {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+// iPad landscape (≥1024 but still tablet-like, up to iPad Pro 12.9" = 1024 landscape)
+// Home dashboard 3 columns; tap targets remain enforced via mobile-ipad rules below
+@media (min-width: #{$breakpoint-ipad}) and (max-width: #{$breakpoint-tablet - 1}) {
+  .home-tiles,
+  .dashboard-tiles {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+// Shared tap-friendly rules across mobile + iPad
+@include responsive(mobile-ipad) {
+  // Prevent hover-only affordances: ensure focus/active styles visible
+  .clickable-row:active {
+    background-color: rgba(0, 0, 0, 0.08);
   }
 }

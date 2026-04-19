@@ -35,6 +35,10 @@ public class Order
     public DateTime? StatusChangedAt { get; set; }
     public string? StatusChangedBy { get; set; }
 
+    // AQ-33 — Mock LIMS outbound transmission
+    public Guid? LimsOrderId { get; set; }
+    public DateTime? TransmittedAt { get; set; }
+
     public Sampling? Sampling { get; set; }
     public ICollection<OrderAnalysisProgram> OrderAnalysisPrograms { get; set; } = new List<OrderAnalysisProgram>();
 }

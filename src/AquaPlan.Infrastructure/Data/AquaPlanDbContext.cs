@@ -28,6 +28,7 @@ public class AquaPlanDbContext(DbContextOptions<AquaPlanDbContext> options)
     public DbSet<SamplingRound> SamplingRounds => Set<SamplingRound>();
     public DbSet<OrderAuditLog> OrderAuditLogs => Set<OrderAuditLog>();
     public DbSet<Sector> Sectors => Set<Sector>();
+    public DbSet<MockLimsOrder> MockLimsOrders => Set<MockLimsOrder>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

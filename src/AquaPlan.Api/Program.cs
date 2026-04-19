@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using AquaPlan.Api.Middleware;
+using AquaPlan.Application.DTOs.MockLims;
 using AquaPlan.Application.Extensions;
 using AquaPlan.Infrastructure.Data;
 using AquaPlan.Infrastructure.Data.Seeds;
@@ -33,6 +34,9 @@ builder.Host.UseSerilog((context, configuration) =>
 // Infrastructure + Application services
 builder.Services.WithInfrastructure(builder.Configuration);
 builder.Services.WithApplication();
+
+// AQ-32 / AQ-33 — Mock LIMS feature flag (MockLims:Enabled, default false)
+builder.Services.Configure<MockLimsOptions>(builder.Configuration.GetSection(MockLimsOptions.SectionName));
 
 // Controllers
 builder.Services.AddControllers()

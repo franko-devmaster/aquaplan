@@ -1,3 +1,4 @@
+using AquaPlan.Application.DTOs.MockLims;
 using AquaPlan.Application.DTOs.Orders;
 using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
@@ -7,6 +8,7 @@ using AquaPlan.Infrastructure.Data;
 using AquaPlan.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AquaPlan.Infrastructure.Tests.Services;
 
@@ -15,6 +17,7 @@ public class OrderServiceTest : IDisposable
     private readonly AquaPlanDbContext _dbContext;
     private readonly Mock<IOrderAuditService> _auditServiceMock = new();
     private readonly Mock<IDelegationService> _delegationServiceMock = new();
+    private readonly Mock<IMockLimsService> _mockLimsServiceMock = new();
     private readonly Mock<ILogger<OrderService>> _loggerMock = new();
     private readonly Mock<ILogger<SamplingRoundService>> _roundLoggerMock = new();
     private readonly SamplingRoundService _roundService;
@@ -32,7 +35,8 @@ public class OrderServiceTest : IDisposable
 
         _dbContext = new AquaPlanDbContext(options);
         _roundService = new SamplingRoundService(_dbContext, _delegationServiceMock.Object, _roundLoggerMock.Object);
-        _sut = new OrderService(_dbContext, _auditServiceMock.Object, _roundService, _loggerMock.Object);
+        var mockLimsOptions = Options.Create(new MockLimsOptions { Enabled = false });
+        _sut = new OrderService(_dbContext, _auditServiceMock.Object, _roundService, _mockLimsServiceMock.Object, mockLimsOptions, _loggerMock.Object);
 
         SeedData().GetAwaiter().GetResult();
     }
@@ -672,6 +676,111 @@ public class OrderServiceTest : IDisposable
         var otherOrder = await _dbContext.Orders
             .FirstAsync(o => o.TenantId == otherTenant);
         otherOrder.Status.Should().Be(OrderStatus.Completed);
+    }
+
+    // ─── AQ-33 — Mock LIMS outbound integration ─────────────────────────────────
+
+    [Fact]
+    public async Task BulkTransmitAsync_WhenMockLimsEnabled_ShouldForwardOrdersAndStoreLimsOrderId()
+    {
+        var sut = CreateSutWithMockLimsEnabled();
+        await CreateSeedOrder(OrderStatus.Completed);
+
+        var expectedLimsId = Guid.Parse("00000000-0000-0000-0000-000000000ABC".Replace("A", "0").Replace("B", "1").Replace("C", "2"));
+        _mockLimsServiceMock
+            .Setup(s => s.ReceiveOrderAsync(It.IsAny<MockLimsOrderCreateDto>(), TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MockLimsOrderCreatedDto(expectedLimsId, DateTime.UtcNow));
+
+        var result = await sut.BulkTransmitAsync(UserId, TenantId);
+
+        result.Affected.Should().Be(1);
+        _mockLimsServiceMock.Verify(s => s.ReceiveOrderAsync(
+            It.IsAny<MockLimsOrderCreateDto>(), TenantId, It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        var order = await _dbContext.Orders.SingleAsync(o => o.TenantId == TenantId);
+        order.Status.Should().Be(OrderStatus.Transmitted);
+        order.LimsOrderId.Should().Be(expectedLimsId);
+        order.TransmittedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task BulkTransmitAsync_WhenMockLimsDisabled_ShouldNotCallMockLims()
+    {
+        await CreateSeedOrder(OrderStatus.Completed);
+
+        var result = await _sut.BulkTransmitAsync(UserId, TenantId);
+
+        result.Affected.Should().Be(1);
+        _mockLimsServiceMock.Verify(s => s.ReceiveOrderAsync(
+            It.IsAny<MockLimsOrderCreateDto>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        var order = await _dbContext.Orders.SingleAsync(o => o.TenantId == TenantId);
+        order.Status.Should().Be(OrderStatus.Transmitted);
+        order.LimsOrderId.Should().BeNull();
+        order.TransmittedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task BulkTransmitAsync_WhenMockLimsThrows_ShouldStillTransitionOrder()
+    {
+        var sut = CreateSutWithMockLimsEnabled();
+        await CreateSeedOrder(OrderStatus.Completed);
+
+        _mockLimsServiceMock
+            .Setup(s => s.ReceiveOrderAsync(It.IsAny<MockLimsOrderCreateDto>(), TenantId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Mock LIMS down"));
+
+        var result = await sut.BulkTransmitAsync(UserId, TenantId);
+
+        result.Affected.Should().Be(1);
+        var order = await _dbContext.Orders.SingleAsync(o => o.TenantId == TenantId);
+        order.Status.Should().Be(OrderStatus.Transmitted);
+        order.LimsOrderId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task BulkTransmitAsync_WhenAlreadyTransmittedToLims_ShouldNotDuplicate()
+    {
+        var sut = CreateSutWithMockLimsEnabled();
+        var existingLimsId = Guid.NewGuid();
+
+        // Simulate an order that previously got a LimsOrderId but was reverted to Completed.
+        var order = new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = "ORD-REPEAT",
+            Status = OrderStatus.Completed,
+            CreatedById = UserId,
+            DistributorId = DistributorId,
+            TenantId = TenantId,
+            LimsOrderId = existingLimsId,
+        };
+        _dbContext.Orders.Add(order);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await sut.BulkTransmitAsync(UserId, TenantId);
+
+        result.Affected.Should().Be(1);
+        _mockLimsServiceMock.Verify(s => s.ReceiveOrderAsync(
+            It.IsAny<MockLimsOrderCreateDto>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        var reloaded = await _dbContext.Orders.SingleAsync(o => o.Id == order.Id);
+        reloaded.LimsOrderId.Should().Be(existingLimsId);
+    }
+
+    private OrderService CreateSutWithMockLimsEnabled()
+    {
+        var options = Options.Create(new MockLimsOptions { Enabled = true });
+        return new OrderService(
+            _dbContext,
+            _auditServiceMock.Object,
+            _roundService,
+            _mockLimsServiceMock.Object,
+            options,
+            _loggerMock.Object);
     }
 
     private async Task<Order> CreateOrderWithPrograms()

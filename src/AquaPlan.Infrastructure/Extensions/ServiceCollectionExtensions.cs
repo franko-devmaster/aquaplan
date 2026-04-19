@@ -3,6 +3,7 @@ using AquaPlan.Domain.Entities;
 using AquaPlan.Infrastructure.Data;
 using AquaPlan.Infrastructure.Security;
 using AquaPlan.Infrastructure.Services;
+using AquaPlan.Infrastructure.Services.MockLims;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -48,6 +49,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISamplingRoundService, SamplingRoundService>();
         services.AddScoped<ISamplingService, SamplingService>();
         services.AddScoped<IOrderAuditService, OrderAuditService>();
+
+        // AQ-32 / AQ-33 — Mock LIMS
+        services.AddSingleton<IMockLimsResultGenerator, MockLimsResultGenerator>();
+        services.AddScoped<IMockLimsService, MockLimsService>();
 
         return services;
     }
