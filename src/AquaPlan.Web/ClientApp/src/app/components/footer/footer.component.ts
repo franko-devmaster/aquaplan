@@ -13,13 +13,24 @@ import { environment } from '../../../environments/environment';
     </footer>
   `,
   styles: [`
+    /* AQ-FOOTER-STICKY — footer always visible at bottom of viewport.
+       Fixed height (32px) matches the space reserved by the layout container. */
     .app-footer {
-      padding: 8px 16px;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 32px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       text-align: center;
       color: #9e9e9e;
       font-size: 11px;
       border-top: 1px solid rgba(0, 0, 0, 0.06);
       background: #fafafa;
+      z-index: 50;
     }
   `],
 })

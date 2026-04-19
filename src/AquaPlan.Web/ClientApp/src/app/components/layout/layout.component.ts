@@ -25,12 +25,15 @@ import { FooterComponent } from '../footer/footer.component';
       </mat-sidenav>
       <mat-sidenav-content class="content" [class.content-mobile]="isMobile()">
         <router-outlet />
-        <app-footer />
       </mat-sidenav-content>
     </mat-sidenav-container>
+    <app-footer />
   `,
   styles: [`
-    .sidenav-container { position: absolute; top: 64px; bottom: 0; left: 0; right: 0; }
+    /* AQ-FOOTER-STICKY — footer fixed at bottom, always visible.
+       Sidenav container leaves space at the bottom equal to the footer height
+       so content is never hidden behind it. */
+    .sidenav-container { position: absolute; top: 64px; bottom: 32px; left: 0; right: 0; }
     .sidenav { width: 250px; }
     .sidenav-mobile { width: 280px; }
     .content { padding: 24px; }
