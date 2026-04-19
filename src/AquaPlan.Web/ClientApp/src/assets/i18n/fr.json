@@ -181,7 +181,23 @@
     "transmitNoNetwork": "Pas de réseau. Réessayez une fois connecté.",
     "bulkTransmitNoNetwork": "Pas de réseau. Réessayez une fois connecté.",
     "transmitted": "Transmis avec succès",
-    "confirmTransmit": "Confirmer la transmission de ce mandat ?"
+    "confirmTransmit": "Confirmer la transmission de ce mandat ?",
+    "conformity": "Conformité",
+    "results": {
+      "title": "Résultats d'analyse",
+      "counter": "{{total}} paramètre(s) analysé(s), {{nonConform}} non conforme(s)",
+      "conform": "Conforme",
+      "nonConform": "Non conforme",
+      "pullNow": "Synchroniser maintenant",
+      "empty": "En attente de réception des résultats du laboratoire",
+      "columns": {
+        "parameter": "Paramètre",
+        "value": "Valeur",
+        "unit": "Unité",
+        "range": "Plage de référence",
+        "conformity": "Conformité"
+      }
+    }
   },
   "delegations": {
     "title": "Délégations",
@@ -463,6 +479,9 @@
     "ordersToFinalize": "Mandats à finaliser",
     "plannedRounds": "Tournées planifiées",
     "nonConformities": "Non-conformités",
+    "conform": "Mandats conformes",
+    "nonConform": "Mandats non conformes",
+    "pending": "En attente de résultats",
     "upcomingRounds": "Prochaines tournées",
     "noUpcomingRounds": "Aucune tournée planifiée",
     "recentResults": "Résultats récents (7 jours)",

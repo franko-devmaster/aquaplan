@@ -214,7 +214,23 @@
     "transmitNoNetwork": "Kein Netzwerk. Versuchen Sie es erneut, sobald Sie verbunden sind.",
     "bulkTransmitNoNetwork": "Kein Netzwerk. Versuchen Sie es erneut, sobald Sie verbunden sind.",
     "transmitted": "Erfolgreich übermittelt",
-    "confirmTransmit": "Übermittlung dieses Auftrags bestätigen?"
+    "confirmTransmit": "Übermittlung dieses Auftrags bestätigen?",
+    "conformity": "Konformität",
+    "results": {
+      "title": "Analyseergebnisse",
+      "counter": "{{total}} analysierte(r) Parameter, {{nonConform}} nicht konform",
+      "conform": "Konform",
+      "nonConform": "Nicht konform",
+      "pullNow": "Jetzt synchronisieren",
+      "empty": "Warten auf den Empfang der Laborergebnisse",
+      "columns": {
+        "parameter": "Parameter",
+        "value": "Wert",
+        "unit": "Einheit",
+        "range": "Referenzbereich",
+        "conformity": "Konformität"
+      }
+    }
   },
   "delegations": {
     "title": "Delegationen",
@@ -363,6 +379,9 @@
     "ordersToFinalize": "Abzuschliessende Aufträge",
     "plannedRounds": "Geplante Touren",
     "nonConformities": "Nichtkonformitäten",
+    "conform": "Konforme Aufträge",
+    "nonConform": "Nicht konforme Aufträge",
+    "pending": "Warten auf Ergebnisse",
     "upcomingRounds": "Nächste Touren",
     "noUpcomingRounds": "Keine geplanten Touren",
     "recentResults": "Aktuelle Ergebnisse (7 Tage)",

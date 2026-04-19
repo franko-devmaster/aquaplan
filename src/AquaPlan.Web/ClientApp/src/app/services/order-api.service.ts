@@ -10,6 +10,8 @@ import {
   OrderPagedResultDto,
   BulkTransitionResultDto,
   BulkFinalizeResultDto,
+  SamplingResultListDto,
+  OrderDashboardSummaryDto,
 } from '../models/order.model';
 import { RequiredContainerDto } from '../models/sampling.model';
 
@@ -58,6 +60,9 @@ export class OrderApiService {
     if (filter.dateTo) {
       params = params.set('dateTo', filter.dateTo);
     }
+    if (filter.resultsStatus) {
+      params = params.set('resultsStatus', filter.resultsStatus);
+    }
     return this.http.get<OrderPagedResultDto>(this.baseUrl, { params });
   }
 
@@ -100,6 +105,21 @@ export class OrderApiService {
   /** AQ-406 — atomic validate + transmit. */
   bulkFinalize(): Observable<BulkFinalizeResultDto> {
     return this.http.post<BulkFinalizeResultDto>(`${this.baseUrl}/bulk-finalize`, {});
+  }
+
+  /** AQ-34 / AQ-400 — analysis results persisted for a mandate. */
+  getResults(orderId: string): Observable<SamplingResultListDto> {
+    return this.http.get<SamplingResultListDto>(`${this.baseUrl}/${orderId}/results`);
+  }
+
+  /** AQ-34 — admin-only manual pull from the (Mock) LIMS. */
+  pullResults(orderId: string): Observable<SamplingResultListDto> {
+    return this.http.post<SamplingResultListDto>(`${this.baseUrl}/${orderId}/pull-results`, {});
+  }
+
+  /** AQ-31 — home dashboard aggregated counters. */
+  getDashboardSummary(): Observable<OrderDashboardSummaryDto> {
+    return this.http.get<OrderDashboardSummaryDto>(`${this.baseUrl}/dashboard-summary`);
   }
 
   exportCsv(filter: OrderFilterDto): Observable<Blob> {

@@ -18,4 +18,5 @@ public record OrderListDto(
     string? SamplingLocationName,
     DateTime? PlannedDate,
     bool IsDelegated,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    ResultsStatus ResultsStatus = ResultsStatus.NotReceived);

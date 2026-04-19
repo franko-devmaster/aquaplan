@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using AquaPlan.Application.DTOs.Orders;
+using AquaPlan.Application.DTOs.SamplingResults;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
@@ -16,6 +17,7 @@ public class OrdersController(
     IPermissionService permissionService,
     IOrderAuditService orderAuditService,
     IDelegationService delegationService,
+    ILimsResultService limsResultService,
     ILogger<OrdersController> logger) : ControllerBase
 {
     [HttpGet]
@@ -32,16 +34,31 @@ public class OrdersController(
         [FromQuery] string? preleveurId = null,
         [FromQuery] DateTime? dateFrom = null,
         [FromQuery] DateTime? dateTo = null,
+        [FromQuery] ResultsStatus? resultsStatus = null,
         CancellationToken cancellationToken = default)
     {
         var userId = GetUserId();
         var tenantId = GetTenantId();
         var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
 
-        var filter = new OrderFilterDto(statuses, isUnassigned, hasNoRound, search, page, pageSize, sortBy, sortDescending, distributorId, preleveurId, dateFrom, dateTo);
+        var filter = new OrderFilterDto(statuses, isUnassigned, hasNoRound, search, page, pageSize, sortBy, sortDescending, distributorId, preleveurId, dateFrom, dateTo, resultsStatus);
         var result = await orderService.GetOrdersFilteredAsync(userId, tenantId, filter, isAdmin, cancellationToken);
 
         return Ok(result);
+    }
+
+    /// <summary>
+    /// AQ-31 — Aggregated conformity counters for the home dashboard.
+    /// </summary>
+    [HttpGet("dashboard-summary")]
+    public async Task<ActionResult<OrderDashboardSummaryDto>> GetDashboardSummary(CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+        var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+
+        var summary = await orderService.GetDashboardSummaryAsync(userId, tenantId, isAdmin, cancellationToken);
+        return Ok(summary);
     }
 
     [HttpGet("export")]
@@ -281,6 +298,71 @@ public class OrdersController(
 
         var result = await orderService.BulkFinalizeAsync(userId, tenantId, cancellationToken);
         return Ok(result);
+    }
+
+    /// <summary>
+    /// AQ-34 — Manually pulls analysis results for an order from the (Mock) LIMS.
+    /// Idempotent: repeat calls return the current persisted list without duplicating rows.
+    /// Reserved to admin + requérant roles (préleveur seul exclu — action admin).
+    /// </summary>
+    [HttpPost("{id:guid}/pull-results")]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}")]
+    public async Task<ActionResult<SamplingResultListDto>> PullResults(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+
+        // Tenant-scoped access check mirroring GET /results so a Requerant of another
+        // distributor cannot trigger a LIMS pull on an order he cannot see.
+        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        if (!hasViewAll)
+        {
+            var canAccess = await orderService.UserCanAccessOrderAsync(userId, id, tenantId, cancellationToken);
+            if (!canAccess)
+            {
+                var exists = await orderService.GetOrderByIdAsync(id, tenantId, cancellationToken);
+                return exists is null ? NotFound() : Forbid();
+            }
+        }
+
+        var outcome = await limsResultService.PullAsync(id, tenantId, cancellationToken);
+        if (outcome is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(outcome.Results);
+    }
+
+    /// <summary>
+    /// AQ-34 / AQ-400 — Returns the persisted analysis results for an order.
+    /// Visible to admins, order owner (créateur), preleveur assigné, and distributor delegatees.
+    /// </summary>
+    [HttpGet("{id:guid}/results")]
+    public async Task<ActionResult<SamplingResultListDto>> GetResults(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var tenantId = GetTenantId();
+
+        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        if (!hasViewAll)
+        {
+            var canAccess = await orderService.UserCanAccessOrderAsync(userId, id, tenantId, cancellationToken);
+            if (!canAccess)
+            {
+                // Disambiguate 404 vs 403 the same way GetOrder does.
+                var exists = await orderService.GetOrderByIdAsync(id, tenantId, cancellationToken);
+                return exists is null ? NotFound() : Forbid();
+            }
+        }
+
+        var results = await limsResultService.GetByOrderAsync(id, tenantId, cancellationToken);
+        if (results is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(results);
     }
 
     [HttpGet("{id:guid}/audit-log")]

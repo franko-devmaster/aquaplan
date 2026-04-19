@@ -10,6 +10,7 @@ import {
   OrderFilterDto,
   OrderPagedResultDto,
   OrderStatus,
+  ResultsStatus,
 } from '../models/order.model';
 
 @Injectable({ providedIn: 'root' })
@@ -32,6 +33,7 @@ export class OrderDatastore {
   readonly preleveurFilter = signal<string | undefined>(undefined);
   readonly dateFromFilter = signal<string | undefined>(undefined);
   readonly dateToFilter = signal<string | undefined>(undefined);
+  readonly resultsStatusFilter = signal<ResultsStatus | undefined>(undefined);
 
   readonly totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
 
@@ -50,6 +52,7 @@ export class OrderDatastore {
         preleveurId: this.preleveurFilter(),
         dateFrom: this.dateFromFilter(),
         dateTo: this.dateToFilter(),
+        resultsStatus: this.resultsStatusFilter(),
       };
       const result = await firstValueFrom(this.api.getFiltered(filter));
       this.orders.set(result.items);
@@ -112,6 +115,12 @@ export class OrderDatastore {
       this.sortBy.set(sortBy);
       this.sortDescending.set(true);
     }
+    this.loadFiltered();
+  }
+
+  setResultsStatusFilter(status: ResultsStatus | undefined): void {
+    this.resultsStatusFilter.set(status);
+    this.currentPage.set(1);
     this.loadFiltered();
   }
 }

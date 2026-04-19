@@ -23,7 +23,7 @@ import { OrderDatastore } from '../../datastore/order.datastore';
 import { OrderApiService } from '../../services/order-api.service';
 import { AuthService } from '../../services/auth.service';
 import { NetworkCheckService } from '../../services/network-check.service';
-import { OrderListDto, OrderStatus, OrderStatusLabels } from '../../models/order.model';
+import { OrderListDto, OrderStatus, OrderStatusLabels, ResultsStatus } from '../../models/order.model';
 import { DistributorApiService } from '../../services/distributor-api.service';
 import { DistributorListDto } from '../../models/distributor.model';
 import { OrderCreateDialogComponent } from './order-create-dialog.component';
@@ -179,6 +179,14 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
             <td mat-cell *matCellDef="let order" [attr.data-label]="'orders.createdAt' | translate">{{ order.createdAt | date:'shortDate' }}</td>
           </ng-container>
 
+          <ng-container matColumnDef="conformity">
+            <th mat-header-cell *matHeaderCellDef>{{ 'orders.conformity' | translate }}</th>
+            <td mat-cell *matCellDef="let order" [attr.data-label]="'orders.conformity' | translate">
+              <app-status-chip [variant]="getConformityVariant(order.resultsStatus)"
+                               [label]="(getConformityLabel(order.resultsStatus) | translate)"></app-status-chip>
+            </td>
+          </ng-container>
+
           <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
           <tr mat-row *matRowDef="let row; columns: displayedColumns;"
               class="clickable-row" (click)="viewDetail(row)"></tr>
@@ -242,7 +250,7 @@ export class OrderListComponent implements OnInit {
 
   readonly displayedColumns = [
     'orderNumber', 'status', 'distributor', 'samplingLocation',
-    'preleveur', 'plannedDate', 'createdAt',
+    'preleveur', 'plannedDate', 'createdAt', 'conformity',
   ];
 
   readonly availableStatuses = [
@@ -372,17 +380,47 @@ export class OrderListComponent implements OnInit {
 
   private applyStatusesFromQueryParams(): void {
     const raw = this.route.snapshot.queryParamMap.get('statuses');
-    if (!raw) {
-      return;
+    if (raw) {
+      const validValues = new Set<string>(Object.values(OrderStatus));
+      const parsed = raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => validValues.has(s)) as OrderStatus[];
+      if (parsed.length > 0) {
+        this.store.statusFilter.set(parsed);
+        this.store.currentPage.set(1);
+      }
     }
-    const validValues = new Set<string>(Object.values(OrderStatus));
-    const parsed = raw
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => validValues.has(s)) as OrderStatus[];
-    if (parsed.length > 0) {
-      this.store.statusFilter.set(parsed);
-      this.store.currentPage.set(1);
+
+    const resultsStatusRaw = this.route.snapshot.queryParamMap.get('resultsStatus');
+    if (resultsStatusRaw) {
+      const values = new Set<string>(Object.values(ResultsStatus));
+      if (values.has(resultsStatusRaw)) {
+        this.store.resultsStatusFilter.set(resultsStatusRaw as ResultsStatus);
+        this.store.currentPage.set(1);
+      }
+    }
+  }
+
+  getConformityLabel(status: ResultsStatus | undefined): string {
+    switch (status) {
+      case ResultsStatus.Conform:
+        return 'dashboard.conform';
+      case ResultsStatus.NonConform:
+        return 'dashboard.nonConform';
+      default:
+        return 'dashboard.pending';
+    }
+  }
+
+  getConformityVariant(status: ResultsStatus | undefined): StatusChipVariant {
+    switch (status) {
+      case ResultsStatus.Conform:
+        return 'success';
+      case ResultsStatus.NonConform:
+        return 'danger';
+      default:
+        return 'neutral';
     }
   }
 

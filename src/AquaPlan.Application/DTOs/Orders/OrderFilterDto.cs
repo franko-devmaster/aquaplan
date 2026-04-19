@@ -14,4 +14,5 @@ public record OrderFilterDto(
     Guid? DistributorId = null,
     string? PreleveurId = null,
     DateTime? DateFrom = null,
-    DateTime? DateTo = null);
+    DateTime? DateTo = null,
+    ResultsStatus? ResultsStatus = null);

@@ -19,6 +19,8 @@ import { ConfirmDialogComponent } from '../../components/confirm-dialog.componen
 import { OrderLinkRoundDialogComponent } from './order-link-round-dialog.component';
 import { SamplingRoundDetailDto } from '../../models/sampling-round.model';
 import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
+import { SamplingResultsTableComponent } from '../../components/sampling-results-table/sampling-results-table.component';
+import { ResultsStatus } from '../../models/order.model';
 
 @Component({
   selector: 'app-order-detail',
@@ -27,6 +29,7 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
     MatCardModule, MatButtonModule, MatIconModule, MatChipsModule,
     MatProgressSpinnerModule, MatDialogModule, MatSnackBarModule,
     DatePipe, TranslateModule, StatusChipComponent,
+    SamplingResultsTableComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -77,6 +80,11 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
               <label>{{ 'orders.status.label' | translate }}</label>
               <app-status-chip [variant]="getStatusVariant()"
                                [label]="(getStatusLabel() | translate)"></app-status-chip>
+            </div>
+            <div class="detail-item">
+              <label>{{ 'orders.conformity' | translate }}</label>
+              <app-status-chip [variant]="getConformityVariant()"
+                               [label]="(getConformityLabel() | translate)"></app-status-chip>
             </div>
             <div class="detail-item">
               <label>{{ 'orders.distributor' | translate }}</label>
@@ -155,6 +163,8 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
           }
         </mat-card-content>
       </mat-card>
+
+      <app-sampling-results-table [orderId]="order()!.id"></app-sampling-results-table>
     }
   `,
   styles: [`
@@ -252,6 +262,32 @@ export class OrderDetailComponent implements OnInit {
       'Cancelled': 'danger',
     };
     return map[o.status] ?? 'draft';
+  }
+
+  getConformityLabel(): string {
+    const o = this.order();
+    if (!o) return 'dashboard.pending';
+    switch (o.resultsStatus) {
+      case ResultsStatus.Conform:
+        return 'dashboard.conform';
+      case ResultsStatus.NonConform:
+        return 'dashboard.nonConform';
+      default:
+        return 'dashboard.pending';
+    }
+  }
+
+  getConformityVariant(): StatusChipVariant {
+    const o = this.order();
+    if (!o) return 'neutral';
+    switch (o.resultsStatus) {
+      case ResultsStatus.Conform:
+        return 'success';
+      case ResultsStatus.NonConform:
+        return 'danger';
+      default:
+        return 'neutral';
+    }
   }
 
   getUnplannedReasonLabel(): string {

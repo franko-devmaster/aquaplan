@@ -1,11 +1,13 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using AquaPlan.Api.Middleware;
+using AquaPlan.Application.DTOs.LimsSync;
 using AquaPlan.Application.DTOs.MockLims;
 using AquaPlan.Application.Extensions;
 using AquaPlan.Infrastructure.Data;
 using AquaPlan.Infrastructure.Data.Seeds;
 using AquaPlan.Infrastructure.Extensions;
+using AquaPlan.Infrastructure.HostedServices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -37,6 +39,10 @@ builder.Services.WithApplication();
 
 // AQ-32 / AQ-33 — Mock LIMS feature flag (MockLims:Enabled, default false)
 builder.Services.Configure<MockLimsOptions>(builder.Configuration.GetSection(MockLimsOptions.SectionName));
+
+// AQ-35 — LIMS sync worker configuration + registration
+builder.Services.Configure<LimsSyncOptions>(builder.Configuration.GetSection(LimsSyncOptions.SectionName));
+builder.Services.AddHostedService<MockLimsResultsSyncWorker>();
 
 // Controllers
 builder.Services.AddControllers()

@@ -39,6 +39,10 @@ public class Order
     public Guid? LimsOrderId { get; set; }
     public DateTime? TransmittedAt { get; set; }
 
+    // AQ-34 — Mock LIMS inbound (timestamp of the last pull that persisted results).
+    public DateTime? ResultsReceivedAt { get; set; }
+
     public Sampling? Sampling { get; set; }
     public ICollection<OrderAnalysisProgram> OrderAnalysisPrograms { get; set; } = new List<OrderAnalysisProgram>();
+    public ICollection<SamplingResult> SamplingResults { get; set; } = new List<SamplingResult>();
 }

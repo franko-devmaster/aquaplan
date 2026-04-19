@@ -29,7 +29,8 @@ public record OrderDetailDto(
     Guid? SamplingRoundId,
     bool IsRoundLocked = false,
     string? RoundLockedById = null,
-    string? RoundLockedByName = null);
+    string? RoundLockedByName = null,
+    ResultsStatus ResultsStatus = ResultsStatus.NotReceived);
 
 public record OrderAnalysisProgramDto(
     Guid AnalysisProgramId,

@@ -215,7 +215,23 @@
     "transmitNoNetwork": "No network. Try again once connected.",
     "bulkTransmitNoNetwork": "No network. Try again once connected.",
     "transmitted": "Transmitted successfully",
-    "confirmTransmit": "Confirm transmission of this order?"
+    "confirmTransmit": "Confirm transmission of this order?",
+    "conformity": "Conformity",
+    "results": {
+      "title": "Analysis results",
+      "counter": "{{total}} parameter(s) analysed, {{nonConform}} non-compliant",
+      "conform": "Compliant",
+      "nonConform": "Non-compliant",
+      "pullNow": "Sync now",
+      "empty": "Waiting for laboratory results",
+      "columns": {
+        "parameter": "Parameter",
+        "value": "Value",
+        "unit": "Unit",
+        "range": "Reference range",
+        "conformity": "Conformity"
+      }
+    }
   },
   "delegations": {
     "title": "Delegations",
@@ -370,6 +386,9 @@
     "ordersToFinalize": "Orders to finalize",
     "plannedRounds": "Planned rounds",
     "nonConformities": "Non-conformities",
+    "conform": "Compliant orders",
+    "nonConform": "Non-compliant orders",
+    "pending": "Awaiting results",
     "upcomingRounds": "Upcoming rounds",
     "noUpcomingRounds": "No upcoming rounds",
     "recentResults": "Recent results (7 days)",

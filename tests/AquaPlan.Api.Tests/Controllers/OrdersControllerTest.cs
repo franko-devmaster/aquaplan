@@ -17,6 +17,7 @@ public class OrdersControllerTest
     private readonly Mock<IPermissionService> _permissionServiceMock = new();
     private readonly Mock<IOrderAuditService> _orderAuditServiceMock = new();
     private readonly Mock<IDelegationService> _delegationServiceMock = new();
+    private readonly Mock<ILimsResultService> _limsResultServiceMock = new();
     private readonly Mock<ILogger<OrdersController>> _loggerMock = new();
     private readonly OrdersController _sut;
 
@@ -27,7 +28,7 @@ public class OrdersControllerTest
 
     public OrdersControllerTest()
     {
-        _sut = new OrdersController(_orderServiceMock.Object, _orderStatusServiceMock.Object, _permissionServiceMock.Object, _orderAuditServiceMock.Object, _delegationServiceMock.Object, _loggerMock.Object);
+        _sut = new OrdersController(_orderServiceMock.Object, _orderStatusServiceMock.Object, _permissionServiceMock.Object, _orderAuditServiceMock.Object, _delegationServiceMock.Object, _limsResultServiceMock.Object, _loggerMock.Object);
         _sut.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext { User = CreateUser() }
@@ -53,7 +54,8 @@ public class OrdersControllerTest
             UserId, "John Doe", preleveurId, preleveurName,
             DistributorId, "Distributor A",
             null, null, null, null, null, false, [],
-            TenantId, DateTime.UtcNow, null, null, null);
+            TenantId, DateTime.UtcNow, null, null, null,
+            false, null, null, ResultsStatus.NotReceived);
     }
 
     private static OrderListDto CreateOrderList(Guid? id = null, string orderNumber = "ORD-001")
@@ -62,7 +64,8 @@ public class OrdersControllerTest
             id ?? OrderId, orderNumber, OrderStatus.New, false, null,
             UserId, "John Doe", null, null,
             DistributorId, "Distributor A",
-            null, null, null, false, DateTime.UtcNow);
+            null, null, null, false, DateTime.UtcNow,
+            ResultsStatus.NotReceived);
     }
 
     // ─── GetOrders ─────────────────────────────────────────────
@@ -77,7 +80,7 @@ public class OrdersControllerTest
             .Setup(x => x.GetOrdersFilteredAsync(UserId, TenantId, It.IsAny<OrderFilterDto>(), true, It.IsAny<CancellationToken>()))
             .ReturnsAsync(pagedResult);
 
-        var result = await _sut.GetOrders(null, null, null, null, 1, 20, null, true, null, null, null, null, CancellationToken.None);
+        var result = await _sut.GetOrders(null, null, null, null, 1, 20, null, true, null, null, null, null, null, CancellationToken.None);
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         var value = okResult.Value.Should().BeOfType<OrderPagedResultDto>().Subject;
@@ -98,7 +101,7 @@ public class OrdersControllerTest
                 false, It.IsAny<CancellationToken>()))
             .ReturnsAsync(pagedResult);
 
-        var result = await _sut.GetOrders(statuses, true, null, "test", 1, 20, null, true, null, null, null, null, CancellationToken.None);
+        var result = await _sut.GetOrders(statuses, true, null, "test", 1, 20, null, true, null, null, null, null, null, CancellationToken.None);
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().BeOfType<OrderPagedResultDto>();
@@ -582,5 +585,159 @@ public class OrdersControllerTest
         method.Should().NotBeNull();
         var attributes = method!.GetCustomAttributes(typeof(HttpPostAttribute), true);
         attributes.Should().NotBeEmpty();
+    }
+
+    // ─── AQ-34 / AQ-400 — Pull results + GET results ───────────
+
+    [Fact]
+    public async Task PullResults_WhenOrderMissing_ShouldReturnNotFound()
+    {
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _limsResultServiceMock
+            .Setup(x => x.PullAsync(OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AquaPlan.Application.Services.Interfaces.PullResultsOutcome?)null);
+
+        var result = await _sut.PullResults(OrderId, CancellationToken.None);
+
+        result.Result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task PullResults_WhenOk_ShouldReturnSamplingResultListDto()
+    {
+        var list = new AquaPlan.Application.DTOs.SamplingResults.SamplingResultListDto([], 0, 0, 0);
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _limsResultServiceMock
+            .Setup(x => x.PullAsync(OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AquaPlan.Application.Services.Interfaces.PullResultsOutcome(list, 0, false));
+
+        var result = await _sut.PullResults(OrderId, CancellationToken.None);
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeSameAs(list);
+    }
+
+    [Fact]
+    public async Task PullResults_AsNonAdminWithoutAccess_ShouldReturnForbidWhenOrderExists()
+    {
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.UserCanAccessOrderAsync(UserId, OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.GetOrderByIdAsync(OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateOrderDetail());
+
+        var result = await _sut.PullResults(OrderId, CancellationToken.None);
+
+        result.Result.Should().BeOfType<ForbidResult>();
+    }
+
+    [Fact]
+    public void PullResults_ShouldBeRestrictedToAdminAndRequerants()
+    {
+        var method = typeof(OrdersController).GetMethod(nameof(OrdersController.PullResults))!;
+        var auth = method.GetCustomAttributes(typeof(AuthorizeAttribute), true)
+            .OfType<AuthorizeAttribute>().Single();
+        auth.Roles.Should().Be($"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}");
+        var post = method.GetCustomAttributes(typeof(HttpPostAttribute), true)
+            .OfType<HttpPostAttribute>().Single();
+        post.Template.Should().Be("{id:guid}/pull-results");
+    }
+
+    [Fact]
+    public async Task GetResults_AsAdmin_ShouldReturnOk()
+    {
+        var list = new AquaPlan.Application.DTOs.SamplingResults.SamplingResultListDto([], 0, 0, 0);
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _limsResultServiceMock
+            .Setup(x => x.GetByOrderAsync(OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(list);
+
+        var result = await _sut.GetResults(OrderId, CancellationToken.None);
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeSameAs(list);
+    }
+
+    [Fact]
+    public async Task GetResults_AsNonAdminWithoutAccess_ShouldReturnForbidWhenOrderExists()
+    {
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.UserCanAccessOrderAsync(UserId, OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.GetOrderByIdAsync(OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateOrderDetail());
+
+        var result = await _sut.GetResults(OrderId, CancellationToken.None);
+
+        result.Result.Should().BeOfType<ForbidResult>();
+    }
+
+    [Fact]
+    public async Task GetResults_WhenOrderMissing_ShouldReturnNotFound()
+    {
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.UserCanAccessOrderAsync(UserId, OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.GetOrderByIdAsync(OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrderDetailDto?)null);
+
+        var result = await _sut.GetResults(OrderId, CancellationToken.None);
+
+        result.Result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public void GetResults_ShouldHaveHttpGetAttribute()
+    {
+        var method = typeof(OrdersController).GetMethod(nameof(OrdersController.GetResults))!;
+        var get = method.GetCustomAttributes(typeof(HttpGetAttribute), true)
+            .OfType<HttpGetAttribute>().Single();
+        get.Template.Should().Be("{id:guid}/results");
+    }
+
+    // ─── AQ-31 — Dashboard summary ─────────────────────────────
+
+    [Fact]
+    public async Task GetDashboardSummary_ShouldReturnOk()
+    {
+        var summary = new OrderDashboardSummaryDto(4, 1, 7, 12);
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _orderServiceMock
+            .Setup(x => x.GetDashboardSummaryAsync(UserId, TenantId, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(summary);
+
+        var result = await _sut.GetDashboardSummary(CancellationToken.None);
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeEquivalentTo(summary);
+    }
+
+    [Fact]
+    public void GetDashboardSummary_ShouldHaveHttpGetWithRoute()
+    {
+        var method = typeof(OrdersController).GetMethod(nameof(OrdersController.GetDashboardSummary))!;
+        var get = method.GetCustomAttributes(typeof(HttpGetAttribute), true)
+            .OfType<HttpGetAttribute>().Single();
+        get.Template.Should().Be("dashboard-summary");
     }
 }

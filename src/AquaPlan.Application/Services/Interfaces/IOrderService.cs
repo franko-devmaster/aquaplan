@@ -17,4 +17,5 @@ public interface IOrderService
     Task<BulkTransitionResultDto> BulkValidateAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default);
     Task<BulkTransitionResultDto> BulkTransmitAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default);
     Task<BulkFinalizeResultDto> BulkFinalizeAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default);
+    Task<OrderDashboardSummaryDto> GetDashboardSummaryAsync(string userId, Guid tenantId, bool isAdmin, CancellationToken cancellationToken = default);
 }

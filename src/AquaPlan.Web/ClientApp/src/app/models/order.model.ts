@@ -7,6 +7,13 @@ export enum OrderStatus {
   Cancelled = 'Cancelled',
 }
 
+/** AQ-31 — aggregated conformity status derived from SamplingResults. */
+export enum ResultsStatus {
+  NotReceived = 'NotReceived',
+  Conform = 'Conform',
+  NonConform = 'NonConform',
+}
+
 export enum UnplannedReason {
   Pollution = 'Pollution',
   Urgency = 'Urgency',
@@ -65,6 +72,7 @@ export interface OrderListDto {
   plannedDate: string | null;
   isDelegated: boolean;
   createdAt: string;
+  resultsStatus: ResultsStatus;
 }
 
 export interface OrderDetailDto {
@@ -92,6 +100,10 @@ export interface OrderDetailDto {
   updatedAt: string | null;
   sampling: SamplingDto | null;
   samplingRoundId: string | null;
+  isRoundLocked?: boolean;
+  roundLockedById?: string | null;
+  roundLockedByName?: string | null;
+  resultsStatus: ResultsStatus;
 }
 
 export interface OrderCreateDto {
@@ -131,6 +143,34 @@ export interface OrderFilterDto {
   preleveurId?: string;
   dateFrom?: string;
   dateTo?: string;
+  resultsStatus?: ResultsStatus;
+}
+
+/** AQ-34 / AQ-400 — Sampling analysis result received from the Mock LIMS. */
+export interface SamplingResultDto {
+  id: string;
+  parameterCode: string;
+  value: number;
+  unit: string;
+  referenceMin: number | null;
+  referenceMax: number | null;
+  isConform: boolean;
+  receivedAt: string;
+}
+
+export interface SamplingResultListDto {
+  items: SamplingResultDto[];
+  conformCount: number;
+  nonConformCount: number;
+  totalCount: number;
+}
+
+/** AQ-31 — home dashboard counters. */
+export interface OrderDashboardSummaryDto {
+  conformCount: number;
+  nonConformCount: number;
+  pendingCount: number;
+  totalCount: number;
 }
 
 export interface OrderPagedResultDto {

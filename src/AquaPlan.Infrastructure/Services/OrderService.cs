@@ -93,6 +93,24 @@ internal class OrderService(
             query = query.Where(o => o.PlannedDate <= dateTo);
         }
 
+        // AQ-31 — filter by aggregated results conformity status.
+        if (filter.ResultsStatus.HasValue)
+        {
+            query = filter.ResultsStatus.Value switch
+            {
+                ResultsStatus.Conform => query.Where(o =>
+                    o.Status == OrderStatus.Done
+                    && dbContext.SamplingResults.Any(r => r.OrderId == o.Id)
+                    && !dbContext.SamplingResults.Any(r => r.OrderId == o.Id && !r.IsConform)),
+                ResultsStatus.NonConform => query.Where(o =>
+                    o.Status == OrderStatus.Done
+                    && dbContext.SamplingResults.Any(r => r.OrderId == o.Id && !r.IsConform)),
+                _ => query.Where(o =>
+                    o.Status != OrderStatus.Done
+                    || !dbContext.SamplingResults.Any(r => r.OrderId == o.Id)),
+            };
+        }
+
         // Search (order number, distributor name, LDP name, préleveur name)
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
@@ -116,30 +134,61 @@ internal class OrderService(
             _ => filter.SortDescending ? query.OrderByDescending(o => o.CreatedAt) : query.OrderBy(o => o.CreatedAt),
         };
 
-        // Pagination
-        var items = await query
+        // Pagination — project with aggregated counters so we can derive ResultsStatus below.
+        var rows = await query
             .Skip((filter.Page - 1) * filter.PageSize)
             .Take(filter.PageSize)
             .Include(o => o.CreatedBy)
             .Include(o => o.Preleveur)
             .Include(o => o.Distributor)
             .Include(o => o.SamplingLocation)
-            .Select(o => new OrderListDto(
-                o.Id, o.OrderNumber, o.Status, o.IsUnplanned, o.UnplannedReason,
+            .Select(o => new
+            {
+                o.Id,
+                o.OrderNumber,
+                o.Status,
+                o.IsUnplanned,
+                o.UnplannedReason,
                 o.CreatedById,
-                o.CreatedBy != null ? o.CreatedBy.FirstName + " " + o.CreatedBy.LastName : null,
+                CreatedByName = o.CreatedBy != null ? o.CreatedBy.FirstName + " " + o.CreatedBy.LastName : null,
                 o.PreleveurId,
-                o.Preleveur != null ? o.Preleveur.FirstName + " " + o.Preleveur.LastName : null,
+                PreleveurName = o.Preleveur != null ? o.Preleveur.FirstName + " " + o.Preleveur.LastName : null,
                 o.DistributorId,
-                o.Distributor != null ? o.Distributor.Name : string.Empty,
+                DistributorName = o.Distributor != null ? o.Distributor.Name : string.Empty,
                 o.SamplingLocationId,
-                o.SamplingLocation != null ? o.SamplingLocation.Name : null,
+                SamplingLocationName = o.SamplingLocation != null ? o.SamplingLocation.Name : null,
                 o.PlannedDate,
                 o.IsDelegated,
-                o.CreatedAt))
+                o.CreatedAt,
+                TotalResults = dbContext.SamplingResults.Count(r => r.OrderId == o.Id),
+                NonConformResults = dbContext.SamplingResults.Count(r => r.OrderId == o.Id && !r.IsConform),
+            })
             .ToListAsync(cancellationToken);
 
+        var items = rows
+            .Select(r => new OrderListDto(
+                r.Id, r.OrderNumber, r.Status, r.IsUnplanned, r.UnplannedReason,
+                r.CreatedById, r.CreatedByName,
+                r.PreleveurId, r.PreleveurName,
+                r.DistributorId, r.DistributorName,
+                r.SamplingLocationId, r.SamplingLocationName,
+                r.PlannedDate, r.IsDelegated, r.CreatedAt,
+                DeriveResultsStatus(r.Status, r.TotalResults, r.NonConformResults)))
+            .ToList();
+
         return new OrderPagedResultDto(items, totalCount, filter.Page, filter.PageSize);
+    }
+
+    /// <summary>
+    /// AQ-31 — Aggregates an order's conformity status from its sampling results.
+    /// </summary>
+    private static ResultsStatus DeriveResultsStatus(OrderStatus status, int totalResults, int nonConformResults)
+    {
+        if (status != OrderStatus.Done || totalResults == 0)
+        {
+            return ResultsStatus.NotReceived;
+        }
+        return nonConformResults == 0 ? ResultsStatus.Conform : ResultsStatus.NonConform;
     }
 
     public async Task<OrderDetailDto?> GetOrderByIdAsync(Guid orderId, Guid tenantId, CancellationToken cancellationToken = default)
@@ -165,7 +214,11 @@ internal class OrderService(
             return null;
         }
 
-        return MapToDetailDto(order);
+        // AQ-31 — aggregate conformity counters for the detail view.
+        var totalResults = await dbContext.SamplingResults.CountAsync(r => r.OrderId == orderId, cancellationToken);
+        var nonConformResults = await dbContext.SamplingResults.CountAsync(r => r.OrderId == orderId && !r.IsConform, cancellationToken);
+
+        return MapToDetailDto(order, DeriveResultsStatus(order.Status, totalResults, nonConformResults));
     }
 
     public async Task<OrderDetailDto> CreateOrderAsync(OrderCreateDto dto, string createdById, Guid tenantId, CancellationToken cancellationToken = default)
@@ -504,7 +557,7 @@ internal class OrderService(
                 && (d.ValidTo == null || d.ValidTo >= DateTime.UtcNow), cancellationToken);
     }
 
-    private static OrderDetailDto MapToDetailDto(Order order)
+    private static OrderDetailDto MapToDetailDto(Order order, ResultsStatus resultsStatus = ResultsStatus.NotReceived)
     {
         SamplingDto? samplingDto = null;
         if (order.Sampling is not null)
@@ -559,7 +612,8 @@ internal class OrderService(
             order.SamplingRoundId,
             isRoundLocked,
             round?.LockedById,
-            lockedByName);
+            lockedByName,
+            resultsStatus);
     }
 
     public async Task<BulkTransitionResultDto> BulkValidateAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default)
@@ -593,6 +647,70 @@ internal class OrderService(
             userId, tenantId, validated.Affected, transmitted.Affected);
 
         return new BulkFinalizeResultDto(validated.Affected, transmitted.Affected);
+    }
+
+    /// <summary>
+    /// AQ-31 — Aggregate counters for the home dashboard, scoped to the user's visibility rules.
+    /// </summary>
+    public async Task<OrderDashboardSummaryDto> GetDashboardSummaryAsync(
+        string userId, Guid tenantId, bool isAdmin, CancellationToken cancellationToken = default)
+    {
+        var query = dbContext.Orders
+            .Where(o => o.TenantId == tenantId)
+            .AsQueryable();
+
+        if (!isAdmin)
+        {
+            var userDistributorIds = await dbContext.UserDistributors
+                .Where(ud => ud.UserId == userId)
+                .Select(ud => ud.DistributorId)
+                .ToListAsync(cancellationToken);
+
+            var delegatedIds = await dbContext.DistributorDelegations
+                .Where(d => d.IsActive
+                    && userDistributorIds.Contains(d.DelegatedToDistributorId)
+                    && d.ValidFrom <= DateTime.UtcNow
+                    && (d.ValidTo == null || d.ValidTo >= DateTime.UtcNow))
+                .Select(d => d.DelegatingDistributorId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            var accessibleIds = userDistributorIds.Union(delegatedIds).ToList();
+            query = query.Where(o =>
+                accessibleIds.Contains(o.DistributorId)
+                && (o.CreatedById == userId || o.PreleveurId == userId));
+        }
+
+        var stats = await query
+            .Select(o => new
+            {
+                o.Status,
+                TotalResults = dbContext.SamplingResults.Count(r => r.OrderId == o.Id),
+                NonConformResults = dbContext.SamplingResults.Count(r => r.OrderId == o.Id && !r.IsConform),
+            })
+            .ToListAsync(cancellationToken);
+
+        var conform = 0;
+        var nonConform = 0;
+        var pending = 0;
+        foreach (var s in stats)
+        {
+            var status = DeriveResultsStatus(s.Status, s.TotalResults, s.NonConformResults);
+            switch (status)
+            {
+                case ResultsStatus.Conform:
+                    conform++;
+                    break;
+                case ResultsStatus.NonConform:
+                    nonConform++;
+                    break;
+                default:
+                    pending++;
+                    break;
+            }
+        }
+
+        return new OrderDashboardSummaryDto(conform, nonConform, pending, stats.Count);
     }
 
     private async Task<BulkTransitionResultDto> BulkTransitionAsync(

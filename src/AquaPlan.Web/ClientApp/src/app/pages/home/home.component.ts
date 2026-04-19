@@ -11,7 +11,7 @@ import { AuthService } from '../../services/auth.service';
 import { OrderApiService } from '../../services/order-api.service';
 import { SamplingRoundApiService } from '../../services/sampling-round-api.service';
 import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
-import { OrderStatus } from '../../models/order.model';
+import { OrderStatus, ResultsStatus } from '../../models/order.model';
 import {
     SamplingRoundStatus,
     SamplingRoundStatusLabels,
@@ -61,14 +61,26 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
                     </mat-card-content>
                 </mat-card>
 
-                <mat-card class="stat-card stub">
+                <mat-card class="stat-card clickable conform" (click)="openConformOrders()">
                     <mat-card-content>
-                        <div class="stat-icon danger">
-                            <mat-icon>warning</mat-icon>
+                        <div class="stat-icon success">
+                            <mat-icon>check_circle</mat-icon>
                         </div>
                         <div class="stat-info">
-                            <span class="stat-value">{{ nonConformitiesCount() }}</span>
-                            <span class="stat-label">{{ 'dashboard.nonConformities' | translate }}</span>
+                            <span class="stat-value">{{ conformCount() }}</span>
+                            <span class="stat-label">{{ 'dashboard.conform' | translate }}</span>
+                        </div>
+                    </mat-card-content>
+                </mat-card>
+
+                <mat-card class="stat-card clickable non-conform" (click)="openNonConformOrders()">
+                    <mat-card-content>
+                        <div class="stat-icon danger">
+                            <mat-icon>error</mat-icon>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-value">{{ nonConformCount() }}</span>
+                            <span class="stat-label">{{ 'dashboard.nonConform' | translate }}</span>
                         </div>
                     </mat-card-content>
                 </mat-card>
@@ -399,7 +411,9 @@ export class HomeComponent implements OnInit {
 
     readonly ordersToFinalizeCount = signal(0);
     readonly plannedRoundsCount = signal(0);
-    readonly nonConformitiesCount = signal(0);
+    readonly conformCount = signal(0);
+    readonly nonConformCount = signal(0);
+    readonly pendingResultsCount = signal(0);
     readonly upcomingRounds = signal<SamplingRoundListDto[]>([]);
     readonly ldpToValidateCount = signal(0);
 
@@ -435,6 +449,18 @@ export class HomeComponent implements OnInit {
         });
     }
 
+    openConformOrders(): void {
+        this.router.navigate(['/orders'], {
+            queryParams: { resultsStatus: ResultsStatus.Conform },
+        });
+    }
+
+    openNonConformOrders(): void {
+        this.router.navigate(['/orders'], {
+            queryParams: { resultsStatus: ResultsStatus.NonConform },
+        });
+    }
+
     getRoundStatusVariant(status: SamplingRoundStatus): StatusChipVariant {
         const map: Record<string, StatusChipVariant> = {
             'Draft': 'draft',
@@ -454,11 +480,23 @@ export class HomeComponent implements OnInit {
         const tasks: Promise<void>[] = [
             this.loadOrdersToFinalize(),
             this.loadUpcomingRounds(),
+            this.loadDashboardSummary(),
         ];
         if (this.isAdmin()) {
             tasks.push(this.loadLdpToValidate());
         }
         await Promise.all(tasks);
+    }
+
+    private async loadDashboardSummary(): Promise<void> {
+        try {
+            const summary = await firstValueFrom(this.orderApi.getDashboardSummary());
+            this.conformCount.set(summary.conformCount);
+            this.nonConformCount.set(summary.nonConformCount);
+            this.pendingResultsCount.set(summary.pendingCount);
+        } catch {
+            // Silently handle error
+        }
     }
 
     private async loadOrdersToFinalize(): Promise<void> {

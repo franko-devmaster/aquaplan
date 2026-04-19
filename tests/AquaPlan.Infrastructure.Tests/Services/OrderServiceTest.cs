@@ -1049,4 +1049,113 @@ public class OrderServiceTest : IDisposable
         await _dbContext.SaveChangesAsync();
         return order;
     }
+
+    // ─── AQ-31 — Dashboard summary + ResultsStatus ────────────
+
+    private async Task<Order> SeedDoneOrderAsync(
+        string createdById = UserId,
+        bool conform = true,
+        bool withResults = true)
+    {
+        var order = new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = $"ORD-DONE-{Guid.NewGuid():N}".Substring(0, 20),
+            Status = OrderStatus.Done,
+            CreatedById = createdById,
+            DistributorId = DistributorId,
+            TenantId = TenantId,
+        };
+        _dbContext.Orders.Add(order);
+        if (withResults)
+        {
+            _dbContext.SamplingResults.Add(new SamplingResult
+            {
+                Id = Guid.NewGuid(),
+                OrderId = order.Id,
+                ParameterCode = "PH",
+                Value = 7m,
+                Unit = "pH",
+                ReferenceMin = 6.5m,
+                ReferenceMax = 8.5m,
+                IsConform = conform,
+                TenantId = TenantId,
+                ReceivedAt = DateTime.UtcNow,
+            });
+        }
+        await _dbContext.SaveChangesAsync();
+        return order;
+    }
+
+    [Fact]
+    public async Task GetDashboardSummaryAsync_AsAdmin_ShouldAggregateAllOrders()
+    {
+        await SeedDoneOrderAsync(conform: true);
+        await SeedDoneOrderAsync(conform: true);
+        await SeedDoneOrderAsync(conform: false);
+        await CreateSeedOrder(OrderStatus.Transmitted);
+        await CreateSeedOrder(OrderStatus.New);
+
+        var summary = await _sut.GetDashboardSummaryAsync(UserId, TenantId, isAdmin: true);
+
+        summary.TotalCount.Should().Be(5);
+        summary.ConformCount.Should().Be(2);
+        summary.NonConformCount.Should().Be(1);
+        summary.PendingCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetDashboardSummaryAsync_AsNonAdmin_ShouldRespectVisibilityScope()
+    {
+        await SeedDoneOrderAsync(createdById: UserId, conform: true);
+        await SeedDoneOrderAsync(createdById: "other-user", conform: false);
+
+        var summary = await _sut.GetDashboardSummaryAsync(UserId, TenantId, isAdmin: false);
+
+        summary.TotalCount.Should().Be(1);
+        summary.ConformCount.Should().Be(1);
+        summary.NonConformCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GetOrdersFilteredAsync_ShouldDeriveResultsStatus()
+    {
+        await SeedDoneOrderAsync(conform: true);
+        await SeedDoneOrderAsync(conform: false);
+        await CreateSeedOrder(OrderStatus.Transmitted);
+
+        var result = await _sut.GetOrdersFilteredAsync(
+            UserId, TenantId,
+            new OrderFilterDto(null, null, null, null),
+            isAdmin: true);
+
+        result.Items.Should().HaveCount(3);
+        result.Items.Should().Contain(i => i.ResultsStatus == ResultsStatus.Conform);
+        result.Items.Should().Contain(i => i.ResultsStatus == ResultsStatus.NonConform);
+        result.Items.Should().Contain(i => i.ResultsStatus == ResultsStatus.NotReceived);
+    }
+
+    [Fact]
+    public async Task GetOrdersFilteredAsync_WithResultsStatusFilter_ShouldRestrictResults()
+    {
+        await SeedDoneOrderAsync(conform: true);
+        await SeedDoneOrderAsync(conform: false);
+        await CreateSeedOrder(OrderStatus.Transmitted);
+
+        var filter = new OrderFilterDto(null, null, null, null, ResultsStatus: ResultsStatus.NonConform);
+        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: true);
+
+        result.Items.Should().HaveCount(1);
+        result.Items.Single().ResultsStatus.Should().Be(ResultsStatus.NonConform);
+    }
+
+    [Fact]
+    public async Task GetOrderByIdAsync_ShouldPopulateResultsStatus()
+    {
+        var order = await SeedDoneOrderAsync(conform: false);
+
+        var dto = await _sut.GetOrderByIdAsync(order.Id, TenantId);
+
+        dto!.ResultsStatus.Should().Be(ResultsStatus.NonConform);
+    }
 }

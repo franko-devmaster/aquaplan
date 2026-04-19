@@ -54,6 +54,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IMockLimsResultGenerator, MockLimsResultGenerator>();
         services.AddScoped<IMockLimsService, MockLimsService>();
 
+        // AQ-34 / AQ-35 — Mock LIMS inbound + sync journal
+        services.AddScoped<ILimsResultService, LimsResultService>();
+        services.AddScoped<ILimsSyncService, LimsSyncService>();
+
         return services;
     }
 }
