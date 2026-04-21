@@ -202,7 +202,14 @@ public class SamplingRoundsController(
         return Ok(result);
     }
 
+    /// <summary>
+    /// AQ-413 — detaches an order from a sampling round WITHOUT deleting it.
+    /// Restricted to administrators and mandataires (Requérant / Requérant-Préleveur).
+    /// Returns 204 on success, 404 when the round or the link does not exist,
+    /// 409 when the round is in a status that forbids modification (InProgress / Completed / Cancelled).
+    /// </summary>
     [HttpDelete("{id:guid}/orders/{orderId:guid}")]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}")]
     public async Task<ActionResult> RemoveOrder(Guid id, Guid orderId, CancellationToken cancellationToken)
     {
         var tenantId = GetTenantId();

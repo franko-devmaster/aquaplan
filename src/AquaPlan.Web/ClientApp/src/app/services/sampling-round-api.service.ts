@@ -27,6 +27,9 @@ export class SamplingRoundApiService {
     if (filter.distributorId) {
       params = params.set('distributorId', filter.distributorId);
     }
+    if (filter.preleveurId) {
+      params = params.set('preleveurId', filter.preleveurId);
+    }
     if (filter.search) {
       params = params.set('search', filter.search);
     }

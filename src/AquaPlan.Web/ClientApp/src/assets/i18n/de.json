@@ -385,13 +385,20 @@
     "actions": {
       "view": "Anzeigen",
       "edit": "Bearbeiten",
-      "delete": "Löschen"
+      "delete": "Löschen",
+      "removeFromRound": "Aus Tour entfernen"
     }
+  },
+  "orderIndicators": {
+    "mandatorNote": "Auftraggeber-Notiz",
+    "preleveurNote": "Bemerkung des Probenehmers",
+    "locationReplaced": "Probenahmestelle ersetzt"
   },
   "dashboard": {
     "title": "Dashboard",
     "ordersToFinalize": "Abzuschliessende Aufträge",
     "plannedRounds": "Geplante Touren",
+    "myRounds": "Meine Touren",
     "nonConformities": "Nichtkonformitäten",
     "conform": "Konforme Aufträge",
     "nonConform": "Nicht konforme Aufträge",

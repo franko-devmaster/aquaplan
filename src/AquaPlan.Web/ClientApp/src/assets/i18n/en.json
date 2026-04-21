@@ -392,13 +392,20 @@
     "actions": {
       "view": "View",
       "edit": "Edit",
-      "delete": "Delete"
+      "delete": "Delete",
+      "removeFromRound": "Remove from round"
     }
+  },
+  "orderIndicators": {
+    "mandatorNote": "Requester note",
+    "preleveurNote": "Sampler remark",
+    "locationReplaced": "Sampling location replaced"
   },
   "dashboard": {
     "title": "Dashboard",
     "ordersToFinalize": "Orders to finalize",
     "plannedRounds": "Planned rounds",
+    "myRounds": "My rounds",
     "nonConformities": "Non-conformities",
     "conform": "Compliant orders",
     "nonConform": "Non-compliant orders",

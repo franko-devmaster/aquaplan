@@ -49,14 +49,16 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
                     </mat-card-content>
                 </mat-card>
 
-                <mat-card class="stat-card clickable" (click)="openPlannedRounds()">
+                <!-- AQ-411 — renamed "Tournées planifiées" → "Mes tournées": show only rounds assigned
+                     to the current user (préleveur filter), Assigned + InProgress statuses. -->
+                <mat-card class="stat-card clickable" (click)="openMyRounds()">
                     <mat-card-content>
                         <div class="stat-icon accent">
                             <mat-icon>event</mat-icon>
                         </div>
                         <div class="stat-info">
                             <span class="stat-value">{{ plannedRoundsCount() }}</span>
-                            <span class="stat-label">{{ 'dashboard.plannedRounds' | translate }}</span>
+                            <span class="stat-label">{{ 'dashboard.myRounds' | translate }}</span>
                         </div>
                     </mat-card-content>
                 </mat-card>
@@ -443,10 +445,16 @@ export class HomeComponent implements OnInit {
         });
     }
 
-    openPlannedRounds(): void {
-        this.router.navigate(['/sampling-rounds'], {
-            queryParams: { status: SamplingRoundStatus.Assigned },
-        });
+    openMyRounds(): void {
+        // AQ-411 — deep-link into the rounds list pre-filtered by current user + Assigned/InProgress statuses.
+        const userId = this.authService.currentUser()?.id;
+        const queryParams: Record<string, string> = {
+            status: `${SamplingRoundStatus.Assigned},${SamplingRoundStatus.InProgress}`,
+        };
+        if (userId) {
+            queryParams['preleveurId'] = userId;
+        }
+        this.router.navigate(['/sampling-rounds'], { queryParams });
     }
 
     openConformOrders(): void {
@@ -516,14 +524,14 @@ export class HomeComponent implements OnInit {
 
     private async loadUpcomingRounds(): Promise<void> {
         try {
-            // AQ-362 — dashboard only shows non-terminated rounds.
-            // Préleveur sees their assigned + ongoing rounds; admins/requesters also see drafts.
-            const statuses = this.isPreleveur()
-                ? [SamplingRoundStatus.Assigned, SamplingRoundStatus.InProgress]
-                : [SamplingRoundStatus.Draft, SamplingRoundStatus.Assigned, SamplingRoundStatus.InProgress];
+            // AQ-411 — "Mes tournées": scope dashboard tile to rounds assigned to the current user
+            // (Assigned + InProgress). Admins still see only their own assignments here; they have
+            // the dedicated distributor/global view via the list page.
+            const userId = this.authService.currentUser()?.id;
             const result = await firstValueFrom(
                 this.roundApi.getFiltered({
-                    statuses,
+                    statuses: [SamplingRoundStatus.Assigned, SamplingRoundStatus.InProgress],
+                    preleveurId: userId,
                     page: 1,
                     pageSize: 10,
                     sortBy: 'deadline',

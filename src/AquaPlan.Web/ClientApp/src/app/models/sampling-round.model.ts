@@ -28,11 +28,13 @@ export interface SamplingRoundListDto {
   description: string | null;
   deadline: string;
   status: SamplingRoundStatus;
-  samplerId: string | null;
-  samplerName: string | null;
+  // AQ-410 — backend returns preleveurId/preleveurName (was samplerId/samplerName, never populated).
+  preleveurId: string | null;
+  preleveurName: string | null;
   distributorId: string;
   distributorName: string;
   distributorShortName: string | null;
+  notes: string | null;
   orderCount: number;
   completedOrderCount: number;
   createdAt: string;
@@ -47,16 +49,22 @@ export interface SamplingRoundOrderDto {
   id: string;
   orderNumber: string;
   sortOrder: number;
-  samplingLocationName: string;
-  samplingLocationCode: string;
+  samplingLocationId: string | null;
+  samplingLocationName: string | null;
+  samplingLocationCode: string | null;
   sectorName: string | null;
   analysisProgramNames: string[];
   status: string;
-  hasLocationReplacement: boolean;
+  originalSamplingLocationId: string | null;
+  originalSamplingLocationName: string | null;
   locationReplacementReason: string | null;
-  originalLocationName: string | null;
   samplerComment: string | null;
-  mandataireNotes: string | null;
+  notes: string | null;
+  // AQ-414 — indicator flags populated by the backend for the round detail table.
+  hasMandatorNote: boolean;
+  hasPreleveurNote: boolean;
+  hasReplacedLocation: boolean;
+  preleveurNote: string | null;
 }
 
 export interface RoundContainerSummaryDto {
@@ -75,10 +83,12 @@ export interface SamplingRoundDetailDto {
   deadline: string;
   status: SamplingRoundStatus;
   preleveurId: string | null;
-  samplerName: string | null;
+  // AQ-410 — backend returns preleveurName (was samplerName, never populated).
+  preleveurName: string | null;
   distributorId: string;
   distributorName: string;
   distributorShortName: string | null;
+  notes: string | null;
   orders: SamplingRoundOrderDto[];
   tenantId: string;
   createdAt: string;
@@ -111,6 +121,8 @@ export interface SamplingRoundAssignDto {
 export interface SamplingRoundFilterDto {
   statuses?: SamplingRoundStatus[];
   distributorId?: string;
+  // AQ-411 — filter rounds assigned to a specific preleveur (used by "Mes tournées" tile/deep-link).
+  preleveurId?: string;
   search?: string;
   page?: number;
   pageSize?: number;

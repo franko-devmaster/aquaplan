@@ -57,6 +57,9 @@ internal class SamplingRoundService(
                     .ThenInclude(l => l!.Sector)
             .Include(sr => sr.Orders)
                 .ThenInclude(o => o.OriginalSamplingLocation)
+            // AQ-414 — Sampling.Notes feeds the "préleveur remark" indicator flag.
+            .Include(sr => sr.Orders)
+                .ThenInclude(o => o.Sampling)
             .Include(sr => sr.Orders)
                 .ThenInclude(o => o.OrderAnalysisPrograms)
                     .ThenInclude(oap => oap.AnalysisProgram!)
@@ -404,6 +407,15 @@ internal class SamplingRoundService(
         return await GetByIdAsync(roundId, tenantId, cancellationToken);
     }
 
+    /// <summary>
+    /// AQ-413 — removes an order from a sampling round WITHOUT deleting the Order
+    /// entity itself. Only clears <see cref="Order.SamplingRoundId"/> (and the
+    /// preleveur assignment that came with the round), so the order becomes
+    /// available for inclusion in another round.
+    /// Allowed only while the round is in Draft or Assigned (i.e. not yet locked).
+    /// Throws <see cref="InvalidOperationException"/> with a specific message
+    /// when the round is in an incompatible status (mapped to 409 by the controller).
+    /// </summary>
     public async Task<bool> RemoveOrderAsync(
         Guid roundId, Guid orderId, Guid tenantId,
         CancellationToken cancellationToken = default)
@@ -414,9 +426,11 @@ internal class SamplingRoundService(
 
         if (round is null) return false;
 
-        if (round.Status != SamplingRoundStatus.Draft)
+        if (round.Status is not (SamplingRoundStatus.Draft or SamplingRoundStatus.Assigned))
         {
-            throw new InvalidOperationException("Can only remove orders from Draft sampling rounds");
+            throw new ConflictOperationException(
+                $"Cannot remove orders from a sampling round in status {round.Status}. " +
+                "Only Draft or Assigned rounds can be modified.");
         }
 
         var order = await dbContext.Orders
@@ -425,7 +439,18 @@ internal class SamplingRoundService(
 
         if (order is null) return false;
 
-        dbContext.Orders.Remove(order);
+        // AQ-413 — detach only. Keep the Order entity so it can be reassigned to
+        // another round (or remain as a standalone mandate).
+        order.SamplingRoundId = null;
+        order.SortOrder = 0;
+        if (order.PreleveurId == round.PreleveurId)
+        {
+            // Clear the preleveur copied from the round — the order is no longer
+            // under that preleveur's tour until re-added.
+            order.PreleveurId = null;
+        }
+        order.UpdatedAt = DateTime.UtcNow;
+
         await dbContext.SaveChangesAsync(cancellationToken);
         return true;
     }
@@ -586,6 +611,9 @@ internal class SamplingRoundService(
                     .ThenInclude(l => l!.Sector)
             .Include(r => r.Orders)
                 .ThenInclude(o => o.OriginalSamplingLocation)
+            // AQ-414 — Sampling.Notes flows into the indicator flags.
+            .Include(r => r.Orders)
+                .ThenInclude(o => o.Sampling)
             .Include(r => r.Orders)
                 .ThenInclude(o => o.OrderAnalysisPrograms)
                     .ThenInclude(oap => oap.AnalysisProgram!)
@@ -1006,7 +1034,12 @@ internal class SamplingRoundService(
                 o.LocationReplacementReason,
                 o.SamplerComment,
                 o.Notes,
-                o.OrderAnalysisPrograms.Select(oap => oap.AnalysisProgram?.Name ?? string.Empty).ToList()
+                o.OrderAnalysisPrograms.Select(oap => oap.AnalysisProgram?.Name ?? string.Empty).ToList(),
+                // AQ-414 — three indicator flags surfaced in the sampling-round detail table.
+                HasMandatorNote: !string.IsNullOrWhiteSpace(o.Notes),
+                HasPreleveurNote: !string.IsNullOrWhiteSpace(o.Sampling?.Notes),
+                HasReplacedLocation: o.OriginalSamplingLocationId.HasValue,
+                PreleveurNote: o.Sampling?.Notes
             )).ToList(),
             containerSummary,
             round.IsLocked,

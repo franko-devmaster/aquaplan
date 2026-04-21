@@ -558,10 +558,10 @@ public class SamplingRoundServiceTest : IDisposable
             .WithMessage("*same distributor*");
     }
 
-    // --- RemoveOrderAsync ---
+    // --- RemoveOrderAsync (AQ-413) ---
 
     [Fact]
-    public async Task RemoveOrderAsync_ShouldRemoveFromRound()
+    public async Task RemoveOrderAsync_OnDraft_ShouldDetachOrderWithoutDeleting()
     {
         var round = await CreateDraftRoundWithOrders(orderCount: 2);
         var orderId = (await _dbContext.Orders
@@ -571,25 +571,66 @@ public class SamplingRoundServiceTest : IDisposable
         var result = await _sut.RemoveOrderAsync(round.Id, orderId, TenantId);
 
         result.Should().BeTrue();
-        var remainingOrders = await _dbContext.Orders
+        var remainingInRound = await _dbContext.Orders
             .Where(o => o.SamplingRoundId == round.Id)
             .ToListAsync();
-        remainingOrders.Should().HaveCount(1);
+        remainingInRound.Should().HaveCount(1);
+
+        // AQ-413 — the detached order MUST still exist (only SamplingRoundId is cleared).
+        var detached = await _dbContext.Orders.FindAsync(orderId);
+        detached.Should().NotBeNull();
+        detached!.SamplingRoundId.Should().BeNull();
     }
 
     [Fact]
-    public async Task RemoveOrderAsync_WhenNotDraft_ShouldThrow()
+    public async Task RemoveOrderAsync_OnAssigned_ShouldDetachOrderAndClearPreleveur()
     {
-        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+        // AQ-413 — Assigned rounds are still modifiable (round not yet locked).
+        var round = await CreateDraftRoundWithOrders(orderCount: 2);
         await TransitionToAssigned(round.Id);
+        var orderId = (await _dbContext.Orders
+            .Where(o => o.SamplingRoundId == round.Id)
+            .FirstAsync()).Id;
 
+        var result = await _sut.RemoveOrderAsync(round.Id, orderId, TenantId);
+
+        result.Should().BeTrue();
+        var detached = await _dbContext.Orders.FindAsync(orderId);
+        detached.Should().NotBeNull();
+        detached!.SamplingRoundId.Should().BeNull();
+        detached.PreleveurId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task RemoveOrderAsync_WhenRoundInProgress_ShouldThrowConflict()
+    {
+        // AQ-413 — once the round is InProgress (locked), orders can no longer be detached.
+        var round = await CreateRoundInStatus(SamplingRoundStatus.InProgress);
         var orderId = (await _dbContext.Orders
             .Where(o => o.SamplingRoundId == round.Id)
             .FirstAsync()).Id;
 
         await _sut.Awaiting(s => s.RemoveOrderAsync(round.Id, orderId, TenantId))
-            .Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Draft*");
+            .Should().ThrowAsync<ConflictOperationException>()
+            .WithMessage("*InProgress*");
+    }
+
+    [Fact]
+    public async Task RemoveOrderAsync_WhenRoundNotFound_ShouldReturnFalse()
+    {
+        var result = await _sut.RemoveOrderAsync(Guid.NewGuid(), Guid.NewGuid(), TenantId);
+
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RemoveOrderAsync_WhenOrderNotInRound_ShouldReturnFalse()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+
+        var result = await _sut.RemoveOrderAsync(round.Id, Guid.NewGuid(), TenantId);
+
+        result.Should().BeFalse();
     }
 
     // --- ReorderAsync ---
@@ -816,6 +857,96 @@ public class SamplingRoundServiceTest : IDisposable
 
         result.Should().NotBeNull();
         result!.ContainerSummary.Should().BeEmpty();
+    }
+
+    // --- Order indicator flags (AQ-414) ---
+
+    [Fact]
+    public async Task GetByIdAsync_WithoutAnyIndicator_ShouldReturnAllFlagsFalse()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+
+        var result = await _sut.GetByIdAsync(round.Id, TenantId);
+
+        result.Should().NotBeNull();
+        var orderDto = result!.Orders.Single();
+        orderDto.HasMandatorNote.Should().BeFalse();
+        orderDto.HasPreleveurNote.Should().BeFalse();
+        orderDto.HasReplacedLocation.Should().BeFalse();
+        orderDto.PreleveurNote.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_WithMandatorNote_ShouldSetHasMandatorNote()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+        var order = await _dbContext.Orders.FirstAsync(o => o.SamplingRoundId == round.Id);
+        order.Notes = "Please be cautious near the gate";
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetByIdAsync(round.Id, TenantId);
+
+        result!.Orders.Single().HasMandatorNote.Should().BeTrue();
+        result.Orders.Single().HasPreleveurNote.Should().BeFalse();
+        result.Orders.Single().HasReplacedLocation.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_WithWhitespaceOnlyNotes_ShouldNotFlagMandatorNote()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+        var order = await _dbContext.Orders.FirstAsync(o => o.SamplingRoundId == round.Id);
+        order.Notes = "   ";
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetByIdAsync(round.Id, TenantId);
+
+        result!.Orders.Single().HasMandatorNote.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_WithReplacedLocation_ShouldSetHasReplacedLocation()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+        var order = await _dbContext.Orders.FirstAsync(o => o.SamplingRoundId == round.Id);
+        // Simulate a completed replacement: original id captured, current id differs.
+        order.OriginalSamplingLocationId = SamplingLocationId;
+        order.SamplingLocationId = SamplingLocation2Id;
+        order.LocationReplacementReason = "LDP inaccessible that day";
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetByIdAsync(round.Id, TenantId);
+
+        result!.Orders.Single().HasReplacedLocation.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_WithPreleveurSamplingNote_ShouldSetHasPreleveurNote()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 1);
+        var order = await _dbContext.Orders.FirstAsync(o => o.SamplingRoundId == round.Id);
+
+        var sampling = new Sampling
+        {
+            Id = Guid.NewGuid(),
+            OrderId = order.Id,
+            PreleveurId = PreleveurId,
+            SamplingDateTime = DateTime.UtcNow,
+            Temperature = 8,
+            Weather = "Sunny",
+            Notes = "Slight turbidity observed",
+            IsChlorinated = false,
+            CreatedAt = DateTime.UtcNow,
+            TenantId = TenantId,
+        };
+        _dbContext.Samplings.Add(sampling);
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.GetByIdAsync(round.Id, TenantId);
+
+        var dto = result!.Orders.Single();
+        dto.HasPreleveurNote.Should().BeTrue();
+        dto.PreleveurNote.Should().Be("Slight turbidity observed");
     }
 
     // --- AQ-370 StartAsync ---

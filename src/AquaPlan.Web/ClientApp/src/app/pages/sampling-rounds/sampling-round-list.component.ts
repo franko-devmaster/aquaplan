@@ -106,7 +106,7 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
 
           <ng-container matColumnDef="sampler">
             <th mat-header-cell *matHeaderCellDef>{{ 'samplingRounds.sampler' | translate }}</th>
-            <td mat-cell *matCellDef="let round" [attr.data-label]="'samplingRounds.sampler' | translate">{{ round.samplerName ?? '-' }}</td>
+            <td mat-cell *matCellDef="let round" [attr.data-label]="'samplingRounds.sampler' | translate">{{ round.preleveurName ?? '-' }}</td>
           </ng-container>
 
           <ng-container matColumnDef="distributor">
@@ -181,26 +181,41 @@ export class SamplingRoundListComponent implements OnInit {
   ];
 
   async ngOnInit(): Promise<void> {
-    this.applyStatusFromQueryParams();
+    this.applyQueryParams();
     const allDistributors = await firstValueFrom(this.distributorApi.getAll());
     this.distributors.set(allDistributors);
     this.store.loadFiltered();
   }
 
-  private applyStatusFromQueryParams(): void {
-    const raw = this.route.snapshot.queryParamMap.get('status');
-    if (!raw) {
-      return;
+  private applyQueryParams(): void {
+    const params = this.route.snapshot.queryParamMap;
+
+    // status=Assigned,InProgress
+    const raw = params.get('status');
+    if (raw) {
+      const validValues = new Set<string>(Object.values(SamplingRoundStatus));
+      const parsed = raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => validValues.has(s)) as SamplingRoundStatus[];
+      if (parsed.length > 0) {
+        this.store.statusFilter.set(parsed);
+      }
     }
-    const validValues = new Set<string>(Object.values(SamplingRoundStatus));
-    const parsed = raw
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => validValues.has(s)) as SamplingRoundStatus[];
-    if (parsed.length > 0) {
-      this.store.statusFilter.set(parsed);
-      this.store.currentPage.set(1);
+
+    // AQ-411 — preleveurId deep-link ("Mes tournées"). "me" is a client-side alias here,
+    // resolved to the current user's id so the backend receives a concrete string.
+    const preleveurParam = params.get('preleveurId');
+    if (preleveurParam) {
+      const resolved = preleveurParam === 'me'
+        ? this.authService.currentUser()?.id
+        : preleveurParam;
+      if (resolved) {
+        this.store.preleveurFilter.set(resolved);
+      }
     }
+
+    this.store.currentPage.set(1);
   }
 
   getStatusLabel(round: SamplingRoundListDto): string {

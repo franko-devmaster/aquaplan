@@ -37,6 +37,7 @@ import { AssignSamplerDialogComponent, AssignSamplerDialogData } from './assign-
 import { ReplaceLocationDialogComponent, ReplaceLocationDialogData } from './replace-location-dialog.component';
 import { OrderEditDialogComponent } from '../orders/order-edit-dialog.component';
 import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
+import { OrderIndicatorsComponent, OrderIndicatorsInput } from '../../components/order-indicators/order-indicators.component';
 
 @Component({
   selector: 'app-sampling-round-detail',
@@ -47,6 +48,7 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
     MatProgressSpinnerModule, MatTooltipModule, MatDialogModule,
     MatCardModule, MatSnackBarModule, DragDropModule,
     DatePipe, TranslateModule, StatusChipComponent,
+    OrderIndicatorsComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -137,7 +139,7 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
             <div><strong>{{ 'samplingRounds.name' | translate }}:</strong> {{ round()!.name }}</div>
             <div><strong>{{ 'samplingRounds.deadline' | translate }}:</strong> {{ round()!.deadline | date:'shortDate' }}</div>
             <div><strong>{{ 'samplingRounds.distributor' | translate }}:</strong> {{ round()!.distributorName }}</div>
-            <div><strong>{{ 'samplingRounds.sampler' | translate }}:</strong> {{ round()!.samplerName ?? '-' }}</div>
+            <div><strong>{{ 'samplingRounds.sampler' | translate }}:</strong> {{ round()!.preleveurName ?? '-' }}</div>
             <div><strong>{{ 'common.createdAt' | translate }}:</strong> {{ round()!.createdAt | date:'short' }}</div>
           </div>
           @if (round()!.description) {
@@ -222,21 +224,9 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
               <th mat-header-cell *matHeaderCellDef>{{ 'samplingRounds.remarks' | translate }}</th>
               <td mat-cell *matCellDef="let order">
                 <div class="indicators">
-                  @if (order.hasLocationReplacement) {
-                    <mat-icon class="indicator-icon"
-                              [style.color]="'#FF9800'"
-                              [matTooltip]="'samplingRounds.locationReplaced' | translate">
-                      swap_horiz
-                    </mat-icon>
-                  }
-                  @if (order.mandataireNotes) {
-                    <mat-icon class="indicator-icon clickable"
-                              [style.color]="'#1976D2'"
-                              [matTooltip]="order.mandataireNotes"
-                              (click)="showNotes(order, $event)">
-                      info_outline
-                    </mat-icon>
-                  }
+                  <!-- AQ-414 — consolidated indicators (mandator note, préleveur remark, replaced LDP). -->
+                  <app-order-indicators [data]="indicatorsFor(order)"></app-order-indicators>
+                  <!-- Sampler comment remains clickable (edit shortcut for préleveurs). -->
                   @if (order.samplerComment) {
                     <mat-icon class="indicator-icon clickable"
                               [style.color]="'#9E9E9E'"
@@ -318,10 +308,13 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
                     <span>{{ 'samplingRounds.actions.edit' | translate }}</span>
                   </button>
                 }
-                @if (canDeleteOrder(order)) {
-                  <button mat-menu-item (click)="onDelete(order)">
-                    <mat-icon color="warn">delete</mat-icon>
-                    <span>{{ 'samplingRounds.actions.delete' | translate }}</span>
+                @if (canRemoveOrder(order)) {
+                  <!-- AQ-413 — "Retirer de la tournée" detaches the order without deleting it.
+                       Kept as the only destructive-looking action on the kebab (the Order entity
+                       survives, available for inclusion in another round). -->
+                  <button mat-menu-item (click)="onRemoveFromRound(order)">
+                    <mat-icon color="warn">link_off</mat-icon>
+                    <span>{{ 'samplingRounds.actions.removeFromRound' | translate }}</span>
                   </button>
                 }
               </ng-template>
@@ -544,13 +537,17 @@ export class SamplingRoundDetailComponent implements OnInit {
     return this.isDraft() || this.isAssigned();
   }
 
-  /** Delete: Admin anytime while order is not terminal; Mandataire only when round not locked. Préleveurs never. */
-  canDeleteOrder(order: SamplingRoundOrderDto): boolean {
+  /**
+   * AQ-413 — "Remove from round" (detach without deleting): admins and mandataires, only while the
+   * round is still modifiable (Draft or Assigned). Préleveurs never. Any non-terminal status is OK.
+   */
+  canRemoveOrder(order: SamplingRoundOrderDto): boolean {
     if (this.isPreleveur()) return false;
     if (order.status === 'Transmitted' || order.status === 'Done' || order.status === 'Cancelled') {
       return false;
     }
-    if (this.isAdmin()) return true;
+    // Round must be in a status that still allows modification. InProgress / Completed / Cancelled
+    // are blocked (409 backend side) — we hide the action to avoid a confusing error.
     return this.isDraft() || this.isAssigned();
   }
 
@@ -577,7 +574,11 @@ export class SamplingRoundDetailComponent implements OnInit {
     }
   }
 
-  async onDelete(order: SamplingRoundOrderDto): Promise<void> {
+  /**
+   * AQ-413 — detach the order from the round (keeps Order entity). Backend returns 204 on success,
+   * 409 if the round is locked, 404 if not found. Errors surface via a snackbar.
+   */
+  async onRemoveFromRound(order: SamplingRoundOrderDto): Promise<void> {
     const r = this.round();
     if (!r) return;
 
@@ -619,13 +620,20 @@ export class SamplingRoundDetailComponent implements OnInit {
     }
   }
 
-  showNotes(order: SamplingRoundOrderDto, event: Event): void {
-    event.stopPropagation();
-    this.snackBar.open(
-      order.mandataireNotes ?? '',
-      this.translate.instant('common.close'),
-      { duration: 10000 }
-    );
+  /**
+   * AQ-414 — adapter from the round order DTO to the <app-order-indicators> input shape.
+   * Uses the backend flags rather than recomputing from text, so the UI stays consistent
+   * with any future server-side rules (e.g. whitespace-only notes should NOT count).
+   */
+  indicatorsFor(order: SamplingRoundOrderDto): OrderIndicatorsInput {
+    return {
+      hasMandatorNote: order.hasMandatorNote === true,
+      hasPreleveurNote: order.hasPreleveurNote === true,
+      hasReplacedLocation: order.hasReplacedLocation === true,
+      mandatorNote: order.notes,
+      preleveurNote: order.preleveurNote,
+      locationReplacementReason: order.locationReplacementReason,
+    };
   }
 
   editSamplerComment(order: SamplingRoundOrderDto, event: Event): void {

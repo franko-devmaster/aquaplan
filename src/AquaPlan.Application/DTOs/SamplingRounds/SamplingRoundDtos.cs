@@ -102,7 +102,12 @@ public record SamplingRoundOrderDto(
     string? LocationReplacementReason,
     string? SamplerComment,
     string? Notes,
-    List<string> AnalysisProgramNames);
+    List<string> AnalysisProgramNames,
+    // AQ-414 — indicator flags for the sampling-round detail table.
+    bool HasMandatorNote,
+    bool HasPreleveurNote,
+    bool HasReplacedLocation,
+    string? PreleveurNote);
 
 public record SamplingRoundFilterDto(
     IReadOnlyList<SamplingRoundStatus>? Statuses = null,

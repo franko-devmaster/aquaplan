@@ -23,6 +23,8 @@ export class SamplingRoundDatastore {
   readonly pageSize = signal(20);
   readonly statusFilter = signal<SamplingRoundStatus[]>([]);
   readonly distributorFilter = signal<string | undefined>(undefined);
+  // AQ-411 — optional préleveur filter (used by "Mes tournées" deep-link).
+  readonly preleveurFilter = signal<string | undefined>(undefined);
   readonly searchFilter = signal('');
   readonly sortBy = signal<string | undefined>(undefined);
   readonly sortDescending = signal(true);
@@ -35,6 +37,7 @@ export class SamplingRoundDatastore {
       const filter: SamplingRoundFilterDto = {
         statuses: this.statusFilter().length > 0 ? this.statusFilter() : undefined,
         distributorId: this.distributorFilter() || undefined,
+        preleveurId: this.preleveurFilter() || undefined,
         search: this.searchFilter() || undefined,
         page: this.currentPage(),
         pageSize: this.pageSize(),

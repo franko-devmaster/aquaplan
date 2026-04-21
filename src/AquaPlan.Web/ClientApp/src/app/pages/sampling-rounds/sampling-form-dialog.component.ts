@@ -61,14 +61,15 @@ interface ContainerFormGroup {
           <input matInput type="datetime-local" formControlName="samplingDateTime">
         </mat-form-field>
 
-        <div class="row">
-          <mat-form-field appearance="outline" class="col">
+        <!-- AQ-412 — renamed from .row/.col to .form-row/.form-col to avoid Bootstrap grid collisions. -->
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="form-col">
             <mat-label>{{ 'sampling.temperature' | translate }}</mat-label>
             <input matInput type="number" formControlName="temperature" step="0.1" inputmode="decimal">
             <span matSuffix>&deg;C</span>
           </mat-form-field>
 
-          <mat-form-field appearance="outline" class="col">
+          <mat-form-field appearance="outline" class="form-col">
             <mat-label>{{ 'sampling.weather3days' | translate }}</mat-label>
             <mat-select formControlName="weather">
               @for (option of weatherOptions; track option) {
@@ -147,11 +148,13 @@ interface ContainerFormGroup {
     </mat-dialog-actions>
   `,
   styles: [`
-    /* AQ-403 — mobile-first: stack everything, expand to 2 columns at >= 768px. */
+    /* AQ-403 / AQ-412 — mobile-first: stack everything, expand to 2 columns at >= 768px.
+       Class names prefixed with "form-" to avoid collisions with Bootstrap .row / .col. */
+    :host { display: block; width: 100%; }
     .location-subtitle { margin: -8px 24px 8px; color: #666; font-size: 14px; }
-    .sampling-form { display: flex; flex-direction: column; min-width: 0; width: 100%; }
-    .row { display: flex; flex-direction: column; gap: 0; }
-    .col { flex: 1; width: 100%; }
+    .sampling-form { display: flex; flex-direction: column; min-width: 0; width: 100%; box-sizing: border-box; }
+    .form-row { display: flex; flex-direction: column; gap: 0; width: 100%; }
+    .form-col { flex: 1 1 100%; width: 100%; min-width: 0; }
     .full-width { width: 100%; }
     .checkbox-row { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 16px; }
     mat-dialog-content { max-height: 70vh; }
@@ -160,8 +163,8 @@ interface ContainerFormGroup {
     .empty-containers { color: #888; font-style: italic; padding: 8px 0; }
     .containers-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
     .container-row { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 8px; border: 1px solid #eee; border-radius: 4px; }
-    .container-info { flex: 1; min-width: 0; }
-    .container-name { font-weight: 500; }
+    .container-info { flex: 1 1 auto; min-width: 0; }
+    .container-name { font-weight: 500; word-break: break-word; }
     .container-specs { font-size: 12px; color: #777; }
     .container-barcode { width: 100%; }
     .scan-btn { flex-shrink: 0; align-self: flex-end; }
@@ -169,10 +172,11 @@ interface ContainerFormGroup {
 
     @media (min-width: 768px) {
       .sampling-form { min-width: 480px; }
-      .row { flex-direction: row; gap: 16px; }
+      .form-row { flex-direction: row; gap: 16px; }
+      .form-col { flex: 1 1 0; width: auto; }
       .checkbox-row { flex-direction: row; gap: 24px; }
       .container-row { flex-direction: row; align-items: center; gap: 12px; }
-      .container-barcode { width: 220px; }
+      .container-barcode { width: 220px; flex: 0 0 220px; }
       .scan-btn { align-self: auto; }
     }
   `],

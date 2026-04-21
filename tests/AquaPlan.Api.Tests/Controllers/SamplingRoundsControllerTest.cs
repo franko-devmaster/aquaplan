@@ -407,4 +407,56 @@ public class SamplingRoundsControllerTest
     }
 
     #endregion
+
+    #region RemoveOrder (AQ-413)
+
+    [Fact]
+    public void RemoveOrder_ShouldHaveHttpDeleteAttribute()
+    {
+        var method = typeof(SamplingRoundsController).GetMethod(nameof(SamplingRoundsController.RemoveOrder));
+        var deleteAttr = method!.GetCustomAttributes(typeof(HttpDeleteAttribute), true).OfType<HttpDeleteAttribute>().FirstOrDefault();
+        deleteAttr.Should().NotBeNull();
+        deleteAttr!.Template.Should().Be("{id:guid}/orders/{orderId:guid}");
+    }
+
+    [Fact]
+    public void RemoveOrder_ShouldHaveAuthorizeAttributeWithCreatorRoles()
+    {
+        // AQ-413 — only admins and mandataires (Requérant / RequérantPréleveur) can detach orders.
+        var method = typeof(SamplingRoundsController).GetMethod(nameof(SamplingRoundsController.RemoveOrder));
+        var auth = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true).OfType<AuthorizeAttribute>().FirstOrDefault();
+        auth.Should().NotBeNull();
+        auth!.Roles.Should()
+            .Contain(RoleName.Administrator)
+            .And.Contain(RoleName.Requerant)
+            .And.Contain(RoleName.RequerantPreleveur);
+    }
+
+    [Fact]
+    public async Task RemoveOrder_ShouldReturnNoContent_WhenDetached()
+    {
+        var orderId = Guid.NewGuid();
+        _samplingRoundServiceMock
+            .Setup(x => x.RemoveOrderAsync(RoundId, orderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await _sut.RemoveOrder(RoundId, orderId, CancellationToken.None);
+
+        result.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task RemoveOrder_ShouldReturnNotFound_WhenRoundOrOrderMissing()
+    {
+        var orderId = Guid.NewGuid();
+        _samplingRoundServiceMock
+            .Setup(x => x.RemoveOrderAsync(RoundId, orderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _sut.RemoveOrder(RoundId, orderId, CancellationToken.None);
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    #endregion
 }

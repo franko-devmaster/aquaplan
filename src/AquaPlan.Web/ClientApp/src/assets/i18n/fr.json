@@ -469,8 +469,14 @@
     "actions": {
       "view": "Afficher",
       "edit": "Modifier",
-      "delete": "Supprimer"
+      "delete": "Supprimer",
+      "removeFromRound": "Retirer de la tournée"
     }
+  },
+  "orderIndicators": {
+    "mandatorNote": "Note du mandataire",
+    "preleveurNote": "Remarque du préleveur",
+    "locationReplaced": "Lieu de prélèvement remplacé"
   },
   "sectors": {
     "title": "Gestion des secteurs",
@@ -492,6 +498,7 @@
     "title": "Tableau de bord",
     "ordersToFinalize": "Mandats à finaliser",
     "plannedRounds": "Tournées planifiées",
+    "myRounds": "Mes tournées",
     "nonConformities": "Non-conformités",
     "conform": "Mandats conformes",
     "nonConform": "Mandats non conformes",
