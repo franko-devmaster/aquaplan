@@ -18,6 +18,7 @@ public class OrderServiceTest : IDisposable
     private readonly Mock<IOrderAuditService> _auditServiceMock = new();
     private readonly Mock<IDelegationService> _delegationServiceMock = new();
     private readonly Mock<IMockLimsService> _mockLimsServiceMock = new();
+    private readonly Mock<INotificationService> _notificationServiceMock = new();
     private readonly Mock<ILogger<OrderService>> _loggerMock = new();
     private readonly Mock<ILogger<SamplingRoundService>> _roundLoggerMock = new();
     private readonly SamplingRoundService _roundService;
@@ -34,9 +35,9 @@ public class OrderServiceTest : IDisposable
             .Options;
 
         _dbContext = new AquaPlanDbContext(options);
-        _roundService = new SamplingRoundService(_dbContext, _delegationServiceMock.Object, _roundLoggerMock.Object);
+        _roundService = new SamplingRoundService(_dbContext, _delegationServiceMock.Object, _notificationServiceMock.Object, _roundLoggerMock.Object);
         var mockLimsOptions = Options.Create(new MockLimsOptions { Enabled = false });
-        _sut = new OrderService(_dbContext, _auditServiceMock.Object, _roundService, _mockLimsServiceMock.Object, mockLimsOptions, _loggerMock.Object);
+        _sut = new OrderService(_dbContext, _auditServiceMock.Object, _roundService, _mockLimsServiceMock.Object, _notificationServiceMock.Object, mockLimsOptions, _loggerMock.Object);
 
         SeedData().GetAwaiter().GetResult();
     }
@@ -779,6 +780,7 @@ public class OrderServiceTest : IDisposable
             _auditServiceMock.Object,
             _roundService,
             _mockLimsServiceMock.Object,
+            _notificationServiceMock.Object,
             options,
             _loggerMock.Object);
     }
@@ -936,6 +938,44 @@ public class OrderServiceTest : IDisposable
         _dbContext.Orders.Add(order);
         await _dbContext.SaveChangesAsync();
         return order;
+    }
+
+    // AQ-43 — notification trigger on single-order préleveur assignment
+    [Fact]
+    public async Task AssignPreleveurAsync_WhenPreleveurChanges_ShouldCreateOrderAssignedNotification()
+    {
+        var order = await CreateSeedOrder(OrderStatus.New);
+        var dto = new OrderAssignDto(PreleveurId: "preleveur-X");
+
+        await _sut.AssignPreleveurAsync(order.Id, dto, UserId, TenantId);
+
+        _notificationServiceMock.Verify(n => n.CreateAsync(
+            "preleveur-X",
+            NotificationType.OrderAssigned,
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            TenantId,
+            "Order",
+            order.Id,
+            false,
+            It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task AssignPreleveurAsync_WhenPreleveurUnchanged_ShouldNotCreateNotification()
+    {
+        var order = await CreateSeedOrder(OrderStatus.New);
+        order.PreleveurId = "preleveur-X";
+        await _dbContext.SaveChangesAsync();
+        var dto = new OrderAssignDto(PreleveurId: "preleveur-X");
+
+        await _sut.AssignPreleveurAsync(order.Id, dto, UserId, TenantId);
+
+        _notificationServiceMock.Verify(n => n.CreateAsync(
+            It.IsAny<string>(), It.IsAny<NotificationType>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     private async Task SeedData()

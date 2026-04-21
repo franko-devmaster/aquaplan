@@ -16,6 +16,7 @@ internal class OrderService(
     IOrderAuditService auditService,
     ISamplingRoundService samplingRoundService,
     IMockLimsService mockLimsService,
+    INotificationService notificationService,
     IOptions<MockLimsOptions> mockLimsOptions,
     ILogger<OrderService> logger) : IOrderService
 {
@@ -384,6 +385,7 @@ internal class OrderService(
     public async Task<OrderDetailDto?> AssignPreleveurAsync(Guid orderId, OrderAssignDto dto, string updatedBy, Guid tenantId, CancellationToken cancellationToken = default)
     {
         var order = await dbContext.Orders
+            .Include(o => o.SamplingLocation)
             .FirstOrDefaultAsync(o => o.Id == orderId && o.TenantId == tenantId, cancellationToken);
 
         if (order is null)
@@ -391,6 +393,7 @@ internal class OrderService(
             return null;
         }
 
+        var previousPreleveurId = order.PreleveurId;
         order.PreleveurId = dto.PreleveurId;
         order.UpdatedAt = DateTime.UtcNow;
         order.UpdatedBy = updatedBy;
@@ -398,6 +401,30 @@ internal class OrderService(
         await dbContext.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation("Order {OrderId} assigned to préleveur {PreleveurId}", orderId, dto.PreleveurId);
+
+        // AQ-43 — notify the newly assigned préleveur (only when the assignee actually changed).
+        if (!string.IsNullOrWhiteSpace(dto.PreleveurId) && dto.PreleveurId != previousPreleveurId)
+        {
+            var locationLabel = order.SamplingLocation?.Name ?? order.OrderNumber;
+            var dateLabel = order.PlannedDate?.ToString("dd/MM/yyyy") ?? "date non planifiée";
+            try
+            {
+                await notificationService.CreateAsync(
+                    dto.PreleveurId,
+                    NotificationType.OrderAssigned,
+                    "Nouveau mandat",
+                    $"Mandat « {locationLabel} » ({order.OrderNumber}) prévu le {dateLabel} vous a été assigné.",
+                    tenantId,
+                    relatedEntityType: "Order",
+                    relatedEntityId: order.Id,
+                    isUrgent: false,
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to create OrderAssigned notification for order {OrderId}", order.Id);
+            }
+        }
 
         return await GetOrderByIdAsync(orderId, tenantId, cancellationToken);
     }

@@ -58,6 +58,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ILimsResultService, LimsResultService>();
         services.AddScoped<ILimsSyncService, LimsSyncService>();
 
+        // AQ-43 — Notifications (mock email + in-app bell)
+        services.AddScoped<INotificationService, NotificationService>();
+
         return services;
     }
 }

@@ -17,6 +17,7 @@ namespace AquaPlan.Infrastructure.Services;
 internal class SamplingRoundService(
     AquaPlanDbContext dbContext,
     IDelegationService delegationService,
+    INotificationService notificationService,
     ILogger<SamplingRoundService> logger) : ISamplingRoundService
 {
     public async Task<SamplingRoundDetailDto> CreateAsync(
@@ -251,6 +252,37 @@ internal class SamplingRoundService(
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        // AQ-43 — notify the assigned préleveur with a single aggregated message.
+        if (!string.IsNullOrWhiteSpace(dto.PreleveurId))
+        {
+            var orderCount = round.Orders.Count;
+            var deadlineLabel = round.Deadline.HasValue
+                ? round.Deadline.Value.ToString("dd/MM/yyyy")
+                : null;
+            var title = "Nouvelle tournée assignée";
+            var message = deadlineLabel is null
+                ? $"La tournée « {round.Name} » ({orderCount} mandat{(orderCount > 1 ? "s" : string.Empty)}) vous a été assignée."
+                : $"La tournée « {round.Name} » ({orderCount} mandat{(orderCount > 1 ? "s" : string.Empty)}, échéance {deadlineLabel}) vous a été assignée.";
+            try
+            {
+                await notificationService.CreateAsync(
+                    dto.PreleveurId,
+                    NotificationType.RoundAssigned,
+                    title,
+                    message,
+                    tenantId,
+                    relatedEntityType: "SamplingRound",
+                    relatedEntityId: round.Id,
+                    isUrgent: false,
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to create RoundAssigned notification for round {RoundId}", round.Id);
+            }
+        }
+
         return await GetByIdAsync(id, tenantId, cancellationToken);
     }
 

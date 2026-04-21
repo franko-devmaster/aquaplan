@@ -10,6 +10,7 @@ import { TranslateModule } from '@ngx-translate/core';
 import { AuthService } from '../../services/auth.service';
 import { LocaleService } from '../../services/locale.service';
 import { SyncService } from '../../services/sync.service';
+import { NotificationsBellComponent } from '../notifications-bell/notifications-bell.component';
 
 @Component({
   selector: 'app-header',
@@ -17,6 +18,7 @@ import { SyncService } from '../../services/sync.service';
   imports: [
     MatToolbarModule, MatButtonModule, MatIconModule, MatMenuModule, MatDividerModule,
     MatTooltipModule, MatProgressSpinnerModule, TranslateModule,
+    NotificationsBellComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -78,6 +80,8 @@ import { SyncService } from '../../services/sync.service';
       </mat-menu>
 
       @if (authService.isAuthenticated()) {
+        <!-- AQ-43 — Notifications bell with unread badge + dropdown -->
+        <app-notifications-bell />
         <button mat-button [matMenuTriggerFor]="userMenu" class="user-chip" aria-label="User menu">
           <span class="user-name">{{ userDisplayName() }}</span>
           <mat-icon>arrow_drop_down</mat-icon>

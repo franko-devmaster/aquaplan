@@ -14,6 +14,7 @@ public class SamplingRoundServiceTest : IDisposable
 {
     private readonly AquaPlanDbContext _dbContext;
     private readonly Mock<IDelegationService> _delegationServiceMock = new();
+    private readonly Mock<INotificationService> _notificationServiceMock = new();
     private readonly Mock<ILogger<SamplingRoundService>> _loggerMock = new();
     private readonly SamplingRoundService _sut;
 
@@ -40,7 +41,7 @@ public class SamplingRoundServiceTest : IDisposable
             .Setup(d => d.GetAuthorizedDistributorIdsForUserAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([DistributorId]);
 
-        _sut = new SamplingRoundService(_dbContext, _delegationServiceMock.Object, _loggerMock.Object);
+        _sut = new SamplingRoundService(_dbContext, _delegationServiceMock.Object, _notificationServiceMock.Object, _loggerMock.Object);
 
         SeedData().GetAwaiter().GetResult();
     }
@@ -428,6 +429,28 @@ public class SamplingRoundServiceTest : IDisposable
         {
             o.PreleveurId.Should().Be(PreleveurId);
         });
+    }
+
+    // AQ-43 — notifications trigger on round assignment
+    [Fact]
+    public async Task AssignPreleveurAsync_ShouldCreateRoundAssignedNotificationForPreleveur()
+    {
+        var round = await CreateDraftRoundWithOrders(orderCount: 3);
+
+        var dto = new SamplingRoundAssignDto(PreleveurId: PreleveurId);
+        await _sut.AssignPreleveurAsync(round.Id, dto, UserId, TenantId);
+
+        _notificationServiceMock.Verify(s => s.CreateAsync(
+            PreleveurId,
+            NotificationType.RoundAssigned,
+            It.IsAny<string>(),
+            It.Is<string>(m => m.Contains("3 mandats")),
+            TenantId,
+            "SamplingRound",
+            round.Id,
+            false,
+            It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     // --- RevertToDraftAsync ---

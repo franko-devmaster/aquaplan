@@ -69,6 +69,20 @@
     "pendingActionsTooltip": "{{count}} action(s) pending synchronization",
     "syncing": "Synchronizing..."
   },
+  "notifications": {
+    "bell": {
+      "ariaLabel": "Notifications",
+      "title": "Notifications",
+      "empty": "No notifications",
+      "markAllRead": "Mark all as read"
+    },
+    "type": {
+      "OrderAssigned": "Order assigned",
+      "RoundAssigned": "Round assigned",
+      "ResultsReceived": "Results received",
+      "NonConformResult": "Non-conform result"
+    }
+  },
   "sync": {
     "success": "{{count}} action(s) synchronized",
     "rejected": "Action rejected by server: {{reason}}",

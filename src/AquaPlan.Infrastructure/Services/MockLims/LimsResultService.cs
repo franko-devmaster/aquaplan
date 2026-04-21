@@ -3,6 +3,7 @@ using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Domain.Enums;
 using AquaPlan.Infrastructure.Data;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -15,6 +16,8 @@ internal class LimsResultService(
     AquaPlanDbContext dbContext,
     IMockLimsService mockLimsService,
     IOrderAuditService auditService,
+    INotificationService notificationService,
+    UserManager<AppUser> userManager,
     ILogger<LimsResultService> logger) : ILimsResultService
 {
     // Synthetic performer id for system-triggered actions. Left unused when writing audit logs
@@ -101,11 +104,105 @@ internal class LimsResultService(
         // pull attempt with cycleId/orderId/status — that's the authoritative audit trail.
         _ = auditService;
 
+        // AQ-44 / AQ-45 — notify the requester + administrators of the tenant.
+        // We only emit notifications on the first successful pull (newEntities > 0)
+        // to avoid spamming admins when the worker re-enters an already pulled order.
+        if (newEntities.Count > 0)
+        {
+            await CreateResultNotificationsAsync(order, newEntities, tenantId, cancellationToken);
+        }
+
         logger.LogInformation(
             "Pulled {Count} results for order {OrderId} (tenant {TenantId}); transitionedToDone={Transitioned}",
             newEntities.Count, orderId, tenantId, transitionedToDone);
 
         return new PullResultsOutcome(MapList(newEntities), newEntities.Count, transitionedToDone);
+    }
+
+    private async Task CreateResultNotificationsAsync(
+        Order order,
+        IReadOnlyList<SamplingResult> results,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var conformCount = results.Count(r => r.IsConform);
+            var nonConformCount = results.Count - conformCount;
+
+            var recipients = await GetResultRecipientsAsync(order, tenantId, cancellationToken);
+            if (recipients.Count == 0)
+            {
+                return;
+            }
+
+            // AQ-44 — base "ResultsReceived" notification for everyone.
+            var title = "Résultats reçus";
+            var locationLabel = order.OrderNumber;
+            var message = nonConformCount == 0
+                ? $"Mandat {locationLabel} — {conformCount} paramètre{(conformCount > 1 ? "s" : string.Empty)} conforme{(conformCount > 1 ? "s" : string.Empty)}."
+                : $"Mandat {locationLabel} — {nonConformCount} paramètre{(nonConformCount > 1 ? "s" : string.Empty)} non conforme{(nonConformCount > 1 ? "s" : string.Empty)} sur {results.Count}.";
+
+            foreach (var userId in recipients)
+            {
+                await notificationService.CreateAsync(
+                    userId,
+                    NotificationType.ResultsReceived,
+                    title,
+                    message,
+                    tenantId,
+                    relatedEntityType: "Order",
+                    relatedEntityId: order.Id,
+                    isUrgent: false,
+                    cancellationToken);
+            }
+
+            // AQ-45 — urgent "NonConformResult" notification if at least one parameter is non conform.
+            if (nonConformCount > 0)
+            {
+                var urgentTitle = "⚠ Résultats non conformes";
+                var urgentMessage = $"Mandat {locationLabel} — {nonConformCount} paramètre{(nonConformCount > 1 ? "s" : string.Empty)} non conforme{(nonConformCount > 1 ? "s" : string.Empty)} détecté{(nonConformCount > 1 ? "s" : string.Empty)}.";
+                foreach (var userId in recipients)
+                {
+                    await notificationService.CreateAsync(
+                        userId,
+                        NotificationType.NonConformResult,
+                        urgentTitle,
+                        urgentMessage,
+                        tenantId,
+                        relatedEntityType: "Order",
+                        relatedEntityId: order.Id,
+                        isUrgent: true,
+                        cancellationToken);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Notifications are best-effort — never break the LIMS pull if they fail.
+            logger.LogWarning(ex, "Failed to emit result notifications for order {OrderId}", order.Id);
+        }
+    }
+
+    private async Task<List<string>> GetResultRecipientsAsync(
+        Order order, Guid tenantId, CancellationToken cancellationToken)
+    {
+        var recipients = new HashSet<string>(StringComparer.Ordinal);
+
+        // Requester (creator of the mandate) — always part of the audience.
+        if (!string.IsNullOrWhiteSpace(order.CreatedById))
+        {
+            recipients.Add(order.CreatedById);
+        }
+
+        // Every administrator of the tenant.
+        var admins = await userManager.GetUsersInRoleAsync(RoleName.Administrator);
+        foreach (var admin in admins.Where(u => u.TenantId == tenantId && !string.IsNullOrEmpty(u.Id)))
+        {
+            recipients.Add(admin.Id);
+        }
+
+        return recipients.ToList();
     }
 
     public async Task<SamplingResultListDto?> GetByOrderAsync(

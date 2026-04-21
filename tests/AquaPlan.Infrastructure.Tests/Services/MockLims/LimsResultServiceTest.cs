@@ -4,6 +4,7 @@ using AquaPlan.Domain.Entities;
 using AquaPlan.Domain.Enums;
 using AquaPlan.Infrastructure.Data;
 using AquaPlan.Infrastructure.Services.MockLims;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -14,6 +15,8 @@ public class LimsResultServiceTest : IDisposable
     private readonly AquaPlanDbContext _dbContext;
     private readonly Mock<IMockLimsService> _mockLimsServiceMock = new();
     private readonly Mock<IOrderAuditService> _auditMock = new();
+    private readonly Mock<INotificationService> _notificationMock = new();
+    private readonly Mock<UserManager<AppUser>> _userManagerMock;
     private readonly Mock<ILogger<LimsResultService>> _loggerMock = new();
     private readonly LimsResultService _sut;
 
@@ -28,7 +31,21 @@ public class LimsResultServiceTest : IDisposable
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
         _dbContext = new AquaPlanDbContext(options);
-        _sut = new LimsResultService(_dbContext, _mockLimsServiceMock.Object, _auditMock.Object, _loggerMock.Object);
+
+        var store = new Mock<IUserStore<AppUser>>();
+        _userManagerMock = new Mock<UserManager<AppUser>>(
+            store.Object, null!, null!, null!, null!, null!, null!, null!, null!);
+        _userManagerMock
+            .Setup(u => u.GetUsersInRoleAsync(It.IsAny<string>()))
+            .ReturnsAsync(new List<AppUser>());
+
+        _sut = new LimsResultService(
+            _dbContext,
+            _mockLimsServiceMock.Object,
+            _auditMock.Object,
+            _notificationMock.Object,
+            _userManagerMock.Object,
+            _loggerMock.Object);
     }
 
     public void Dispose()
@@ -238,5 +255,112 @@ public class LimsResultServiceTest : IDisposable
         dto.Should().NotBeNull();
         dto!.Items.Should().BeEmpty();
         dto.TotalCount.Should().Be(0);
+    }
+
+    // AQ-44 — when results are received, notify the mandate's creator and every admin.
+    [Fact]
+    public async Task PullAsync_WhenResultsReady_ShouldNotifyRequesterAndAdmins()
+    {
+        var order = await SeedOrderAsync();
+        var admin = new AppUser { Id = "admin-1", UserName = "admin", Email = "admin@aq.ch", FirstName = "A", LastName = "Dmin", TenantId = TenantId };
+        _dbContext.Users.Add(admin);
+        await _dbContext.SaveChangesAsync();
+        _userManagerMock.Setup(u => u.GetUsersInRoleAsync(RoleName.Administrator))
+            .ReturnsAsync(new List<AppUser> { admin });
+        _mockLimsServiceMock
+            .Setup(s => s.GetResultsAsync(order.LimsOrderId!.Value, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(BuildLimsPayload(order.LimsOrderId!.Value,
+                ("PH", 7.2m, 6.5m, 8.5m),
+                ("NITRATES", 12m, 0m, 40m)));
+
+        await _sut.PullAsync(order.Id, TenantId);
+
+        // Requester (UserId) receives a ResultsReceived notification.
+        _notificationMock.Verify(n => n.CreateAsync(
+            UserId, NotificationType.ResultsReceived, It.IsAny<string>(), It.IsAny<string>(),
+            TenantId, "Order", order.Id, false, It.IsAny<CancellationToken>()),
+            Times.Once);
+        // Admin receives a ResultsReceived notification as well.
+        _notificationMock.Verify(n => n.CreateAsync(
+            "admin-1", NotificationType.ResultsReceived, It.IsAny<string>(), It.IsAny<string>(),
+            TenantId, "Order", order.Id, false, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    // AQ-44 — conformity counts are mentioned in the message.
+    [Fact]
+    public async Task PullAsync_ResultsReceivedMessage_ShouldMentionNonConformCount()
+    {
+        var order = await SeedOrderAsync();
+        _mockLimsServiceMock
+            .Setup(s => s.GetResultsAsync(order.LimsOrderId!.Value, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(BuildLimsPayload(order.LimsOrderId!.Value,
+                ("PH", 9.5m, 6.5m, 8.5m),  // non conform
+                ("NITRATES", 12m, 0m, 40m)));
+
+        await _sut.PullAsync(order.Id, TenantId);
+
+        _notificationMock.Verify(n => n.CreateAsync(
+            UserId, NotificationType.ResultsReceived, It.IsAny<string>(),
+            It.Is<string>(m => m.Contains("non conforme")),
+            TenantId, "Order", order.Id, false, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    // AQ-45 — non conform results also raise an urgent notification (separate from AQ-44).
+    [Fact]
+    public async Task PullAsync_WhenNonConformResults_ShouldRaiseUrgentNonConformNotification()
+    {
+        var order = await SeedOrderAsync();
+        _mockLimsServiceMock
+            .Setup(s => s.GetResultsAsync(order.LimsOrderId!.Value, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(BuildLimsPayload(order.LimsOrderId!.Value,
+                ("PH", 9.5m, 6.5m, 8.5m),  // non conform
+                ("E_COLI", 3m, 0m, 0m)));   // non conform
+
+        await _sut.PullAsync(order.Id, TenantId);
+
+        _notificationMock.Verify(n => n.CreateAsync(
+            UserId, NotificationType.NonConformResult, It.IsAny<string>(), It.IsAny<string>(),
+            TenantId, "Order", order.Id, true, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    // AQ-45 — when every result is conform, no urgent notification is emitted.
+    [Fact]
+    public async Task PullAsync_WhenAllResultsConform_ShouldNotRaiseUrgentNotification()
+    {
+        var order = await SeedOrderAsync();
+        _mockLimsServiceMock
+            .Setup(s => s.GetResultsAsync(order.LimsOrderId!.Value, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(BuildLimsPayload(order.LimsOrderId!.Value,
+                ("PH", 7.2m, 6.5m, 8.5m)));
+
+        await _sut.PullAsync(order.Id, TenantId);
+
+        _notificationMock.Verify(n => n.CreateAsync(
+            It.IsAny<string>(), NotificationType.NonConformResult, It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    // AQ-44 — subsequent idempotent pulls (already persisted) do not re-notify recipients.
+    [Fact]
+    public async Task PullAsync_WhenAlreadyPulled_ShouldNotDuplicateNotifications()
+    {
+        var order = await SeedOrderAsync(status: OrderStatus.Done);
+        _dbContext.SamplingResults.Add(new SamplingResult
+        {
+            Id = Guid.NewGuid(), OrderId = order.Id, ParameterCode = "PH", Value = 7m, Unit = "pH",
+            ReferenceMin = 6.5m, ReferenceMax = 8.5m, IsConform = true, TenantId = TenantId, ReceivedAt = DateTime.UtcNow,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        await _sut.PullAsync(order.Id, TenantId);
+
+        _notificationMock.Verify(n => n.CreateAsync(
+            It.IsAny<string>(), It.IsAny<NotificationType>(), It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }
