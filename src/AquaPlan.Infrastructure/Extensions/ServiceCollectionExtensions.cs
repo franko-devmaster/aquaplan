@@ -58,6 +58,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ILimsResultService, LimsResultService>();
         services.AddScoped<ILimsSyncService, LimsSyncService>();
 
+        // AQ-404 — Retroactive backfill of Transmitted orders without LimsOrderId
+        services.AddScoped<IMockLimsBackfillService, MockLimsBackfillService>();
+
         // AQ-43 — Notifications (mock email + in-app bell)
         services.AddScoped<INotificationService, NotificationService>();
 

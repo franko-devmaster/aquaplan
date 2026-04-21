@@ -2,25 +2,26 @@ using System.Reflection;
 using System.Security.Claims;
 using AquaPlan.Api.Controllers.Api;
 using AquaPlan.Application.DTOs.LimsSync;
+using AquaPlan.Application.DTOs.MockLims;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Routing;
 
 namespace AquaPlan.Api.Tests.Controllers;
 
 public class AdminLimsSyncControllerTest
 {
     private readonly Mock<ILimsSyncService> _limsSyncServiceMock = new();
+    private readonly Mock<IMockLimsBackfillService> _backfillServiceMock = new();
     private readonly AdminLimsSyncController _sut;
 
     private static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
     public AdminLimsSyncControllerTest()
     {
-        _sut = new AdminLimsSyncController(_limsSyncServiceMock.Object);
+        _sut = new AdminLimsSyncController(_limsSyncServiceMock.Object, _backfillServiceMock.Object);
         _sut.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext
@@ -67,6 +68,72 @@ public class AdminLimsSyncControllerTest
     }
 
     [Fact]
+    public async Task BackfillResults_WhenBodyOmitted_ShouldUseCallerTenantAndDefaultMax()
+    {
+        var expected = new MockLimsBackfillResultDto(3, 3, 3, 0, Array.Empty<MockLimsBackfillFailureDto>());
+        _backfillServiceMock
+            .Setup(s => s.BackfillAsync(TenantId, 100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+
+        var result = await _sut.BackfillResults(null, CancellationToken.None);
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeSameAs(expected);
+        _backfillServiceMock.Verify(
+            s => s.BackfillAsync(TenantId, 100, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task BackfillResults_WithRequestOverrides_ShouldPassThroughTenantAndMax()
+    {
+        var otherTenant = Guid.Parse("00000000-0000-0000-0000-0000000000ff");
+        var dto = new MockLimsBackfillRequestDto(TenantId: otherTenant, MaxOrders: 25);
+        var expected = new MockLimsBackfillResultDto(25, 25, 24, 1, new[]
+        {
+            new MockLimsBackfillFailureDto(Guid.NewGuid(), "ORD-XYZ", "boom"),
+        });
+        _backfillServiceMock
+            .Setup(s => s.BackfillAsync(otherTenant, 25, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+
+        var result = await _sut.BackfillResults(dto, CancellationToken.None);
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeSameAs(expected);
+    }
+
+    [Fact]
+    public async Task BackfillResults_WhenMaxOrdersIsZeroOrNegative_ShouldClampToOne()
+    {
+        var dto = new MockLimsBackfillRequestDto(MaxOrders: 0);
+        _backfillServiceMock
+            .Setup(s => s.BackfillAsync(TenantId, 1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MockLimsBackfillResultDto(0, 0, 0, 0, Array.Empty<MockLimsBackfillFailureDto>()));
+
+        await _sut.BackfillResults(dto, CancellationToken.None);
+
+        _backfillServiceMock.Verify(
+            s => s.BackfillAsync(TenantId, 1, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task BackfillResults_WhenMaxOrdersExceedsHardCap_ShouldClampTo500()
+    {
+        var dto = new MockLimsBackfillRequestDto(MaxOrders: 10_000);
+        _backfillServiceMock
+            .Setup(s => s.BackfillAsync(TenantId, 500, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MockLimsBackfillResultDto(0, 0, 0, 0, Array.Empty<MockLimsBackfillFailureDto>()));
+
+        await _sut.BackfillResults(dto, CancellationToken.None);
+
+        _backfillServiceMock.Verify(
+            s => s.BackfillAsync(TenantId, 500, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
     public void Controller_ShouldRequireAdministratorRole()
     {
         var attr = typeof(AdminLimsSyncController)
@@ -92,5 +159,14 @@ public class AdminLimsSyncControllerTest
         var attr = method.GetCustomAttribute<HttpGetAttribute>();
         attr.Should().NotBeNull();
         attr!.Template.Should().Be(expectedTemplate);
+    }
+
+    [Fact]
+    public void BackfillResults_ShouldHaveHttpPostAttributeWithBackfillRoute()
+    {
+        var method = typeof(AdminLimsSyncController).GetMethod(nameof(AdminLimsSyncController.BackfillResults))!;
+        var attr = method.GetCustomAttribute<HttpPostAttribute>();
+        attr.Should().NotBeNull();
+        attr!.Template.Should().Be("backfill-results");
     }
 }
