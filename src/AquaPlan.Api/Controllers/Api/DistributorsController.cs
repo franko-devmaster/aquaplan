@@ -11,6 +11,7 @@ namespace AquaPlan.Api.Controllers.Api;
 [Authorize]
 public class DistributorsController(
     IDistributorService distributorService,
+    IPermissionService permissionService,
     ILogger<DistributorsController> logger) : ControllerBase
 {
     [HttpGet]
@@ -19,9 +20,12 @@ public class DistributorsController(
         [FromQuery] bool? isActive,
         CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
         var tenantId = GetTenantId();
+        // AQ-419 — scope distributors to authorized ones for non-admin users.
+        var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
         var filter = new DistributorFilteringInputDto(name, isActive);
-        var distributors = await distributorService.GetAllAsync(filter, tenantId, cancellationToken);
+        var distributors = await distributorService.GetAllAsync(filter, tenantId, userId, isAdmin, cancellationToken);
         return Ok(distributors);
     }
 
@@ -70,6 +74,11 @@ public class DistributorsController(
             return NotFound();
         }
         return Ok(distributor);
+    }
+
+    private string GetUserId()
+    {
+        return User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new UnauthorizedAccessException();
     }
 
     private Guid GetTenantId()

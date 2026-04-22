@@ -11,6 +11,7 @@ namespace AquaPlan.Api.Controllers.Api;
 [Authorize]
 public class SectorsController(
     ISectorService sectorService,
+    IPermissionService permissionService,
     ILogger<SectorsController> logger) : ControllerBase
 {
     [HttpGet]
@@ -20,9 +21,12 @@ public class SectorsController(
         [FromQuery] Guid? distributorId,
         CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
         var tenantId = GetTenantId();
+        // AQ-418 — scope sectors to authorized distributors for non-admin users.
+        var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
         var filter = new SectorFilteringInputDto(name, isActive, distributorId);
-        var sectors = await sectorService.GetAllAsync(filter, tenantId, cancellationToken);
+        var sectors = await sectorService.GetAllAsync(filter, tenantId, userId, isAdmin, cancellationToken);
         return Ok(sectors);
     }
 
@@ -71,6 +75,11 @@ public class SectorsController(
             return NotFound();
         }
         return Ok(sector);
+    }
+
+    private string GetUserId()
+    {
+        return User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new UnauthorizedAccessException();
     }
 
     private Guid GetTenantId()

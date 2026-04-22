@@ -35,9 +35,16 @@ public class OrderServiceTest : IDisposable
             .Options;
 
         _dbContext = new AquaPlanDbContext(options);
+
+        // AQ-420 — by default the delegation service returns the user's primary distributor only.
+        // Tests that need delegation or cross-distributor behaviour override this setup.
+        _delegationServiceMock
+            .Setup(d => d.GetAuthorizedDistributorIdsForUserAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([DistributorId]);
+
         _roundService = new SamplingRoundService(_dbContext, _delegationServiceMock.Object, _notificationServiceMock.Object, _roundLoggerMock.Object);
         var mockLimsOptions = Options.Create(new MockLimsOptions { Enabled = false });
-        _sut = new OrderService(_dbContext, _auditServiceMock.Object, _roundService, _mockLimsServiceMock.Object, _notificationServiceMock.Object, mockLimsOptions, _loggerMock.Object);
+        _sut = new OrderService(_dbContext, _auditServiceMock.Object, _roundService, _mockLimsServiceMock.Object, _notificationServiceMock.Object, _delegationServiceMock.Object, mockLimsOptions, _loggerMock.Object);
 
         SeedData().GetAwaiter().GetResult();
     }
@@ -221,7 +228,7 @@ public class OrderServiceTest : IDisposable
         await _dbContext.SaveChangesAsync();
 
         var filter = new OrderFilterDto(null, null, null, null, DistributorId: DistributorId);
-        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: true);
+        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: true, isPreleveurOnly: false);
 
         result.Items.Should().AllSatisfy(o => o.DistributorId.Should().Be(DistributorId));
     }
@@ -234,7 +241,7 @@ public class OrderServiceTest : IDisposable
         await _dbContext.SaveChangesAsync();
 
         var filter = new OrderFilterDto(null, null, null, null, DateFrom: new DateTime(2026, 4, 1), DateTo: new DateTime(2026, 6, 1));
-        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: true);
+        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: true, isPreleveurOnly: false);
 
         result.Items.Should().HaveCount(1);
         result.Items[0].OrderNumber.Should().Be("ORD-DATE-02");
@@ -274,10 +281,90 @@ public class OrderServiceTest : IDisposable
         _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-DEL-01", Status = OrderStatus.New, IsUnplanned = false, CreatedById = UserId, DistributorId = delegatedDistId, TenantId = TenantId });
         await _dbContext.SaveChangesAsync();
 
+        // Delegation stub: user's authorized distributors include the delegating one.
+        _delegationServiceMock
+            .Setup(d => d.GetAuthorizedDistributorIdsForUserAsync(UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([DistributorId, delegatedDistId]);
+
         var filter = new OrderFilterDto(null, null, null, null);
-        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: false);
+        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: false, isPreleveurOnly: false);
 
         result.Items.Should().Contain(o => o.OrderNumber == "ORD-DEL-01");
+    }
+
+    // --- AQ-420 — role-based visibility for orders ---
+
+    [Fact]
+    public async Task GetOrdersFilteredAsync_AsMandataire_ShouldSeeOrdersCreatedByOtherUsersOnSameDistributor()
+    {
+        // AQ-420 — before the fix, the filter included "&& (o.CreatedById == userId || o.PreleveurId == userId)"
+        // which hid orders of the same distributor created by someone else. A Requérant-Préleveur
+        // must now see every order of his authorized distributors, regardless of creator.
+        const string otherUserId = "other-user";
+        _dbContext.Users.Add(new AppUser
+        {
+            Id = otherUserId, UserName = "other@test.com", Email = "other@test.com",
+            FirstName = "Other", LastName = "User", TenantId = TenantId, IsActive = true,
+        });
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-MINE", Status = OrderStatus.New, IsUnplanned = false, CreatedById = UserId, DistributorId = DistributorId, TenantId = TenantId });
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-OTHER", Status = OrderStatus.New, IsUnplanned = false, CreatedById = otherUserId, DistributorId = DistributorId, TenantId = TenantId });
+        await _dbContext.SaveChangesAsync();
+
+        var filter = new OrderFilterDto(null, null, null, null);
+        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: false, isPreleveurOnly: false);
+
+        result.Items.Should().HaveCount(2);
+        result.Items.Select(o => o.OrderNumber).Should().BeEquivalentTo(new[] { "ORD-MINE", "ORD-OTHER" });
+    }
+
+    [Fact]
+    public async Task GetOrdersFilteredAsync_AsMandataire_ShouldNotSeeOrdersOfUnauthorizedDistributor()
+    {
+        var foreignDistId = Guid.NewGuid();
+        _dbContext.Distributors.Add(new Distributor { Id = foreignDistId, Name = "Foreign Dist", TenantId = TenantId, IsActive = true });
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-OWN", Status = OrderStatus.New, IsUnplanned = false, CreatedById = UserId, DistributorId = DistributorId, TenantId = TenantId });
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-FOREIGN", Status = OrderStatus.New, IsUnplanned = false, CreatedById = UserId, DistributorId = foreignDistId, TenantId = TenantId });
+        await _dbContext.SaveChangesAsync();
+
+        var filter = new OrderFilterDto(null, null, null, null);
+        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: false, isPreleveurOnly: false);
+
+        result.Items.Should().HaveCount(1);
+        result.Items.Single().OrderNumber.Should().Be("ORD-OWN");
+    }
+
+    [Fact]
+    public async Task GetOrdersFilteredAsync_AsPreleveurOnly_ShouldOnlyReturnOrdersAssignedToThem()
+    {
+        // AQ-420 — Préleveur-only users only see orders where they are the assigned préleveur.
+        const string otherUserId = "other-user";
+        const string anotherPreleveurId = "another-preleveur";
+        _dbContext.Users.AddRange(
+            new AppUser { Id = otherUserId, UserName = "other@test.com", Email = "other@test.com", FirstName = "Other", LastName = "User", TenantId = TenantId, IsActive = true },
+            new AppUser { Id = anotherPreleveurId, UserName = "p@test.com", Email = "p@test.com", FirstName = "Another", LastName = "P", TenantId = TenantId, IsActive = true });
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-ASSIGNED", Status = OrderStatus.New, IsUnplanned = false, CreatedById = otherUserId, PreleveurId = UserId, DistributorId = DistributorId, TenantId = TenantId });
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-NOT-ASSIGNED", Status = OrderStatus.New, IsUnplanned = false, CreatedById = UserId, PreleveurId = anotherPreleveurId, DistributorId = DistributorId, TenantId = TenantId });
+        await _dbContext.SaveChangesAsync();
+
+        var filter = new OrderFilterDto(null, null, null, null);
+        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: false, isPreleveurOnly: true);
+
+        result.Items.Should().HaveCount(1);
+        result.Items.Single().OrderNumber.Should().Be("ORD-ASSIGNED");
+    }
+
+    [Fact]
+    public async Task GetOrdersFilteredAsync_AsAdmin_ShouldNotConsultDelegationService()
+    {
+        _dbContext.Orders.Add(new Order { Id = Guid.NewGuid(), OrderNumber = "ORD-ANY", Status = OrderStatus.New, IsUnplanned = false, CreatedById = UserId, DistributorId = DistributorId, TenantId = TenantId });
+        await _dbContext.SaveChangesAsync();
+
+        var filter = new OrderFilterDto(null, null, null, null);
+        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: true, isPreleveurOnly: false);
+
+        result.Items.Should().NotBeEmpty();
+        _delegationServiceMock.Verify(d => d.GetAuthorizedDistributorIdsForUserAsync(
+            It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // --- Analysis programs attachment (AQ-307) ---
@@ -781,6 +868,7 @@ public class OrderServiceTest : IDisposable
             _roundService,
             _mockLimsServiceMock.Object,
             _notificationServiceMock.Object,
+            _delegationServiceMock.Object,
             options,
             _loggerMock.Object);
     }
@@ -1136,7 +1224,7 @@ public class OrderServiceTest : IDisposable
         await CreateSeedOrder(OrderStatus.Transmitted);
         await CreateSeedOrder(OrderStatus.New);
 
-        var summary = await _sut.GetDashboardSummaryAsync(UserId, TenantId, isAdmin: true);
+        var summary = await _sut.GetDashboardSummaryAsync(UserId, TenantId, isAdmin: true, isPreleveurOnly: false);
 
         summary.TotalCount.Should().Be(5);
         summary.ConformCount.Should().Be(2);
@@ -1145,16 +1233,33 @@ public class OrderServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task GetDashboardSummaryAsync_AsNonAdmin_ShouldRespectVisibilityScope()
+    public async Task GetDashboardSummaryAsync_AsMandataire_ShouldSeeAllOrdersOfAuthorizedDistributors()
     {
+        // AQ-420 — a Requérant / Requérant-Préleveur sees every order of his distributors,
+        // not only the ones he created.
         await SeedDoneOrderAsync(createdById: UserId, conform: true);
         await SeedDoneOrderAsync(createdById: "other-user", conform: false);
 
-        var summary = await _sut.GetDashboardSummaryAsync(UserId, TenantId, isAdmin: false);
+        var summary = await _sut.GetDashboardSummaryAsync(UserId, TenantId, isAdmin: false, isPreleveurOnly: false);
+
+        summary.TotalCount.Should().Be(2);
+        summary.ConformCount.Should().Be(1);
+        summary.NonConformCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetDashboardSummaryAsync_AsPreleveurOnly_ShouldOnlySeeOrdersAssignedToThem()
+    {
+        // AQ-420 — a Préleveur-only user only sees orders where they are the assigned préleveur.
+        var assigned = await CreateSeedOrder(OrderStatus.New);
+        assigned.PreleveurId = UserId;
+        var other = await CreateSeedOrder(OrderStatus.New);
+        other.PreleveurId = "another-preleveur";
+        await _dbContext.SaveChangesAsync();
+
+        var summary = await _sut.GetDashboardSummaryAsync(UserId, TenantId, isAdmin: false, isPreleveurOnly: true);
 
         summary.TotalCount.Should().Be(1);
-        summary.ConformCount.Should().Be(1);
-        summary.NonConformCount.Should().Be(0);
     }
 
     [Fact]
@@ -1167,7 +1272,8 @@ public class OrderServiceTest : IDisposable
         var result = await _sut.GetOrdersFilteredAsync(
             UserId, TenantId,
             new OrderFilterDto(null, null, null, null),
-            isAdmin: true);
+            isAdmin: true,
+            isPreleveurOnly: false);
 
         result.Items.Should().HaveCount(3);
         result.Items.Should().Contain(i => i.ResultsStatus == ResultsStatus.Conform);
@@ -1183,7 +1289,7 @@ public class OrderServiceTest : IDisposable
         await CreateSeedOrder(OrderStatus.Transmitted);
 
         var filter = new OrderFilterDto(null, null, null, null, ResultsStatus: ResultsStatus.NonConform);
-        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: true);
+        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: true, isPreleveurOnly: false);
 
         result.Items.Should().HaveCount(1);
         result.Items.Single().ResultsStatus.Should().Be(ResultsStatus.NonConform);

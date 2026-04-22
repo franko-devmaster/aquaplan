@@ -9,13 +9,23 @@ namespace AquaPlan.Infrastructure.Services;
 
 internal class SectorService(
     AquaPlanDbContext dbContext,
+    IDelegationService delegationService,
     ILogger<SectorService> logger) : ISectorService
 {
-    public async Task<IList<SectorListDto>> GetAllAsync(SectorFilteringInputDto filter, Guid tenantId, CancellationToken cancellationToken = default)
+    public async Task<IList<SectorListDto>> GetAllAsync(SectorFilteringInputDto filter, Guid tenantId, string userId, bool isAdmin, CancellationToken cancellationToken = default)
     {
         var query = dbContext.Sectors
             .Include(s => s.Distributor)
             .Where(s => s.TenantId == tenantId);
+
+        // AQ-418 — Non-admin users only see sectors of their authorized distributors
+        // (own + active delegations). Applies the AQ-398 pattern used on sampling rounds.
+        if (!isAdmin)
+        {
+            var authorizedDistributorIds = await delegationService
+                .GetAuthorizedDistributorIdsForUserAsync(userId, cancellationToken);
+            query = query.Where(s => authorizedDistributorIds.Contains(s.DistributorId));
+        }
 
         if (!string.IsNullOrWhiteSpace(filter.Name))
         {

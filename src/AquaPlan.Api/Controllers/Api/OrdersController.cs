@@ -41,8 +41,12 @@ public class OrdersController(
         var tenantId = GetTenantId();
         var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
 
+        // AQ-420 — A user is "préleveur only" when they hold the Préleveur role and
+        // none of the requérant roles. Such users only see orders they are assigned to.
+        var isPreleveurOnly = IsPreleveurOnly();
+
         var filter = new OrderFilterDto(statuses, isUnassigned, hasNoRound, search, page, pageSize, sortBy, sortDescending, distributorId, preleveurId, dateFrom, dateTo, resultsStatus);
-        var result = await orderService.GetOrdersFilteredAsync(userId, tenantId, filter, isAdmin, cancellationToken);
+        var result = await orderService.GetOrdersFilteredAsync(userId, tenantId, filter, isAdmin, isPreleveurOnly, cancellationToken);
 
         return Ok(result);
     }
@@ -56,8 +60,9 @@ public class OrdersController(
         var userId = GetUserId();
         var tenantId = GetTenantId();
         var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        var isPreleveurOnly = IsPreleveurOnly();
 
-        var summary = await orderService.GetDashboardSummaryAsync(userId, tenantId, isAdmin, cancellationToken);
+        var summary = await orderService.GetDashboardSummaryAsync(userId, tenantId, isAdmin, isPreleveurOnly, cancellationToken);
         return Ok(summary);
     }
 
@@ -376,6 +381,18 @@ public class OrdersController(
     private string GetUserId()
     {
         return User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new UnauthorizedAccessException();
+    }
+
+    /// <summary>
+    /// AQ-420 — mirrors the AQ-398 helper on rounds. A user is "préleveur only"
+    /// when they hold the Préleveur role and none of the requérant/admin roles.
+    /// </summary>
+    private bool IsPreleveurOnly()
+    {
+        return User.IsInRole(RoleName.Preleveur)
+            && !User.IsInRole(RoleName.Requerant)
+            && !User.IsInRole(RoleName.RequerantPreleveur)
+            && !User.IsInRole(RoleName.Administrator);
     }
 
     private Guid GetTenantId()

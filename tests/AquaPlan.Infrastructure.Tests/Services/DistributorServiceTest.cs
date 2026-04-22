@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Distributors;
+using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Infrastructure.Data;
 using AquaPlan.Infrastructure.Services;
@@ -10,9 +11,11 @@ namespace AquaPlan.Infrastructure.Tests.Services;
 public class DistributorServiceTest : IDisposable
 {
     private readonly AquaPlanDbContext _dbContext;
+    private readonly Mock<IDelegationService> _delegationServiceMock = new();
     private readonly Mock<ILogger<DistributorService>> _loggerMock = new();
     private readonly DistributorService _sut;
 
+    private const string UserId = "user-1";
     private static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly Guid OtherTenantId = Guid.Parse("00000000-0000-0000-0000-000000000002");
 
@@ -23,7 +26,7 @@ public class DistributorServiceTest : IDisposable
             .Options;
 
         _dbContext = new AquaPlanDbContext(options);
-        _sut = new DistributorService(_dbContext, _loggerMock.Object);
+        _sut = new DistributorService(_dbContext, _delegationServiceMock.Object, _loggerMock.Object);
     }
 
     public void Dispose()
@@ -37,7 +40,7 @@ public class DistributorServiceTest : IDisposable
         await SeedDistributors();
 
         var filter = new DistributorFilteringInputDto(null, null);
-        var result = await _sut.GetAllAsync(filter, TenantId);
+        var result = await _sut.GetAllAsync(filter, TenantId, UserId, isAdmin: true);
 
         result.Should().HaveCount(2);
         result.Should().AllSatisfy(d => d.Name.Should().NotBeNullOrEmpty());
@@ -49,7 +52,7 @@ public class DistributorServiceTest : IDisposable
         await SeedDistributors();
 
         var filter = new DistributorFilteringInputDto(null, null);
-        var result = await _sut.GetAllAsync(filter, OtherTenantId);
+        var result = await _sut.GetAllAsync(filter, OtherTenantId, UserId, isAdmin: true);
 
         result.Should().HaveCount(1);
         result[0].Name.Should().Be("Autre Distributeur");
@@ -61,7 +64,7 @@ public class DistributorServiceTest : IDisposable
         await SeedDistributors();
 
         var filter = new DistributorFilteringInputDto("Fribourg", null);
-        var result = await _sut.GetAllAsync(filter, TenantId);
+        var result = await _sut.GetAllAsync(filter, TenantId, UserId, isAdmin: true);
 
         result.Should().HaveCount(1);
         result[0].Name.Should().Be("Eau de Fribourg");
@@ -73,7 +76,7 @@ public class DistributorServiceTest : IDisposable
         await SeedDistributors();
 
         var filter = new DistributorFilteringInputDto(null, false);
-        var result = await _sut.GetAllAsync(filter, TenantId);
+        var result = await _sut.GetAllAsync(filter, TenantId, UserId, isAdmin: true);
 
         result.Should().HaveCount(1);
         result[0].Name.Should().Be("Ancien Distributeur");
@@ -85,9 +88,67 @@ public class DistributorServiceTest : IDisposable
         await SeedDistributors();
 
         var filter = new DistributorFilteringInputDto(null, null);
-        var result = await _sut.GetAllAsync(filter, TenantId);
+        var result = await _sut.GetAllAsync(filter, TenantId, UserId, isAdmin: true);
 
         result.Should().BeInAscendingOrder(d => d.Name);
+    }
+
+    // AQ-419 — scoping by authorized distributors for non-admin users.
+
+    [Fact]
+    public async Task GetAllAsync_AsAdmin_ShouldIgnoreDelegationAndReturnAllTenantDistributors()
+    {
+        await SeedDistributors();
+
+        var filter = new DistributorFilteringInputDto(null, null);
+        var result = await _sut.GetAllAsync(filter, TenantId, UserId, isAdmin: true);
+
+        result.Should().HaveCount(2);
+        _delegationServiceMock.Verify(d => d.GetAuthorizedDistributorIdsForUserAsync(
+            It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_AsNonAdmin_ShouldOnlyReturnAuthorizedDistributors()
+    {
+        var distributors = await SeedDistributors();
+        _delegationServiceMock
+            .Setup(d => d.GetAuthorizedDistributorIdsForUserAsync(UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([distributors[0].Id]);
+
+        var filter = new DistributorFilteringInputDto(null, null);
+        var result = await _sut.GetAllAsync(filter, TenantId, UserId, isAdmin: false);
+
+        result.Should().HaveCount(1);
+        result[0].Name.Should().Be("Eau de Fribourg");
+    }
+
+    [Fact]
+    public async Task GetAllAsync_AsNonAdmin_ShouldIncludeDelegatedDistributor()
+    {
+        var distributors = await SeedDistributors();
+        _delegationServiceMock
+            .Setup(d => d.GetAuthorizedDistributorIdsForUserAsync(UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([distributors[0].Id, distributors[1].Id]);
+
+        var filter = new DistributorFilteringInputDto(null, null);
+        var result = await _sut.GetAllAsync(filter, TenantId, UserId, isAdmin: false);
+
+        result.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_AsNonAdmin_WithNoAuthorizedDistributor_ShouldReturnEmpty()
+    {
+        await SeedDistributors();
+        _delegationServiceMock
+            .Setup(d => d.GetAuthorizedDistributorIdsForUserAsync(UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        var filter = new DistributorFilteringInputDto(null, null);
+        var result = await _sut.GetAllAsync(filter, TenantId, UserId, isAdmin: false);
+
+        result.Should().BeEmpty();
     }
 
     [Fact]

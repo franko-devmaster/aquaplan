@@ -9,12 +9,22 @@ namespace AquaPlan.Infrastructure.Services;
 
 internal class DistributorService(
     AquaPlanDbContext dbContext,
+    IDelegationService delegationService,
     ILogger<DistributorService> logger) : IDistributorService
 {
-    public async Task<IList<DistributorListDto>> GetAllAsync(DistributorFilteringInputDto filter, Guid tenantId, CancellationToken cancellationToken = default)
+    public async Task<IList<DistributorListDto>> GetAllAsync(DistributorFilteringInputDto filter, Guid tenantId, string userId, bool isAdmin, CancellationToken cancellationToken = default)
     {
         var query = dbContext.Distributors
             .Where(d => d.TenantId == tenantId);
+
+        // AQ-419 — Non-admin users only see distributors they are authorized on
+        // (own + active delegations). Applies the AQ-398 scoping pattern.
+        if (!isAdmin)
+        {
+            var authorizedDistributorIds = await delegationService
+                .GetAuthorizedDistributorIdsForUserAsync(userId, cancellationToken);
+            query = query.Where(d => authorizedDistributorIds.Contains(d.Id));
+        }
 
         if (!string.IsNullOrWhiteSpace(filter.Name))
         {

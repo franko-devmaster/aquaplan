@@ -12,9 +12,11 @@ namespace AquaPlan.Api.Tests.Controllers;
 public class SectorsControllerTest
 {
     private readonly Mock<ISectorService> _sectorServiceMock = new();
+    private readonly Mock<IPermissionService> _permissionServiceMock = new();
     private readonly Mock<ILogger<SectorsController>> _loggerMock = new();
     private readonly SectorsController _sut;
 
+    private const string UserId = "user-1";
     private static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly Guid SectorId = Guid.Parse("00000000-0000-0000-0000-000000000030");
     private static readonly Guid DistributorId = Guid.Parse("00000000-0000-0000-0000-000000000050");
@@ -23,6 +25,7 @@ public class SectorsControllerTest
     {
         _sut = new SectorsController(
             _sectorServiceMock.Object,
+            _permissionServiceMock.Object,
             _loggerMock.Object);
         _sut.ControllerContext = new ControllerContext
         {
@@ -47,13 +50,50 @@ public class SectorsControllerTest
             new(SectorId, "Secteur Nord", "SN", "Description", true, DistributorId, "Test Distributor", DateTime.UtcNow),
         };
         _sectorServiceMock
-            .Setup(x => x.GetAllAsync(It.IsAny<SectorFilteringInputDto>(), TenantId, It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetAllAsync(It.IsAny<SectorFilteringInputDto>(), TenantId, UserId, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(sectors);
 
         var result = await _sut.GetAll(null, null, null, CancellationToken.None);
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().Be(sectors);
+    }
+
+    [Fact]
+    public async Task GetAll_ShouldForwardIsAdminTrue_WhenUserHasViewAllOrdersPermission()
+    {
+        // AQ-418 — controller must derive isAdmin from the permission service and
+        // forward it to the service so admins keep their tenant-wide view.
+        _permissionServiceMock
+            .Setup(p => p.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _sectorServiceMock
+            .Setup(x => x.GetAllAsync(It.IsAny<SectorFilteringInputDto>(), TenantId, UserId, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<SectorListDto>());
+
+        await _sut.GetAll(null, null, null, CancellationToken.None);
+
+        _sectorServiceMock.Verify(x => x.GetAllAsync(
+            It.IsAny<SectorFilteringInputDto>(), TenantId, UserId, true, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetAll_ShouldForwardIsAdminFalse_WhenUserLacksPermission()
+    {
+        // AQ-418 — non-admin users must be scoped to their authorized distributors.
+        _permissionServiceMock
+            .Setup(p => p.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _sectorServiceMock
+            .Setup(x => x.GetAllAsync(It.IsAny<SectorFilteringInputDto>(), TenantId, UserId, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<SectorListDto>());
+
+        await _sut.GetAll(null, null, null, CancellationToken.None);
+
+        _sectorServiceMock.Verify(x => x.GetAllAsync(
+            It.IsAny<SectorFilteringInputDto>(), TenantId, UserId, false, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

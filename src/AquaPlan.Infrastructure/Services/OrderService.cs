@@ -17,40 +17,36 @@ internal class OrderService(
     ISamplingRoundService samplingRoundService,
     IMockLimsService mockLimsService,
     INotificationService notificationService,
+    IDelegationService delegationService,
     IOptions<MockLimsOptions> mockLimsOptions,
     ILogger<OrderService> logger) : IOrderService
 {
     public async Task<OrderPagedResultDto> GetOrdersFilteredAsync(
-        string userId, Guid tenantId, OrderFilterDto filter, bool isAdmin,
+        string userId, Guid tenantId, OrderFilterDto filter, bool isAdmin, bool isPreleveurOnly,
         CancellationToken cancellationToken = default)
     {
         var query = dbContext.Orders
             .Where(o => o.TenantId == tenantId)
             .AsQueryable();
 
-        // Non-admin: filter by user's accessible distributors (own + delegated) + own orders
+        // AQ-420 — Role-based visibility (mirrors the AQ-398 rule applied to rounds):
+        //   • Admin: full tenant view (no extra filter).
+        //   • Préleveur (sole role): only orders where they are the assigned préleveur.
+        //   • Mandataire (Requérant / Requérant-Préleveur): every order of the
+        //     distributors they are authorized on (own + active delegations),
+        //     regardless of who created the order.
         if (!isAdmin)
         {
-            var userDistributorIds = await dbContext.UserDistributors
-                .Where(ud => ud.UserId == userId)
-                .Select(ud => ud.DistributorId)
-                .ToListAsync(cancellationToken);
-
-            // Include distributors that have delegated to user's distributors
-            var delegatedIds = await dbContext.DistributorDelegations
-                .Where(d => d.IsActive
-                    && userDistributorIds.Contains(d.DelegatedToDistributorId)
-                    && d.ValidFrom <= DateTime.UtcNow
-                    && (d.ValidTo == null || d.ValidTo >= DateTime.UtcNow))
-                .Select(d => d.DelegatingDistributorId)
-                .Distinct()
-                .ToListAsync(cancellationToken);
-
-            var allAccessibleIds = userDistributorIds.Union(delegatedIds).ToList();
-
-            query = query.Where(o =>
-                allAccessibleIds.Contains(o.DistributorId)
-                && (o.CreatedById == userId || o.PreleveurId == userId));
+            if (isPreleveurOnly)
+            {
+                query = query.Where(o => o.PreleveurId == userId);
+            }
+            else
+            {
+                var authorizedDistributorIds = await delegationService
+                    .GetAuthorizedDistributorIdsForUserAsync(userId, cancellationToken);
+                query = query.Where(o => authorizedDistributorIds.Contains(o.DistributorId));
+            }
         }
 
         // Filter by statuses
@@ -678,9 +674,12 @@ internal class OrderService(
 
     /// <summary>
     /// AQ-31 — Aggregate counters for the home dashboard, scoped to the user's visibility rules.
+    /// AQ-420 — Same role-based scoping as GetOrdersFilteredAsync (admin / préleveur-only /
+    /// mandataire). The previous "and created-by-me" restriction hid orders of the user's
+    /// own distributor that were created by another requérant.
     /// </summary>
     public async Task<OrderDashboardSummaryDto> GetDashboardSummaryAsync(
-        string userId, Guid tenantId, bool isAdmin, CancellationToken cancellationToken = default)
+        string userId, Guid tenantId, bool isAdmin, bool isPreleveurOnly, CancellationToken cancellationToken = default)
     {
         var query = dbContext.Orders
             .Where(o => o.TenantId == tenantId)
@@ -688,24 +687,16 @@ internal class OrderService(
 
         if (!isAdmin)
         {
-            var userDistributorIds = await dbContext.UserDistributors
-                .Where(ud => ud.UserId == userId)
-                .Select(ud => ud.DistributorId)
-                .ToListAsync(cancellationToken);
-
-            var delegatedIds = await dbContext.DistributorDelegations
-                .Where(d => d.IsActive
-                    && userDistributorIds.Contains(d.DelegatedToDistributorId)
-                    && d.ValidFrom <= DateTime.UtcNow
-                    && (d.ValidTo == null || d.ValidTo >= DateTime.UtcNow))
-                .Select(d => d.DelegatingDistributorId)
-                .Distinct()
-                .ToListAsync(cancellationToken);
-
-            var accessibleIds = userDistributorIds.Union(delegatedIds).ToList();
-            query = query.Where(o =>
-                accessibleIds.Contains(o.DistributorId)
-                && (o.CreatedById == userId || o.PreleveurId == userId));
+            if (isPreleveurOnly)
+            {
+                query = query.Where(o => o.PreleveurId == userId);
+            }
+            else
+            {
+                var authorizedDistributorIds = await delegationService
+                    .GetAuthorizedDistributorIdsForUserAsync(userId, cancellationToken);
+                query = query.Where(o => authorizedDistributorIds.Contains(o.DistributorId));
+            }
         }
 
         var stats = await query

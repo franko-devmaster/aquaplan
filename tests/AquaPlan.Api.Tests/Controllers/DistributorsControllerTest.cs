@@ -12,9 +12,11 @@ namespace AquaPlan.Api.Tests.Controllers;
 public class DistributorsControllerTest
 {
     private readonly Mock<IDistributorService> _distributorServiceMock = new();
+    private readonly Mock<IPermissionService> _permissionServiceMock = new();
     private readonly Mock<ILogger<DistributorsController>> _loggerMock = new();
     private readonly DistributorsController _sut;
 
+    private const string UserId = "user-1";
     private static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly Guid DistributorId = Guid.Parse("00000000-0000-0000-0000-000000000020");
 
@@ -22,6 +24,7 @@ public class DistributorsControllerTest
     {
         _sut = new DistributorsController(
             _distributorServiceMock.Object,
+            _permissionServiceMock.Object,
             _loggerMock.Object);
         _sut.ControllerContext = new ControllerContext
         {
@@ -46,7 +49,7 @@ public class DistributorsControllerTest
             new(DistributorId, "Eau de Fribourg", null, "Sarine", "Réseau A", true, DateTime.UtcNow),
         };
         _distributorServiceMock
-            .Setup(x => x.GetAllAsync(It.IsAny<DistributorFilteringInputDto>(), TenantId, It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetAllAsync(It.IsAny<DistributorFilteringInputDto>(), TenantId, UserId, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(distributors);
 
         var result = await _sut.GetAll(null, null, CancellationToken.None);
@@ -62,6 +65,8 @@ public class DistributorsControllerTest
             .Setup(x => x.GetAllAsync(
                 It.Is<DistributorFilteringInputDto>(f => f.Name == "Eau" && f.IsActive == true),
                 TenantId,
+                UserId,
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<DistributorListDto>());
 
@@ -70,7 +75,45 @@ public class DistributorsControllerTest
         _distributorServiceMock.Verify(x => x.GetAllAsync(
             It.Is<DistributorFilteringInputDto>(f => f.Name == "Eau" && f.IsActive == true),
             TenantId,
+            UserId,
+            It.IsAny<bool>(),
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetAll_ShouldForwardIsAdminTrue_WhenUserHasViewAllOrdersPermission()
+    {
+        // AQ-419 — controller must derive isAdmin from the permission service.
+        _permissionServiceMock
+            .Setup(p => p.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _distributorServiceMock
+            .Setup(x => x.GetAllAsync(It.IsAny<DistributorFilteringInputDto>(), TenantId, UserId, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<DistributorListDto>());
+
+        await _sut.GetAll(null, null, CancellationToken.None);
+
+        _distributorServiceMock.Verify(x => x.GetAllAsync(
+            It.IsAny<DistributorFilteringInputDto>(), TenantId, UserId, true, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetAll_ShouldForwardIsAdminFalse_WhenUserLacksPermission()
+    {
+        // AQ-419 — non-admin users must be scoped to their authorized distributors.
+        _permissionServiceMock
+            .Setup(p => p.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _distributorServiceMock
+            .Setup(x => x.GetAllAsync(It.IsAny<DistributorFilteringInputDto>(), TenantId, UserId, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<DistributorListDto>());
+
+        await _sut.GetAll(null, null, CancellationToken.None);
+
+        _distributorServiceMock.Verify(x => x.GetAllAsync(
+            It.IsAny<DistributorFilteringInputDto>(), TenantId, UserId, false, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

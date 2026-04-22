@@ -77,7 +77,7 @@ public class OrdersControllerTest
             .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _orderServiceMock
-            .Setup(x => x.GetOrdersFilteredAsync(UserId, TenantId, It.IsAny<OrderFilterDto>(), true, It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetOrdersFilteredAsync(UserId, TenantId, It.IsAny<OrderFilterDto>(), true, false, It.IsAny<CancellationToken>()))
             .ReturnsAsync(pagedResult);
 
         var result = await _sut.GetOrders(null, null, null, null, 1, 20, null, true, null, null, null, null, null, CancellationToken.None);
@@ -98,7 +98,7 @@ public class OrdersControllerTest
         _orderServiceMock
             .Setup(x => x.GetOrdersFilteredAsync(UserId, TenantId,
                 It.Is<OrderFilterDto>(f => f.Statuses!.Count == 2 && f.IsUnassigned == true && f.Search == "test"),
-                false, It.IsAny<CancellationToken>()))
+                false, false, It.IsAny<CancellationToken>()))
             .ReturnsAsync(pagedResult);
 
         var result = await _sut.GetOrders(statuses, true, null, "test", 1, 20, null, true, null, null, null, null, null, CancellationToken.None);
@@ -723,7 +723,7 @@ public class OrdersControllerTest
             .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _orderServiceMock
-            .Setup(x => x.GetDashboardSummaryAsync(UserId, TenantId, true, It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetDashboardSummaryAsync(UserId, TenantId, true, false, It.IsAny<CancellationToken>()))
             .ReturnsAsync(summary);
 
         var result = await _sut.GetDashboardSummary(CancellationToken.None);
