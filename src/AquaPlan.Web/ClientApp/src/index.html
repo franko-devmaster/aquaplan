@@ -28,6 +28,33 @@
   <script>
     (function () {
       if (!('serviceWorker' in navigator)) return;
+
+      // AQ-425 — Safari (iOS et macOS) : le Service Worker Angular cause des blocages
+      // persistants. On force-unregister tout SW existant et on clear les caches à
+      // chaque chargement sur Safari (les autres navigateurs gardent l'offline).
+      var ua = navigator.userAgent || '';
+      var isSafari = /Safari/i.test(ua) && !/(Chrome|Chromium|CriOS|FxiOS|EdgiOS|EdgA|DuckDuckGo|OPiOS|OPR|Opera|YaBrowser|SamsungBrowser)/i.test(ua);
+      if (isSafari) {
+        try {
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            if (regs.length) {
+              try { console.warn('[aq-sw] Safari detected — unregistering ' + regs.length + ' SW'); } catch (_) { /* ignore */ }
+              regs.forEach(function (r) { r.unregister(); });
+              if (typeof caches !== 'undefined' && caches && caches.keys) {
+                caches.keys().then(function (keys) {
+                  keys.forEach(function (k) { caches.delete(k); });
+                });
+              }
+              // Si le SW contrôle encore la page, reload pour que Safari reparte propre.
+              if (navigator.serviceWorker.controller) {
+                setTimeout(function () { window.location.reload(); }, 100);
+              }
+            }
+          });
+        } catch (_) { /* best-effort */ }
+        return; // pas de recovery handlers sur Safari, le SW ne s'enregistrera pas
+      }
+
       var RECOVERED_KEY = 'aq-sw-recovered';
       var alreadyRecovered = false;
       try { alreadyRecovered = sessionStorage.getItem(RECOVERED_KEY) === '1'; } catch (_) { /* private mode */ }
