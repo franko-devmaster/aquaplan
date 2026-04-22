@@ -32,14 +32,30 @@ import { FooterComponent } from '../footer/footer.component';
   styles: [`
     /* AQ-FOOTER-STICKY — footer fixed at bottom, always visible.
        Sidenav container leaves space at the bottom equal to the footer height
-       so content is never hidden behind it. */
-    .sidenav-container { position: absolute; top: 64px; bottom: 32px; left: 0; right: 0; }
-    .sidenav { width: 250px; }
+       so content is never hidden behind it.
+       AQ-423 — header is fixed 64px (desktop + mobile). Sidebar is 240px
+       dark-navy; content padding follows design-system scale. */
+    .sidenav-container {
+      position: absolute;
+      top: 64px;
+      bottom: 32px;
+      left: 0;
+      right: 0;
+      background: var(--color-bg-page);
+    }
+    .sidenav {
+      width: 240px;
+      background: var(--color-primary-800);
+      border-right: none;
+    }
     .sidenav-mobile { width: 280px; }
-    .content { padding: 24px; }
-    .content-mobile { padding: 16px; }
-    @media (max-width: 767px) {
-      .sidenav-container { top: 56px; }
+    .content {
+      padding: var(--space-6);
+      background: var(--color-bg-page);
+    }
+    .content-mobile { padding: var(--space-3); }
+    @media (min-width: 768px) and (max-width: 1199px) {
+      .content { padding: var(--space-4); }
     }
   `],
 })

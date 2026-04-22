@@ -1,5 +1,5 @@
 @use '@angular/material' as mat;
-// AquaPlan Design System — v0.94 Sprint A (AQ-422)
+// AquaPlan Design System — v0.94 Sprint B (AQ-423)
 // _tokens.scss → CSS custom properties (colors, type, spacing, radii, elevation, z, motion)
 // _fonts.scss  → self-hosted @font-face declarations (Public Sans, JetBrains Mono, Material Icons)
 // _responsive  → pre-existing breakpoint utilities (AQ-219)
@@ -8,20 +8,28 @@
 @use 'styles/fonts' as *;
 @use 'styles/responsive' as *;
 
-// Global styles
+// -----------------------------------------------------------------------------
+// Global resets & body base
+// -----------------------------------------------------------------------------
 html, body { height: 100%; }
 body {
   margin: 0;
   font-family: var(--font-family-base, "Public Sans", "Helvetica Neue", Arial, sans-serif);
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-normal);
+  color: var(--color-fg-default);
+  background: var(--color-bg-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 // -----------------------------------------------------------------------------
 // Angular Material theme override — "Aquaplan Deep"
 // -----------------------------------------------------------------------------
-// v0.94 Sprint A approach: keep the azure-blue prebuilt Material theme (already
-// loaded via angular.json) but override the Material system CSS variables so
-// primary = #1f7aa6. No SCSS theme rebuild — minimal-risk non-breaking swap.
-// Sprint B+ may migrate to a fully SCSS-defined Material theme.
+// Sprint A approach kept: override Material system tokens so primary = #1f7aa6
+// without rebuilding the SCSS theme. Sprint B adds component-level refinements
+// for buttons, cards, form-fields.
 // -----------------------------------------------------------------------------
 :root {
   // Material 3 system tokens (Angular Material 19 uses --mat-sys-* as canonical)
@@ -34,6 +42,231 @@ body {
   --mat-primary-500: var(--color-primary-500);
   --mat-primary-600: var(--color-primary-600);
   --mat-primary-700: var(--color-primary-700);
+
+  // Z-index for fixed header — fallback if --z-header is absent from tokens
+  --z-header: 1100;
+}
+
+// -----------------------------------------------------------------------------
+// BUTTONS — primary / stroked / text, aligned with tokens
+// -----------------------------------------------------------------------------
+// Material 3 uses MDC-based buttons; these rules target mat-raised,
+// mat-flat, mat-stroked and mat-button while preserving ripple/focus behaviour.
+// -----------------------------------------------------------------------------
+.mat-mdc-raised-button,
+.mat-mdc-flat-button,
+.mat-mdc-unelevated-button {
+  min-height: 40px;
+  border-radius: var(--radius-sm) !important;
+  font-family: var(--font-family-base);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-14);
+  letter-spacing: 0;
+  padding: 0 var(--space-4) !important;
+  transition: background-color var(--duration-fast) var(--easing-standard),
+              box-shadow var(--duration-fast) var(--easing-standard);
+
+  &.mat-primary,
+  &[color="primary"] {
+    background-color: var(--color-primary) !important;
+    color: var(--color-on-primary) !important;
+    --mdc-protected-button-container-color: var(--color-primary);
+    --mdc-protected-button-label-text-color: var(--color-on-primary);
+    --mdc-filled-button-container-color: var(--color-primary);
+    --mdc-filled-button-label-text-color: var(--color-on-primary);
+
+    &:hover:not(:disabled) {
+      background-color: var(--color-primary-hover) !important;
+    }
+    &:active:not(:disabled) {
+      background-color: var(--color-primary-active) !important;
+    }
+  }
+
+  &.mat-warn,
+  &[color="warn"] {
+    background-color: var(--color-error-500) !important;
+    color: var(--color-on-primary) !important;
+    --mdc-protected-button-container-color: var(--color-error-500);
+    --mdc-filled-button-container-color: var(--color-error-500);
+  }
+}
+
+.mat-mdc-outlined-button {
+  min-height: 40px;
+  border-radius: var(--radius-sm) !important;
+  font-family: var(--font-family-base);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-14);
+  border-color: var(--color-border-default) !important;
+  color: var(--color-primary) !important;
+  --mdc-outlined-button-outline-color: var(--color-border-default);
+  --mdc-outlined-button-label-text-color: var(--color-primary);
+
+  &:hover:not(:disabled) {
+    background-color: var(--color-primary-50) !important;
+    border-color: var(--color-primary) !important;
+  }
+}
+
+.mat-mdc-button {
+  min-height: 40px;
+  border-radius: var(--radius-sm) !important;
+  font-family: var(--font-family-base);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-14);
+  color: var(--color-primary) !important;
+  --mdc-text-button-label-text-color: var(--color-primary);
+
+  &:hover:not(:disabled) {
+    background-color: var(--color-primary-50) !important;
+  }
+}
+
+// Mobile: enlarge touch targets
+@media (max-width: 767px) {
+  .mat-mdc-raised-button,
+  .mat-mdc-flat-button,
+  .mat-mdc-unelevated-button,
+  .mat-mdc-outlined-button,
+  .mat-mdc-button {
+    min-height: 44px;
+  }
+}
+
+// Disabled state — opacity + cursor
+.mat-mdc-raised-button:disabled,
+.mat-mdc-flat-button:disabled,
+.mat-mdc-unelevated-button:disabled,
+.mat-mdc-outlined-button:disabled,
+.mat-mdc-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+// -----------------------------------------------------------------------------
+// CARDS — border-over-shadow by default, token-driven
+// -----------------------------------------------------------------------------
+.mat-mdc-card {
+  background: var(--color-bg-surface) !important;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md) !important;
+  box-shadow: none !important;
+  --mdc-elevated-card-container-color: var(--color-bg-surface);
+  --mdc-elevated-card-container-elevation: none;
+}
+
+// Clickable list-row card variant (mobile list rows): opt-in via .clickable
+.mat-mdc-card.clickable,
+.mat-mdc-card[role="button"] {
+  box-shadow: var(--elevation-1) !important;
+  cursor: pointer;
+  transition: box-shadow var(--duration-fast) var(--easing-standard);
+
+  &:hover {
+    box-shadow: var(--elevation-2) !important;
+  }
+}
+
+.mat-mdc-card-content {
+  padding: var(--space-4) !important;
+}
+
+// Legacy custom card classes used across pages — align with tokens
+.card,
+.widget-card,
+.widget-content {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+// -----------------------------------------------------------------------------
+// FORM FIELDS — floating label, focus ring, mobile 48px
+// -----------------------------------------------------------------------------
+.mat-mdc-form-field {
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-14);
+
+  // Border colour for outlined variants
+  --mdc-outlined-text-field-outline-color: var(--color-border-default);
+  --mdc-outlined-text-field-hover-outline-color: var(--color-border-strong);
+  --mdc-outlined-text-field-focus-outline-color: var(--color-border-focus);
+  --mdc-outlined-text-field-label-text-color: var(--color-fg-muted);
+  --mdc-outlined-text-field-focus-label-text-color: var(--color-primary);
+  --mdc-outlined-text-field-error-outline-color: var(--color-error-500);
+  --mdc-outlined-text-field-error-focus-outline-color: var(--color-error-600);
+  --mdc-outlined-text-field-error-label-text-color: var(--color-error-600);
+
+  // Filled variant fallback
+  --mdc-filled-text-field-label-text-color: var(--color-fg-muted);
+  --mdc-filled-text-field-focus-active-indicator-color: var(--color-primary);
+  --mdc-filled-text-field-focus-label-text-color: var(--color-primary);
+  --mdc-filled-text-field-error-focus-active-indicator-color: var(--color-error-500);
+
+  // Focus ring — added as an outer box-shadow on the wrapper when focused
+  &.mat-focused {
+    .mdc-notched-outline {
+      // Let the native outline show; add a soft focus halo via the wrapper
+    }
+  }
+}
+
+.mat-mdc-form-field.mat-focused .mdc-text-field--outlined:not(.mdc-text-field--invalid) {
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+// Mobile forms — taller target + 16px font to block iOS zoom
+@media (max-width: 767px) {
+  .mat-mdc-form-field {
+    font-size: var(--font-size-16);
+  }
+  .mat-mdc-text-field-wrapper {
+    min-height: 48px;
+  }
+}
+
+// Required marker — accent teal instead of default
+.mat-mdc-form-field-required-marker {
+  color: var(--color-accent-500) !important;
+}
+
+// -----------------------------------------------------------------------------
+// MAT-ICON — keep currentColor behaviour
+// -----------------------------------------------------------------------------
+.mat-icon {
+  color: inherit;
+}
+
+// -----------------------------------------------------------------------------
+// GLOBAL HEADINGS — use brand typography scale
+// -----------------------------------------------------------------------------
+h1 {
+  font-size: var(--font-size-32);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+}
+h2 {
+  font-size: var(--font-size-26);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-snug);
+}
+h3 {
+  font-size: var(--font-size-22);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-snug);
+}
+
+// -----------------------------------------------------------------------------
+// CONTENT CONTAINER — max-width for wide desktop
+// -----------------------------------------------------------------------------
+.content-wrapper,
+.page-content {
+  max-width: 1440px;
+  margin-inline: auto;
 }
 
 // Status badges are rendered via <app-status-chip> (see components/status-chip)
