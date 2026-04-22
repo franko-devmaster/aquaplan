@@ -241,7 +241,17 @@ export class SamplingFormDialogComponent implements OnInit {
       const required = await firstValueFrom(this.orderApi.getRequiredContainers(this.data.orderId));
       this.buildContainerFormArray(required, sampling);
     } catch {
-      // Error handled globally; keep empty array
+      // AQ-427 — API indisponible (hors ligne typiquement). On reconstruit les
+      // required-containers depuis le snapshot IndexedDB chargé au checkout de
+      // la tournée. Si pas de snapshot trouvé, on laisse les champs vides.
+      try {
+        const offlineRequired = await this.offlineStorage.getRequiredContainersOffline(this.data.orderId);
+        if (offlineRequired && offlineRequired.length > 0) {
+          this.buildContainerFormArray(offlineRequired, sampling);
+        }
+      } catch {
+        // Best-effort : on ignore.
+      }
     } finally {
       this.loadingContainers.set(false);
     }

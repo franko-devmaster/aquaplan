@@ -176,6 +176,45 @@ export class OfflineStorageService {
     await db.clear('active-round');
   }
 
+  /**
+   * AQ-427 — en mode hors ligne, le dialog sampling-form ne peut pas appeler
+   * /api/orders/{id}/required-containers. On reconstitue la liste à partir du
+   * snapshot offline stocké lors du checkout de la tournée : pour chaque
+   * programme du mandat, on agrège ses profils.container → déduplication par
+   * containerId. Retourne null si aucun snapshot trouvé (→ le caller peut
+   * afficher un message plus clair au préleveur).
+   */
+  async getRequiredContainersOffline(orderId: string): Promise<OfflineRequiredContainer[] | null> {
+    const db = await this.getDb();
+    const all = await db.getAll('active-round');
+    for (const snapshot of all) {
+      const data = snapshot.data as OfflineSnapshotData | undefined;
+      if (!data?.orders) continue;
+      const order = data.orders.find(o => o.id === orderId);
+      if (!order) continue;
+      const programs = data.analysisPrograms ?? [];
+      const seen = new Map<string, OfflineRequiredContainer>();
+      for (const orderProgram of order.analysisPrograms ?? []) {
+        const prog = programs.find(p => p.id === orderProgram.analysisProgramId);
+        if (!prog?.requiredContainers) continue;
+        for (const c of prog.requiredContainers) {
+          if (!seen.has(c.containerId)) {
+            seen.set(c.containerId, {
+              containerId: c.containerId,
+              code: c.code,
+              name: c.name,
+              material: c.material,
+              volumeMl: c.volumeMl,
+              existingBarcode: order.sampling?.sampleBarcode ?? null,
+            });
+          }
+        }
+      }
+      return Array.from(seen.values());
+    }
+    return null;
+  }
+
   async queueAction(
     action: Omit<PendingAction, 'id' | 'queuedAt' | 'attempts'>
   ): Promise<number> {
@@ -228,4 +267,42 @@ export class OfflineStorageService {
       db.clear('auth'),
     ]);
   }
+}
+
+/**
+ * AQ-427 — subset typé du snapshot (shape backend) utilisé pour recalculer
+ * les contenants requis en offline sans coupler le storage aux DTOs publics.
+ */
+interface OfflineSnapshotData {
+  orders?: OfflineOrder[];
+  analysisPrograms?: OfflineProgram[];
+}
+
+interface OfflineOrder {
+  id: string;
+  analysisPrograms?: { analysisProgramId: string }[];
+  sampling?: { sampleBarcode?: string | null } | null;
+}
+
+interface OfflineProgram {
+  id: string;
+  requiredContainers?: OfflineContainer[];
+}
+
+interface OfflineContainer {
+  containerId: string;
+  code: string;
+  name: string;
+  material: string;
+  volumeMl: number;
+}
+
+/** AQ-427 — shape parallèle à RequiredContainerDto pour éviter l'import mutuel. */
+export interface OfflineRequiredContainer {
+  containerId: string;
+  code: string;
+  name: string;
+  material: string;
+  volumeMl: number;
+  existingBarcode: string | null;
 }
