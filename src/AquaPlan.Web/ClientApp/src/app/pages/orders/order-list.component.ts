@@ -43,8 +43,9 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
   providers: [provideNativeDateAdapter()],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="page-header">
-      <h2>{{ 'orders.title' | translate }}</h2>
+   <div class="orders-page">
+    <header class="page-header">
+      <h1 class="page-title">{{ 'orders.title' | translate }}</h1>
       <div class="header-actions">
         @if (canBulkActions()) {
           <button mat-stroked-button
@@ -75,7 +76,7 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
           </button>
         }
       </div>
-    </div>
+    </header>
 
     <div class="filters-row">
       <mat-form-field appearance="outline" class="filter-field">
@@ -205,16 +206,97 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
                      showFirstLastButtons>
       </mat-paginator>
     }
+   </div>
   `,
   styles: [`
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .header-actions { display: flex; gap: 8px; }
-    .filters-row { display: flex; gap: 16px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+    :host { display: block; background: var(--color-bg-page); }
+
+    .orders-page {
+      padding: var(--space-6);
+      max-width: 1440px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+    }
+
+    .page-title {
+      margin: 0;
+      font-family: var(--font-family-base);
+      font-size: var(--font-size-26);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-fg-default);
+      letter-spacing: var(--letter-spacing-tight);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+    }
+
+    .filters-row {
+      display: flex;
+      gap: var(--space-3);
+      align-items: center;
+      flex-wrap: wrap;
+      padding: var(--space-3) var(--space-4);
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border-default);
+      border-radius: var(--radius-md);
+    }
+
     .filter-field { min-width: 200px; }
     .full-width { width: 100%; }
-    .loading-container { display: flex; justify-content: center; padding: 48px; }
-    .no-data { text-align: center; padding: 24px; color: #666; }
-    .delegation-badge { font-size: 16px; width: 16px; height: 16px; vertical-align: middle; margin-left: 4px; color: #1976d2; }
+
+    .loading-container {
+      display: flex;
+      justify-content: center;
+      padding: var(--space-12);
+    }
+
+    .no-data {
+      text-align: center;
+      padding: var(--space-6);
+      color: var(--color-fg-muted);
+      font-size: var(--font-size-14);
+    }
+
+    .responsive-table-container {
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border-default);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .delegation-badge {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      vertical-align: middle;
+      margin-left: var(--space-1);
+      color: var(--color-primary-600);
+    }
+
+    /* Row hover via design tokens */
+    :host ::ng-deep .mat-mdc-row.clickable-row:hover {
+      background: var(--color-row-hover) !important;
+      cursor: pointer;
+    }
+
+    @media (max-width: 768px) {
+      .orders-page { padding: var(--space-3); gap: var(--space-3); }
+      .page-title { font-size: var(--font-size-22); }
+      .filter-field { min-width: 100%; }
+    }
   `],
 })
 export class OrderListComponent implements OnInit {

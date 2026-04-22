@@ -2,81 +2,225 @@ import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatDividerModule } from '@angular/material/divider';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TranslateModule } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 
+// AQ-424 — login refreshed with Aquaplan Deep tokens: full-bleed page with
+// low-contrast background pattern, centered card (420px desktop, fullscreen on
+// mobile), brand mark, outlined fields with icon prefix, primary CTA + SSO below.
 @Component({
   selector: 'app-login',
   standalone: true,
   imports: [
-    FormsModule, MatCardModule, MatFormFieldModule, MatInputModule,
-    MatButtonModule, MatIconModule, MatDividerModule, MatProgressSpinnerModule,
+    FormsModule, MatFormFieldModule, MatInputModule,
+    MatButtonModule, MatIconModule, MatProgressSpinnerModule,
     TranslateModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="login-container">
-      <mat-card class="login-card">
-        <mat-card-header>
-          <mat-card-title>{{ 'app.title' | translate }}</mat-card-title>
-          <mat-card-subtitle>{{ 'app.subtitle' | translate }}</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
-          <form (ngSubmit)="onLogin()">
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>{{ 'auth.email' | translate }}</mat-label>
-              <input matInput type="email" [(ngModel)]="email" name="email" required>
-              <mat-icon matPrefix>email</mat-icon>
-            </mat-form-field>
+    <div class="login-page">
+      <form class="login-card" (ngSubmit)="onLogin()">
+        <div class="brand">
+          <img src="assets/brand/mark.svg" width="48" height="48" alt="Aquaplan" />
+          <h1 class="brand-title">{{ 'app.title' | translate }}</h1>
+          <p class="brand-subtitle">{{ 'app.subtitle' | translate }}</p>
+        </div>
 
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>{{ 'auth.password' | translate }}</mat-label>
-              <input matInput type="password" [(ngModel)]="password" name="password" required>
-              <mat-icon matPrefix>lock</mat-icon>
-            </mat-form-field>
+        <h2 class="form-title">{{ 'auth.signInHeading' | translate }}</h2>
 
-            @if (errorMessage()) {
-              <p class="error-message">{{ errorMessage() | translate }}</p>
-            }
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>{{ 'auth.email' | translate }}</mat-label>
+          <input matInput type="email" [(ngModel)]="email" name="email" required autocomplete="email" />
+          <mat-icon matPrefix>mail_outline</mat-icon>
+        </mat-form-field>
 
-            <button mat-raised-button color="primary" type="submit" class="full-width"
-                    [disabled]="loading()">
-              @if (loading()) {
-                <mat-spinner diameter="20"></mat-spinner>
-              } @else {
-                {{ 'auth.loginButton' | translate }}
-              }
-            </button>
-          </form>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>{{ 'auth.password' | translate }}</mat-label>
+          <input matInput type="password" [(ngModel)]="password" name="password" required autocomplete="current-password" />
+          <mat-icon matPrefix>lock_outline</mat-icon>
+        </mat-form-field>
 
-          <mat-divider class="divider"></mat-divider>
+        @if (errorMessage()) {
+          <p class="error-message" role="alert">
+            <mat-icon aria-hidden="true">error_outline</mat-icon>
+            <span>{{ errorMessage() | translate }}</span>
+          </p>
+        }
 
-          @if (oidcEnabled()) {
-            <button mat-stroked-button class="full-width sso-button" (click)="onSsoLogin()">
-              <mat-icon>login</mat-icon>
-              {{ 'auth.loginSso' | translate }}
-            </button>
+        <button mat-raised-button color="primary" type="submit" class="full-width submit-btn"
+                [disabled]="loading()">
+          @if (loading()) {
+            <mat-spinner diameter="20"></mat-spinner>
+          } @else {
+            {{ 'auth.loginButton' | translate }}
           }
-        </mat-card-content>
-      </mat-card>
+        </button>
+
+        @if (oidcEnabled()) {
+          <div class="divider">
+            <span class="divider-line"></span>
+            <span class="divider-text">{{ 'auth.or' | translate }}</span>
+            <span class="divider-line"></span>
+          </div>
+
+          <button mat-stroked-button type="button" class="full-width sso-button" (click)="onSsoLogin()">
+            <mat-icon>business</mat-icon>
+            <span>{{ 'auth.loginSso' | translate }}</span>
+          </button>
+        }
+
+        <p class="contact-hint">{{ 'auth.contactAdmin' | translate }}</p>
+      </form>
     </div>
   `,
   styles: [`
-    .login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f5f5f5; }
-    .login-card { width: 400px; padding: 24px; }
+    :host { display: block; }
+
+    .login-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-6);
+      background-color: var(--color-neutral-50);
+      background-image: url('/assets/brand/bg-login-pattern.svg');
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: cover;
+    }
+
+    .login-card {
+      width: 420px;
+      max-width: 100%;
+      background: var(--color-bg-surface);
+      border: 1px solid var(--color-border-default);
+      border-radius: var(--radius-md);
+      box-shadow: var(--elevation-1);
+      padding: var(--space-8);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-5);
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-2);
+    }
+
+    .brand img {
+      display: block;
+    }
+
+    .brand-title {
+      margin: 0;
+      font-family: var(--font-family-base);
+      font-size: var(--font-size-22);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-fg-default);
+      letter-spacing: var(--letter-spacing-tight);
+    }
+
+    .brand-subtitle {
+      margin: 0;
+      font-size: var(--font-size-13);
+      color: var(--color-fg-muted);
+      text-align: center;
+    }
+
+    .form-title {
+      margin: 0;
+      font-family: var(--font-family-base);
+      font-size: var(--font-size-20);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-fg-default);
+    }
+
     .full-width { width: 100%; }
-    .error-message { color: #f44336; margin-bottom: 16px; text-align: center; }
-    .divider { margin: 24px 0; }
-    .sso-button { margin-top: 8px; }
-    mat-form-field { margin-bottom: 8px; }
+
+    .submit-btn {
+      height: var(--touch-md);
+      font-weight: var(--font-weight-medium);
+    }
+
+    .error-message {
+      margin: 0;
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-2);
+      padding: var(--space-3);
+      background: var(--color-error-50);
+      color: var(--color-error-700);
+      border: 1px solid var(--color-error-500);
+      border-radius: var(--radius-sm);
+      font-size: var(--font-size-13);
+      line-height: var(--line-height-snug);
+    }
+
+    .error-message mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      color: var(--color-error-600);
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .divider-line {
+      flex: 1;
+      height: 1px;
+      background: var(--color-border-default);
+    }
+
+    .divider-text {
+      font-size: var(--font-size-12);
+      color: var(--color-fg-muted);
+      text-transform: lowercase;
+    }
+
+    .sso-button {
+      height: var(--touch-md);
+      color: var(--color-primary-600);
+      border-color: var(--color-primary-600);
+    }
+
+    .contact-hint {
+      margin: 0;
+      font-size: var(--font-size-12);
+      color: var(--color-fg-muted);
+      text-align: center;
+      font-style: italic;
+    }
+
+    /* Mobile: fullscreen card, no radius, no border */
+    @media (max-width: 480px) {
+      .login-page {
+        padding: 0;
+        align-items: stretch;
+      }
+      .login-card {
+        width: 100%;
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
+        padding: var(--space-6);
+        justify-content: center;
+        min-height: 100vh;
+      }
+    }
   `],
 })
 export class LoginComponent implements OnInit {

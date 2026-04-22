@@ -35,30 +35,39 @@ interface DistributorOption {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h2 mat-dialog-title>{{ 'orders.createOrder' | translate }}</h2>
+    <h2 mat-dialog-title class="dialog-title">{{ 'orders.createOrder' | translate }}</h2>
     <mat-dialog-content>
       <form [formGroup]="form" class="form-container">
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>{{ 'orders.distributor' | translate }}</mat-label>
-          <mat-select formControlName="distributorId" (selectionChange)="onDistributorChange()">
-            @for (dist of distributors(); track dist.id) {
-              <mat-option [value]="dist.id">{{ dist.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <!-- Section: Destinataire -->
+        <div class="form-section">
+          <div class="ap-section-label">{{ 'orders.createDialog.sectionRecipient' | translate }}</div>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>{{ 'orders.distributor' | translate }}</mat-label>
+            <mat-select formControlName="distributorId" (selectionChange)="onDistributorChange()">
+              @for (dist of distributors(); track dist.id) {
+                <mat-option [value]="dist.id">{{ dist.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
 
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>{{ 'orders.samplingLocation' | translate }}</mat-label>
-          <mat-select formControlName="samplingLocationId">
-            <mat-option [value]="null">-</mat-option>
-            @for (loc of locations(); track loc.id) {
-              <mat-option [value]="loc.id">{{ loc.name }} ({{ loc.locationCode }})</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <!-- Section: Lieu de prélèvement -->
+        <div class="form-section">
+          <div class="ap-section-label">{{ 'orders.createDialog.sectionLocation' | translate }}</div>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>{{ 'orders.samplingLocation' | translate }}</mat-label>
+            <mat-select formControlName="samplingLocationId">
+              <mat-option [value]="null">-</mat-option>
+              @for (loc of locations(); track loc.id) {
+                <mat-option [value]="loc.id">{{ loc.name }} ({{ loc.locationCode }})</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
 
-        <div class="round-section">
-          <label class="section-label">{{ 'orders.round' | translate }}</label>
+        <!-- Section: Planification (round) -->
+        <div class="form-section round-section">
+          <div class="ap-section-label">{{ 'orders.round' | translate }}</div>
           <mat-radio-group formControlName="roundMode" class="round-mode-group">
             <mat-radio-button value="none">{{ 'orders.noRound' | translate }}</mat-radio-button>
             <mat-radio-button value="existing">{{ 'orders.existingRound' | translate }}</mat-radio-button>
@@ -91,43 +100,51 @@ interface DistributorOption {
           }
         </div>
 
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>{{ 'orders.analysisPrograms' | translate }}</mat-label>
-          <mat-select formControlName="analysisProgramIds" multiple>
-            @for (program of analysisPrograms(); track program.id) {
-              <mat-option [value]="program.id">{{ program.code }} — {{ program.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>{{ 'orders.notes' | translate }}</mat-label>
-          <textarea matInput formControlName="notes" rows="3"></textarea>
-        </mat-form-field>
-
-        <mat-checkbox formControlName="isUnplanned">
-          {{ 'orders.isUnplanned' | translate }}
-        </mat-checkbox>
-
-        @if (form.value.isUnplanned) {
+        <!-- Section: Programmes -->
+        <div class="form-section">
+          <div class="ap-section-label">{{ 'orders.createDialog.sectionPrograms' | translate }}</div>
           <mat-form-field appearance="outline" class="full-width">
-            <mat-label>{{ 'orders.unplannedReason.label' | translate }}</mat-label>
-            <mat-select formControlName="unplannedReason">
-              @for (reason of unplannedReasons; track reason.value) {
-                <mat-option [value]="reason.value">{{ reason.label | translate }}</mat-option>
+            <mat-label>{{ 'orders.analysisPrograms' | translate }}</mat-label>
+            <mat-select formControlName="analysisProgramIds" multiple>
+              @for (program of analysisPrograms(); track program.id) {
+                <mat-option [value]="program.id">{{ program.code }} — {{ program.name }}</mat-option>
               }
             </mat-select>
           </mat-form-field>
+        </div>
 
+        <!-- Section: Notes -->
+        <div class="form-section">
+          <div class="ap-section-label">{{ 'orders.createDialog.sectionNotes' | translate }}</div>
           <mat-form-field appearance="outline" class="full-width">
-            <mat-label>{{ 'orders.unplannedReason.details' | translate }}</mat-label>
-            <textarea matInput formControlName="unplannedReasonDetails" rows="2"></textarea>
+            <mat-label>{{ 'orders.notes' | translate }}</mat-label>
+            <textarea matInput formControlName="notes" rows="3"></textarea>
           </mat-form-field>
-        }
+
+          <mat-checkbox formControlName="isUnplanned" class="unplanned-check">
+            {{ 'orders.isUnplanned' | translate }}
+          </mat-checkbox>
+
+          @if (form.value.isUnplanned) {
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>{{ 'orders.unplannedReason.label' | translate }}</mat-label>
+              <mat-select formControlName="unplannedReason">
+                @for (reason of unplannedReasons; track reason.value) {
+                  <mat-option [value]="reason.value">{{ reason.label | translate }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>{{ 'orders.unplannedReason.details' | translate }}</mat-label>
+              <textarea matInput formControlName="unplannedReasonDetails" rows="2"></textarea>
+            </mat-form-field>
+          }
+        </div>
       </form>
     </mat-dialog-content>
-    <mat-dialog-actions align="end">
-      <button mat-button mat-dialog-close>{{ 'common.cancel' | translate }}</button>
+    <mat-dialog-actions align="end" class="dialog-actions">
+      <button mat-stroked-button mat-dialog-close>{{ 'common.cancel' | translate }}</button>
       <button mat-raised-button color="primary" (click)="onSubmit()"
               [disabled]="form.invalid || saving()">
         @if (saving()) {
@@ -139,12 +156,74 @@ interface DistributorOption {
     </mat-dialog-actions>
   `,
   styles: [`
-    .form-container { display: flex; flex-direction: column; min-width: 450px; gap: 8px; }
+    .dialog-title {
+      font-family: var(--font-family-base);
+      font-size: var(--font-size-22);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-fg-default);
+      margin: 0 0 var(--space-2) 0;
+      padding-bottom: var(--space-3);
+      border-bottom: 1px solid var(--color-border-default);
+    }
+
+    .form-container {
+      display: flex;
+      flex-direction: column;
+      min-width: 480px;
+      gap: var(--space-4);
+      padding-top: var(--space-2);
+    }
+
+    .form-section {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .ap-section-label {
+      font-size: var(--font-size-12);
+      font-weight: var(--font-weight-semibold);
+      letter-spacing: var(--letter-spacing-wide);
+      text-transform: uppercase;
+      color: var(--color-fg-muted);
+    }
+
     .full-width { width: 100%; }
-    .round-section { border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; margin-bottom: 8px; }
-    .section-label { font-size: 12px; font-weight: 500; color: #666; text-transform: uppercase; margin-bottom: 8px; display: block; }
-    .round-mode-group { display: flex; gap: 12px; margin-bottom: 12px; }
-    .info-text { color: #666; font-size: 13px; font-style: italic; }
+
+    .round-section {
+      background: var(--color-bg-sunken);
+      border: 1px solid var(--color-border-default);
+      border-radius: var(--radius-md);
+      padding: var(--space-3);
+    }
+
+    .round-mode-group {
+      display: flex;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+      margin-bottom: var(--space-2);
+    }
+
+    .unplanned-check {
+      margin-top: var(--space-1);
+    }
+
+    .info-text {
+      margin: 0;
+      color: var(--color-fg-muted);
+      font-size: var(--font-size-13);
+      font-style: italic;
+    }
+
+    .dialog-actions {
+      padding: var(--space-3) 0 0 0;
+      border-top: 1px solid var(--color-border-default);
+      gap: var(--space-2);
+    }
+
+    @media (max-width: 600px) {
+      .form-container { min-width: 0; width: 100%; }
+    }
   `],
 })
 export class OrderCreateDialogComponent implements OnInit {

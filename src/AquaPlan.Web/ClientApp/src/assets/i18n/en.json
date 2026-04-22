@@ -32,8 +32,11 @@
     "password": "Password",
     "loginButton": "Sign in",
     "loginSso": "Sign in with EntraID",
-    "loginFailed": "Invalid email or password",
-    "accountDisabled": "Account disabled, contact administrator"
+    "loginFailed": "Invalid credentials. Please check your email and password.",
+    "accountDisabled": "Account disabled. Contact your administrator.",
+    "signInHeading": "Sign in",
+    "or": "or",
+    "contactAdmin": "Need access? Contact your administrator."
   },
   "common": {
     "save": "Save",
@@ -201,6 +204,12 @@
     "analysisProfiles": "Analysis profiles",
     "analysisPrograms": "Analysis programs",
     "createOrder": "Create order",
+    "createDialog": {
+      "sectionRecipient": "Recipient",
+      "sectionLocation": "Sampling location",
+      "sectionPrograms": "Analysis programs",
+      "sectionNotes": "Notes"
+    },
     "editOrder": "Edit order",
     "assignPreleveur": "Assign sampler",
     "details": "Order details",
@@ -405,6 +414,7 @@
   },
   "dashboard": {
     "title": "Dashboard",
+    "welcome": "Welcome, {{name}}",
     "ordersToFinalize": "Orders to finalize",
     "plannedRounds": "Planned rounds",
     "myRounds": "My rounds",

@@ -31,12 +31,15 @@
   "auth": {
     "login": "Se connecter",
     "logout": "Se déconnecter",
-    "email": "Adresse email",
+    "email": "Adresse e-mail",
     "password": "Mot de passe",
-    "loginButton": "Connexion",
+    "loginButton": "Se connecter",
     "loginSso": "Se connecter avec EntraID",
-    "loginFailed": "Email ou mot de passe invalide",
-    "accountDisabled": "Compte désactivé, contactez l'administrateur"
+    "loginFailed": "Identifiants invalides. Vérifiez votre e-mail et votre mot de passe.",
+    "accountDisabled": "Compte désactivé. Contactez votre administrateur.",
+    "signInHeading": "Connexion",
+    "or": "ou",
+    "contactAdmin": "Besoin d'un accès ? Contactez votre administrateur."
   },
   "common": {
     "save": "Enregistrer",
@@ -160,6 +163,12 @@
     "analysisProfiles": "Profils d'analyse",
     "analysisPrograms": "Programmes d'analyse",
     "createOrder": "Créer un mandat",
+    "createDialog": {
+      "sectionRecipient": "Destinataire",
+      "sectionLocation": "Lieu de prélèvement",
+      "sectionPrograms": "Programmes d'analyse",
+      "sectionNotes": "Notes"
+    },
     "editOrder": "Modifier le mandat",
     "assignPreleveur": "Assigner un préleveur",
     "details": "Détails du mandat",
@@ -498,6 +507,7 @@
   },
   "dashboard": {
     "title": "Tableau de bord",
+    "welcome": "Bienvenue, {{name}}",
     "ordersToFinalize": "Mandats à finaliser",
     "plannedRounds": "Tournées planifiées",
     "myRounds": "Mes tournées",

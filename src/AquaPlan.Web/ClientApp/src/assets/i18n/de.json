@@ -32,8 +32,11 @@
     "password": "Passwort",
     "loginButton": "Anmelden",
     "loginSso": "Mit EntraID anmelden",
-    "loginFailed": "Ungültige E-Mail oder ungültiges Passwort",
-    "accountDisabled": "Konto deaktiviert, wenden Sie sich an den Administrator"
+    "loginFailed": "Ungültige Anmeldedaten. Bitte prüfen Sie E-Mail und Passwort.",
+    "accountDisabled": "Konto deaktiviert. Wenden Sie sich an Ihren Administrator.",
+    "signInHeading": "Anmelden",
+    "or": "oder",
+    "contactAdmin": "Zugang benötigt? Wenden Sie sich an Ihren Administrator."
   },
   "common": {
     "save": "Speichern",
@@ -200,6 +203,12 @@
     "analysisProfiles": "Analyseprofile",
     "analysisPrograms": "Analyseprogramme",
     "createOrder": "Auftrag erstellen",
+    "createDialog": {
+      "sectionRecipient": "Empfänger",
+      "sectionLocation": "Probenahmeort",
+      "sectionPrograms": "Analyseprogramme",
+      "sectionNotes": "Notizen"
+    },
     "editOrder": "Auftrag bearbeiten",
     "assignPreleveur": "Probenehmer zuweisen",
     "details": "Auftragsdetails",
@@ -397,7 +406,8 @@
     "locationReplaced": "Probenahmestelle ersetzt"
   },
   "dashboard": {
-    "title": "Dashboard",
+    "title": "Übersicht",
+    "welcome": "Willkommen, {{name}}",
     "ordersToFinalize": "Abzuschliessende Aufträge",
     "plannedRounds": "Geplante Touren",
     "myRounds": "Meine Touren",

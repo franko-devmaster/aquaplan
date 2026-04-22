@@ -35,75 +35,72 @@ import { RecentResultsZoneComponent } from '../results/recent-results-zone.compo
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <div class="dashboard">
-            <h1>{{ 'dashboard.title' | translate }}</h1>
+            <!-- Header (AQ-424) -->
+            <header class="dashboard-header">
+                <h1 class="dashboard-title">{{ 'dashboard.title' | translate }}</h1>
+                @if (greetingName()) {
+                    <p class="dashboard-subtitle">{{ 'dashboard.welcome' | translate:{ name: greetingName() } }}</p>
+                }
+            </header>
 
             <!-- Stats Cards -->
             <div class="stats-grid">
-                <mat-card class="stat-card clickable" (click)="openOrdersToFinalize()">
-                    <mat-card-content>
-                        <div class="stat-icon primary">
-                            <mat-icon>assignment</mat-icon>
-                        </div>
-                        <div class="stat-info">
-                            <span class="stat-value">{{ ordersToFinalizeCount() }}</span>
-                            <span class="stat-label">{{ 'dashboard.ordersToFinalize' | translate }}</span>
-                        </div>
-                    </mat-card-content>
-                </mat-card>
+                <button type="button" class="stat-card" (click)="openOrdersToFinalize()">
+                    <span class="stat-icon primary" aria-hidden="true">
+                        <mat-icon>assignment</mat-icon>
+                    </span>
+                    <span class="stat-info">
+                        <span class="stat-value">{{ ordersToFinalizeCount() }}</span>
+                        <span class="stat-label">{{ 'dashboard.ordersToFinalize' | translate }}</span>
+                    </span>
+                </button>
 
-                <!-- AQ-411 — renamed "Tournées planifiées" → "Mes tournées": show only rounds assigned
-                     to the current user (préleveur filter), Assigned + InProgress statuses. -->
-                <mat-card class="stat-card clickable" (click)="openMyRounds()">
-                    <mat-card-content>
-                        <div class="stat-icon accent">
-                            <mat-icon>event</mat-icon>
-                        </div>
-                        <div class="stat-info">
-                            <span class="stat-value">{{ plannedRoundsCount() }}</span>
-                            <span class="stat-label">{{ 'dashboard.myRounds' | translate }}</span>
-                        </div>
-                    </mat-card-content>
-                </mat-card>
+                <!-- AQ-411 — "Mes tournées": scoped to current préleveur. -->
+                <button type="button" class="stat-card" (click)="openMyRounds()">
+                    <span class="stat-icon info" aria-hidden="true">
+                        <mat-icon>event</mat-icon>
+                    </span>
+                    <span class="stat-info">
+                        <span class="stat-value">{{ plannedRoundsCount() }}</span>
+                        <span class="stat-label">{{ 'dashboard.myRounds' | translate }}</span>
+                    </span>
+                </button>
 
-                <mat-card class="stat-card clickable conform" (click)="openConformOrders()">
-                    <mat-card-content>
-                        <div class="stat-icon success">
-                            <mat-icon>check_circle</mat-icon>
-                        </div>
-                        <div class="stat-info">
-                            <span class="stat-value">{{ conformCount() }}</span>
-                            <span class="stat-label">{{ 'dashboard.conform' | translate }}</span>
-                        </div>
-                    </mat-card-content>
-                </mat-card>
+                <button type="button" class="stat-card" (click)="openConformOrders()">
+                    <span class="stat-icon success" aria-hidden="true">
+                        <mat-icon>check_circle</mat-icon>
+                    </span>
+                    <span class="stat-info">
+                        <span class="stat-value">{{ conformCount() }}</span>
+                        <span class="stat-label">{{ 'dashboard.conform' | translate }}</span>
+                    </span>
+                </button>
 
-                <mat-card class="stat-card clickable non-conform" (click)="openNonConformOrders()">
-                    <mat-card-content>
-                        <div class="stat-icon danger">
-                            <mat-icon>error</mat-icon>
-                        </div>
-                        <div class="stat-info">
-                            <span class="stat-value">{{ nonConformCount() }}</span>
-                            <span class="stat-label">{{ 'dashboard.nonConform' | translate }}</span>
-                        </div>
-                    </mat-card-content>
-                </mat-card>
+                <button type="button" class="stat-card" (click)="openNonConformOrders()">
+                    <span class="stat-icon danger" aria-hidden="true">
+                        <mat-icon>error</mat-icon>
+                    </span>
+                    <span class="stat-info">
+                        <span class="stat-value">{{ nonConformCount() }}</span>
+                        <span class="stat-label">{{ 'dashboard.nonConform' | translate }}</span>
+                    </span>
+                </button>
             </div>
 
             <!-- Main Content Grid -->
             <div class="widgets-grid">
-                <!-- Prochaines tournees -->
-                <mat-card class="widget-rounds">
-                    <mat-card-header>
-                        <mat-card-title>
-                            <mat-icon>route</mat-icon>
-                            {{ 'dashboard.upcomingRounds' | translate }}
-                        </mat-card-title>
+                <!-- Prochaines tournées -->
+                <section class="widget widget-rounds">
+                    <header class="widget-header">
+                        <h2 class="widget-title">
+                            <mat-icon aria-hidden="true">route</mat-icon>
+                            <span>{{ 'dashboard.upcomingRounds' | translate }}</span>
+                        </h2>
                         <button mat-button color="primary" (click)="navigateTo('/sampling-rounds')">
                             {{ 'dashboard.viewAll' | translate }}
                         </button>
-                    </mat-card-header>
-                    <mat-card-content>
+                    </header>
+                    <div class="widget-body">
                         @if (upcomingRounds().length === 0) {
                             <div class="empty-state">
                                 <mat-icon>event_busy</mat-icon>
@@ -122,7 +119,7 @@ import { RecentResultsZoneComponent } from '../results/recent-results-zone.compo
                                 <tbody>
                                     @for (round of upcomingRounds(); track round.id) {
                                         <tr class="clickable-row" (click)="navigateTo('/sampling-rounds/' + round.id)">
-                                            <td>{{ round.deadline | date:'dd.MM.yyyy' }}</td>
+                                            <td class="mono">{{ round.deadline | date:'dd.MM.yyyy' }}</td>
                                             <td>{{ round.name }}</td>
                                             <td>{{ round.orderCount }}</td>
                                             <td>
@@ -135,274 +132,101 @@ import { RecentResultsZoneComponent } from '../results/recent-results-zone.compo
                                 </tbody>
                             </table>
                         }
-                    </mat-card-content>
-                </mat-card>
+                    </div>
+                </section>
 
                 <!-- Admin Panel -->
                 @if (isAdmin()) {
-                    <mat-card class="widget-admin">
-                        <mat-card-header>
-                            <mat-card-title>
-                                <mat-icon>admin_panel_settings</mat-icon>
-                                {{ 'dashboard.pendingActions' | translate }}
-                            </mat-card-title>
-                        </mat-card-header>
-                        <mat-card-content>
+                    <section class="widget widget-admin">
+                        <header class="widget-header">
+                            <h2 class="widget-title">
+                                <mat-icon aria-hidden="true">admin_panel_settings</mat-icon>
+                                <span>{{ 'dashboard.pendingActions' | translate }}</span>
+                            </h2>
+                        </header>
+                        <div class="widget-body">
                             <div class="admin-list">
-                                <div class="admin-item" (click)="navigateTo('/sampling-locations', { validation: 'pending' })">
-                                    <mat-icon color="warn">pending_actions</mat-icon>
+                                <button type="button" class="admin-item"
+                                        (click)="navigateTo('/sampling-locations', { validation: 'pending' })">
+                                    <mat-icon class="icon-warn">pending_actions</mat-icon>
                                     <span class="admin-count">{{ ldpToValidateCount() }}</span>
                                     <span class="admin-label">{{ 'dashboard.ldpToValidate' | translate }}</span>
-                                </div>
+                                </button>
                                 <div class="admin-item stub">
-                                    <mat-icon color="primary">comment</mat-icon>
+                                    <mat-icon class="icon-primary">comment</mat-icon>
                                     <span class="admin-count">0</span>
                                     <span class="admin-label">{{ 'dashboard.ordersWithComments' | translate }}</span>
                                 </div>
                             </div>
-                        </mat-card-content>
-                    </mat-card>
+                        </div>
+                    </section>
                 }
             </div>
 
-            <!-- Results Widget (full width) — AQ-417 : remplace placeholder Limsophy par vraie liste -->
-            <mat-card class="widget-results">
-                <mat-card-header>
-                    <mat-card-title>
-                        <mat-icon>science</mat-icon>
-                        {{ 'dashboard.recentResults' | translate }}
-                    </mat-card-title>
+            <!-- Results Widget (full width) — AQ-417 -->
+            <section class="widget widget-results">
+                <header class="widget-header">
+                    <h2 class="widget-title">
+                        <mat-icon aria-hidden="true">science</mat-icon>
+                        <span>{{ 'dashboard.recentResults' | translate }}</span>
+                    </h2>
                     <button mat-button color="primary" (click)="navigateTo('/results')">
                         {{ 'dashboard.viewAll' | translate }}
                     </button>
-                </mat-card-header>
-                <mat-card-content>
+                </header>
+                <div class="widget-body">
                     <app-recent-results-zone></app-recent-results-zone>
-                </mat-card-content>
-            </mat-card>
+                </div>
+            </section>
         </div>
     `,
     styles: [`
-        .dashboard {
-            padding: 24px;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        .dashboard h1 {
-            margin-bottom: 24px;
-            font-weight: 400;
-            color: rgba(0, 0, 0, 0.87);
-        }
-
-        /* Stats Grid */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
-        .stat-card mat-card-content {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            padding: 16px !important;
-        }
-
-        .stat-card.clickable {
-            cursor: pointer;
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
-        }
-
-        .stat-card.clickable:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-        }
-
-        .stat-card.stub {
-            cursor: default;
-        }
-
-        .stat-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .stat-icon mat-icon {
-            color: white;
-            font-size: 24px;
-            width: 24px;
-            height: 24px;
-        }
-
-        .stat-icon.primary { background-color: #1976d2; }
-        .stat-icon.accent { background-color: #ff9800; }
-        .stat-icon.danger { background-color: #d32f2f; }
-        .stat-icon.success { background-color: #388e3c; }
-
-        .stat-info {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .stat-value {
-            font-size: 28px;
-            font-weight: 600;
-            line-height: 1.2;
-            color: rgba(0, 0, 0, 0.87);
-        }
-
-        .stat-label {
-            font-size: 13px;
-            color: rgba(0, 0, 0, 0.6);
-        }
-
-        /* Widgets Grid */
-        .widgets-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 16px;
-            margin-bottom: 16px;
-        }
-
+        :host { display: block; background: var(--color-bg-page); }
+        .dashboard { padding: var(--space-6); max-width: 1440px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--space-6); }
+        .dashboard-header { display: flex; flex-direction: column; gap: var(--space-1); }
+        .dashboard-title { margin: 0; font-family: var(--font-family-base); font-size: var(--font-size-32); font-weight: var(--font-weight-semibold); color: var(--color-fg-default); letter-spacing: var(--letter-spacing-tight); }
+        .dashboard-subtitle { margin: 0; font-size: var(--font-size-14); color: var(--color-fg-muted); }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-4); }
+        .stat-card { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-5); background: var(--color-bg-surface); border: 1px solid var(--color-border-default); border-radius: var(--radius-md); cursor: pointer; text-align: left; font: inherit; color: inherit; transition: box-shadow var(--duration-fast), border-color var(--duration-fast); }
+        .stat-card:hover { box-shadow: var(--elevation-2); border-color: var(--color-primary-300); }
+        .stat-card:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+        .stat-icon { width: 44px; height: 44px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .stat-icon mat-icon { color: #fff; font-size: 22px; width: 22px; height: 22px; }
+        .stat-icon.primary { background: var(--color-primary-500); }
+        .stat-icon.info    { background: var(--color-info-500); }
+        .stat-icon.danger  { background: var(--color-error-500); }
+        .stat-icon.success { background: var(--color-success-500); }
+        .stat-info { display: flex; flex-direction: column; gap: var(--space-1); }
+        .stat-value { font-family: var(--font-family-mono); font-size: var(--font-size-26); font-weight: var(--font-weight-semibold); line-height: var(--line-height-tight); color: var(--color-fg-default); }
+        .stat-label { font-size: var(--font-size-13); color: var(--color-fg-muted); }
+        .widgets-grid { display: grid; grid-template-columns: 2fr 1fr; gap: var(--space-4); }
+        @media (max-width: 1024px) { .widgets-grid { grid-template-columns: 1fr; } }
+        .widget { background: var(--color-bg-surface); border: 1px solid var(--color-border-default); border-radius: var(--radius-md); overflow: hidden; display: flex; flex-direction: column; }
+        .widget-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--color-border-default); }
+        .widget-title { margin: 0; display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-family-base); font-size: var(--font-size-16); font-weight: var(--font-weight-semibold); color: var(--color-fg-default); }
+        .widget-title mat-icon { color: var(--color-fg-muted); font-size: 20px; width: 20px; height: 20px; }
+        .widget-body { padding: var(--space-4) var(--space-5); }
+        .rounds-table { width: 100%; border-collapse: collapse; }
+        .rounds-table th { text-align: left; padding: var(--space-2) var(--space-3); font-size: var(--font-size-12); font-weight: var(--font-weight-semibold); color: var(--color-fg-muted); text-transform: uppercase; letter-spacing: var(--letter-spacing-wide); border-bottom: 1px solid var(--color-border-default); background: var(--color-bg-sunken); }
+        .rounds-table td { padding: var(--space-3); font-size: var(--font-size-14); color: var(--color-fg-default); border-bottom: 1px solid var(--color-border-subtle); }
+        .rounds-table td.mono { font-family: var(--font-family-mono); }
+        .clickable-row { cursor: pointer; transition: background-color var(--duration-fast); }
+        .clickable-row:hover { background: var(--color-row-hover); }
+        .empty-state { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-8); color: var(--color-fg-subtle); text-align: center; }
+        .empty-state mat-icon { font-size: 32px; width: 32px; height: 32px; color: var(--color-fg-subtle); }
+        .admin-list { display: flex; flex-direction: column; gap: var(--space-2); }
+        .admin-item { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-sm); background: transparent; border: none; cursor: pointer; text-align: left; font: inherit; color: inherit; width: 100%; transition: background-color var(--duration-fast); }
+        .admin-item:hover { background: var(--color-row-hover); }
+        .admin-item.stub, .admin-item.stub:hover { cursor: default; background: transparent; }
+        .admin-item .icon-warn { color: var(--color-warning-600); }
+        .admin-item .icon-primary { color: var(--color-primary-600); }
+        .admin-count { font-family: var(--font-family-mono); font-size: var(--font-size-18); font-weight: var(--font-weight-semibold); min-width: 28px; color: var(--color-fg-default); }
+        .admin-label { font-size: var(--font-size-14); color: var(--color-fg-default); }
         @media (max-width: 768px) {
-            .widgets-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        mat-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 16px 0 16px;
-        }
-
-        mat-card-title {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 16px;
-            font-weight: 500;
-        }
-
-        mat-card-title mat-icon {
-            color: rgba(0, 0, 0, 0.54);
-        }
-
-        /* Rounds Table */
-        .rounds-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .rounds-table th {
-            text-align: left;
-            padding: 8px 12px;
-            font-size: 12px;
-            font-weight: 500;
-            color: rgba(0, 0, 0, 0.54);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.12);
-        }
-
-        .rounds-table td {
-            padding: 10px 12px;
-            font-size: 14px;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-        }
-
-        .clickable-row {
-            cursor: pointer;
-            transition: background-color 0.15s;
-        }
-
-        .clickable-row:hover {
-            background-color: rgba(0, 0, 0, 0.04);
-        }
-
-
-        /* Empty state */
-        .empty-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            padding: 32px;
-            color: rgba(0, 0, 0, 0.38);
-        }
-
-        .empty-state mat-icon {
-            font-size: 48px;
-            width: 48px;
-            height: 48px;
-        }
-
-        /* Admin Panel */
-        .admin-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .admin-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background-color 0.15s;
-        }
-
-        .admin-item:hover {
-            background-color: rgba(0, 0, 0, 0.04);
-        }
-
-        .admin-item.stub {
-            cursor: default;
-        }
-
-        .admin-item.stub:hover {
-            background-color: transparent;
-        }
-
-        .admin-count {
-            font-size: 20px;
-            font-weight: 600;
-            min-width: 32px;
-        }
-
-        .admin-label {
-            font-size: 14px;
-            color: rgba(0, 0, 0, 0.7);
-        }
-
-        /* Info Box */
-        .info-box {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 16px;
-            background-color: #e3f2fd;
-            border-radius: 8px;
-            color: #1565c0;
-        }
-
-        .info-box mat-icon {
-            color: #1976d2;
-            flex-shrink: 0;
-        }
-
-        .info-box span {
-            font-size: 14px;
+            .dashboard { padding: var(--space-3); gap: var(--space-4); }
+            .dashboard-title { font-size: var(--font-size-26); }
+            .stats-grid { grid-template-columns: 1fr; gap: var(--space-3); }
+            .widget-header, .widget-body { padding: var(--space-3) var(--space-4); }
         }
     `],
 })
@@ -424,6 +248,20 @@ export class HomeComponent implements OnInit {
     readonly isAdmin = computed(() =>
         this.authService.currentUser()?.roles.includes('Administrator') ?? false
     );
+
+    // AQ-424 — display "Bienvenue, Prénom Nom" above the dashboard title.
+    readonly greetingName = computed(() => {
+        const u = this.authService.currentUser();
+        if (!u) {
+            return '';
+        }
+        const first = (u.firstName ?? '').trim();
+        const last = (u.lastName ?? '').trim();
+        if (first || last) {
+            return [first, last].filter(Boolean).join(' ');
+        }
+        return u.email ?? '';
+    });
 
     readonly isPreleveur = computed(() => {
         const user = this.authService.currentUser();
