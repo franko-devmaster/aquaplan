@@ -64,6 +64,9 @@ public static class ServiceCollectionExtensions
         // AQ-43 — Notifications (mock email + in-app bell)
         services.AddScoped<INotificationService, NotificationService>();
 
+        // AQ-415 — Results screen (LDP × dates matrix + recent zone)
+        services.AddScoped<IResultsService, ResultsService>();
+
         return services;
     }
 }

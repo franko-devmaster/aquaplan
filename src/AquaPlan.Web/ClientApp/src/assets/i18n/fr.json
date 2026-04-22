@@ -533,7 +533,32 @@
     "awaitingLims": "En attente LIMS",
     "limsPlaceholder": "Les colonnes de résultats d'analyse (paramètres, conformité) seront disponibles après l'intégration Limsophy (v0.8). Les mandats ci-dessus sont prêts à recevoir les résultats.",
     "conforme": "CONFORME",
-    "nonConforme": "NON CONFORME"
+    "nonConforme": "NON CONFORME",
+    "recentZone": {
+      "title": "Résultats récents (7 jours)",
+      "empty": "Aucun résultat reçu ces 7 derniers jours."
+    },
+    "matrix": {
+      "noData": "Aucun résultat ne correspond aux filtres sélectionnés.",
+      "location": "Lieu de prélèvement",
+      "date": "Date",
+      "program": "Programme"
+    },
+    "filters": {
+      "all": "Tous",
+      "distributor": "Distributeur",
+      "sector": "Secteur",
+      "anomaliesOnly": "Anomalies uniquement"
+    },
+    "conformity": {
+      "conform": "Conforme",
+      "minorAnomaly": "Anomalie mineure",
+      "criticalAnomaly": "Anomalie critique",
+      "pending": "En attente"
+    },
+    "dialog": {
+      "title": "Résultats d'analyse"
+    }
   },
   "scan": {
     "title": "Scanner un code-barres",

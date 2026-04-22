@@ -418,5 +418,33 @@
     "ldpToValidate": "Sampling locations to validate",
     "ordersWithComments": "Orders with comments",
     "viewAll": "View all"
+  },
+  "results": {
+    "title": "Analysis results",
+    "recentZone": {
+      "title": "Recent results (7 days)",
+      "empty": "No results received in the last 7 days."
+    },
+    "matrix": {
+      "noData": "No results match the selected filters.",
+      "location": "Sampling location",
+      "date": "Date",
+      "program": "Program"
+    },
+    "filters": {
+      "all": "All",
+      "distributor": "Distributor",
+      "sector": "Sector",
+      "anomaliesOnly": "Anomalies only"
+    },
+    "conformity": {
+      "conform": "Compliant",
+      "minorAnomaly": "Minor anomaly",
+      "criticalAnomaly": "Critical anomaly",
+      "pending": "Pending"
+    },
+    "dialog": {
+      "title": "Analysis results"
+    }
   }
 }

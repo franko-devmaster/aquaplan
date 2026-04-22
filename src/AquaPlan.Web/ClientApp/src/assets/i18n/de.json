@@ -411,5 +411,33 @@
     "ldpToValidate": "Zu validierende Probenahmeorte",
     "ordersWithComments": "Aufträge mit Kommentaren",
     "viewAll": "Alle anzeigen"
+  },
+  "results": {
+    "title": "Analyseergebnisse",
+    "recentZone": {
+      "title": "Aktuelle Ergebnisse (7 Tage)",
+      "empty": "In den letzten 7 Tagen wurden keine Ergebnisse empfangen."
+    },
+    "matrix": {
+      "noData": "Keine Ergebnisse entsprechen den ausgewählten Filtern.",
+      "location": "Probenahmestelle",
+      "date": "Datum",
+      "program": "Programm"
+    },
+    "filters": {
+      "all": "Alle",
+      "distributor": "Verteiler",
+      "sector": "Sektor",
+      "anomaliesOnly": "Nur Abweichungen"
+    },
+    "conformity": {
+      "conform": "Konform",
+      "minorAnomaly": "Geringe Abweichung",
+      "criticalAnomaly": "Kritische Abweichung",
+      "pending": "Ausstehend"
+    },
+    "dialog": {
+      "title": "Analyseergebnisse"
+    }
   }
 }

@@ -16,4 +16,8 @@
 .claude
 tests/e2e/reports
 docker-compose*.yml
-scripts
+# AQ-416 — /scripts/generate-version.mjs is needed by the web Dockerfile.
+# Only exclude the seed/synology helpers, keep the rest of the folder.
+scripts/seed_*
+scripts/deploy-synology.sh
+scripts/synology-update.sh

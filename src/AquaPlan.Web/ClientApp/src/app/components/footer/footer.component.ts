@@ -1,15 +1,22 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { TranslateModule } from '@ngx-translate/core';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-footer',
   standalone: true,
-  imports: [TranslateModule],
+  imports: [TranslateModule, MatTooltipModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <footer class="app-footer">
-      AquaPlan v{{ version }} — {{ 'footer.developedBy' | translate }} {{ author }}
+      @if (version) {
+        <span [matTooltip]="commitTooltip" matTooltipPosition="above">
+          AquaPlan v{{ version }} — {{ 'footer.developedBy' | translate }} {{ author }}
+        </span>
+      } @else {
+        AquaPlan (dev) — {{ 'footer.developedBy' | translate }} {{ author }}
+      }
     </footer>
   `,
   styles: [`
@@ -37,4 +44,7 @@ import { environment } from '../../../environments/environment';
 export class FooterComponent {
   protected readonly version = environment.version;
   protected readonly author = environment.author;
+  protected readonly commitTooltip = environment.commit
+    ? `commit ${environment.commit}`
+    : '';
 }

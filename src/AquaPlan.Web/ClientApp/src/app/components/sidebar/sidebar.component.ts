@@ -35,6 +35,14 @@ import { AuthService } from '../../services/auth.service';
               <mat-icon matListItemIcon>route</mat-icon>
               <span matListItemTitle>{{ 'nav.samplingRounds' | translate }}</span>
             </a>
+            <!-- AQ-415 — Results screen entry. Préleveur-only users are filtered out by the backend authorize roles. -->
+            @if (!isPreleveurOnly()) {
+              <a mat-list-item routerLink="/results" routerLinkActive="active"
+                 (click)="navigated.emit()">
+                <mat-icon matListItemIcon>science</mat-icon>
+                <span matListItemTitle>{{ 'nav.results' | translate }}</span>
+              </a>
+            }
           </mat-nav-list>
         </mat-expansion-panel>
 
@@ -158,5 +166,15 @@ export class SidebarComponent {
     const user = this.authService.currentUser();
     if (!user) return false;
     return user.roles.some(r => r.toLowerCase().includes('réleveur')) && !user.roles.includes('Administrator');
+  });
+
+  /** AQ-415 — Préleveur seul (sans Requérant/RequérantPréleveur) : pas d'accès à /results. */
+  readonly isPreleveurOnly = computed(() => {
+    const user = this.authService.currentUser();
+    if (!user) return false;
+    const roles = user.roles;
+    if (roles.includes('Administrator')) return false;
+    if (roles.some(r => r === 'Requérant' || r === 'Requérant-Préleveur')) return false;
+    return roles.some(r => r === 'Préleveur');
   });
 }

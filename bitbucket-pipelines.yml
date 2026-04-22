@@ -25,6 +25,8 @@ pipelines:
           caches:
             - npm
           script:
+            # AQ-416 — generate version.ts before ng build
+            - node scripts/generate-version.mjs
             - cd src/AquaPlan.Web/ClientApp
             - npm ci
             - npx ng build --configuration production
@@ -51,6 +53,8 @@ pipelines:
             caches:
               - npm
             script:
+              # AQ-416 — generate version.ts before ng build
+              - node scripts/generate-version.mjs
               - cd src/AquaPlan.Web/ClientApp
               - npm ci
               - npx ng build --configuration production
