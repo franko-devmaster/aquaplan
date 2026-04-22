@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { Location } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -187,6 +188,7 @@ import { ResultsStatus } from '../../models/order.model';
 export class OrderDetailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly location = inject(Location);
   private readonly orderApi = inject(OrderApiService);
   private readonly orderStore = inject(OrderDatastore);
   private readonly dialog = inject(MatDialog);
@@ -371,12 +373,22 @@ export class OrderDetailComponent implements OnInit {
     });
   }
 
+  /**
+   * AQ-426 follow-up — retour contextuel : si l'utilisateur est arrivé via
+   * l'historique du navigateur (depuis /orders par ex.), on revient là. Sinon
+   * fallback vers la tournée parente ou la liste des tournées.
+   */
   goBack(): void {
+    // Si l'historique navigateur a une page précédente sur cette app, y retourner.
+    if (window.history.length > 1) {
+      this.location.back();
+      return;
+    }
     const o = this.order();
     if (o?.samplingRoundId) {
       this.router.navigate(['/sampling-rounds', o.samplingRoundId]);
     } else {
-      this.router.navigate(['/sampling-rounds']);
+      this.router.navigate(['/orders']);
     }
   }
 }
