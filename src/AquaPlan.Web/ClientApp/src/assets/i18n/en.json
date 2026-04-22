@@ -87,7 +87,9 @@
     "success": "{{count}} action(s) synchronized",
     "rejected": "Action rejected by server: {{reason}}",
     "unlockedLost": "Your round was reset by an administrator. Unsynchronized entries are lost.",
-    "error5xx": "Server error, please try again later"
+    "error5xx": "Server error, please try again later",
+    "queuedOffline": "Saved offline — will sync when the network is back.",
+    "offlineSaveFailed": "Offline save failed. Check that your browser allows local storage."
   },
   "analysisCatalog": {
     "categories": {

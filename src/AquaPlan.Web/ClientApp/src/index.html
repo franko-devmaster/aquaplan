@@ -4,12 +4,95 @@
   <meta charset="utf-8">
   <title>AquaPlan</title>
   <base href="/">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1976d2">
+  <!-- AQ-408 — iOS PWA support. Safari ignores manifest.webmanifest, so Apple-specific
+       meta tags are required so the "Add to Home Screen" flow and in-browser chrome behave. -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="AquaPlan">
+  <meta name="format-detection" content="telephone=no">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="apple-touch-icon" href="assets/icons/icon-192x192.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="assets/icons/icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="assets/icons/icon-192x192.png">
   <link rel="manifest" href="manifest.webmanifest">
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <!-- AQ-408 — Safari iOS recovery: when a stale Service Worker points at chunks that
+       no longer exist on the server, the app renders blank. Detect that before Angular
+       bootstraps (window "error" and "unhandledrejection" fired while the SW is controlling
+       the page) and, if we were offline-upgraded into a broken state, unregister the SW,
+       clear its caches and reload once. Guarded by a sessionStorage marker so we do not
+       loop indefinitely. Runs synchronously in the page head and stays tiny on purpose. -->
+  <script>
+    (function () {
+      if (!('serviceWorker' in navigator)) return;
+      var RECOVERED_KEY = 'aq-sw-recovered';
+      var alreadyRecovered = false;
+      try { alreadyRecovered = sessionStorage.getItem(RECOVERED_KEY) === '1'; } catch (_) { /* private mode */ }
+
+      function recover(reason) {
+        if (alreadyRecovered) return; // already tried once this session; let the error bubble
+        alreadyRecovered = true;
+        try { sessionStorage.setItem(RECOVERED_KEY, '1'); } catch (_) { /* ignore */ }
+        try { console.warn('[aq-sw-recovery] ' + reason + ' — clearing SW + caches'); } catch (_) { /* ignore */ }
+        var tasks = [];
+        try {
+          tasks.push(
+            navigator.serviceWorker.getRegistrations().then(function (regs) {
+              return Promise.all(regs.map(function (r) { return r.unregister(); }));
+            })
+          );
+        } catch (_) { /* ignore */ }
+        if (typeof caches !== 'undefined' && caches && caches.keys) {
+          try {
+            tasks.push(
+              caches.keys().then(function (keys) {
+                return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+              })
+            );
+          } catch (_) { /* ignore */ }
+        }
+        Promise.all(tasks).catch(function () { /* best-effort */ }).then(function () {
+          // Full reload with a cache-bust query so Safari fetches a fresh index.html
+          var url = window.location.pathname + window.location.search;
+          var sep = url.indexOf('?') >= 0 ? '&' : '?';
+          window.location.replace(url + sep + '_aqsw=' + Date.now() + window.location.hash);
+        });
+      }
+
+      // Any script/chunk load failure under SW control → the cache almost certainly points
+      // to a file that the new deploy no longer ships. Recover once.
+      window.addEventListener('error', function (e) {
+        if (!e || !e.target) return;
+        var tag = e.target.tagName;
+        if (tag === 'SCRIPT' || tag === 'LINK') {
+          if (navigator.serviceWorker.controller) {
+            recover('resource load failure: ' + (e.target.src || e.target.href || tag));
+          }
+        }
+      }, true);
+
+      // Angular bootstrap failures (chunk load error, missing file) bubble as unhandled rejections.
+      window.addEventListener('unhandledrejection', function (e) {
+        var msg = e && e.reason && (e.reason.message || String(e.reason)) || '';
+        if (/ChunkLoadError|Loading chunk|Failed to fetch|Importing a module script failed/i.test(msg)) {
+          if (navigator.serviceWorker.controller) {
+            recover('bootstrap rejection: ' + msg);
+          }
+        }
+      });
+
+      // Clear the recovery marker once Angular has clearly booted (DOMContentLoaded +
+      // a short delay so a broken app still trips the error handlers above).
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          try { sessionStorage.removeItem(RECOVERED_KEY); } catch (_) { /* ignore */ }
+        }, 5000);
+      });
+    })();
+  </script>
 </head>
 <body>
   <app-root></app-root>

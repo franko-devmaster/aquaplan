@@ -28,7 +28,7 @@ export class AuthCallbackComponent implements OnInit {
     const refresh = params.get('refresh');
 
     if (token && refresh) {
-      this.authService.setTokensFromOidc(token, refresh);
+      void this.authService.setTokensFromOidc(token, refresh);
       this.router.navigate(['/']);
     } else {
       this.router.navigate(['/login'], { queryParams: { error: 'oidc_failed' } });

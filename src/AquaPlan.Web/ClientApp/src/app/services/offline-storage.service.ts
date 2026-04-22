@@ -4,13 +4,26 @@ import { openDB, DBSchema, IDBPDatabase } from 'idb';
 /**
  * AQ-375 — types of pending offline actions queued for sync-on-reconnect.
  * Evolutive union; new types can be added without breaking the store schema.
+ * AQ-409 — UPDATE_ORDER_STATUS folded in (extends the COMPLETE_ORDER pattern).
  */
 export type OfflineActionType =
   | 'CREATE_SAMPLING'
   | 'UPDATE_SAMPLING'
   | 'COMPLETE_SAMPLING'
   | 'REPLACE_LOCATION'
-  | 'COMPLETE_ORDER';
+  | 'COMPLETE_ORDER'
+  | 'UPDATE_ORDER_STATUS';
+
+/**
+ * AQ-409 — persisted auth token (JWT + optional refresh). Stored in IndexedDB so the
+ * session survives Safari iOS' aggressive sessionStorage eviction when the browser is
+ * put to background while offline in the field.
+ */
+export interface PersistedAuth {
+  accessToken: string;
+  refreshToken: string | null;
+  savedAt: string;
+}
 
 /**
  * AQ-375 — a single pending action waiting to be replayed to the backend.
@@ -50,10 +63,17 @@ interface AquaPlanOfflineDb extends DBSchema {
       'by-queuedAt': string;
     };
   };
+  // AQ-409 — durable auth token store (keyed by a singleton 'current' row).
+  'auth': {
+    key: string;
+    value: PersistedAuth;
+  };
 }
 
 const DB_NAME = 'aquaplan-offline';
-const DB_VERSION = 1;
+// AQ-409 — schema v2 adds the `auth` object store.
+const DB_VERSION = 2;
+const AUTH_KEY = 'current';
 
 /**
  * AQ-375 — offline storage service backed by IndexedDB via the `idb` library.
@@ -79,10 +99,50 @@ export class OfflineStorageService {
             pending.createIndex('by-round', 'roundId');
             pending.createIndex('by-queuedAt', 'queuedAt');
           }
+          // AQ-409 — v2: auth store for durable JWT persistence.
+          if (!db.objectStoreNames.contains('auth')) {
+            db.createObjectStore('auth');
+          }
         },
       });
     }
     return this.dbPromise;
+  }
+
+  // ==== AQ-409 — auth persistence (IndexedDB) ==============================
+
+  async saveAuth(accessToken: string, refreshToken: string | null): Promise<void> {
+    try {
+      const db = await this.getDb();
+      const record: PersistedAuth = {
+        accessToken,
+        refreshToken,
+        savedAt: new Date().toISOString(),
+      };
+      await db.put('auth', record, AUTH_KEY);
+    } catch {
+      // IndexedDB may be unavailable (private mode, quota) — AuthService also
+      // mirrors the token in sessionStorage so we degrade gracefully.
+    }
+  }
+
+  async loadAuth(): Promise<PersistedAuth | null> {
+    try {
+      const db = await this.getDb();
+      const row = await db.get('auth', AUTH_KEY);
+      return row ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  async clearAuth(): Promise<void> {
+    try {
+      const db = await this.getDb();
+      await db.delete('auth', AUTH_KEY);
+    } catch {
+      // ignore — session cleanup is best-effort
+    }
   }
 
   async saveSnapshot(roundId: string, data: unknown): Promise<void> {
@@ -165,6 +225,7 @@ export class OfflineStorageService {
     await Promise.all([
       db.clear('active-round'),
       db.clear('pending-actions'),
+      db.clear('auth'),
     ]);
   }
 }

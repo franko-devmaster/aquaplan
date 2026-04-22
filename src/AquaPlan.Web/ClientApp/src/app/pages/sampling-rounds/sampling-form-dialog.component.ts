@@ -14,6 +14,8 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { SamplingApiService } from '../../services/sampling-api.service';
 import { OrderApiService } from '../../services/order-api.service';
+import { SyncService } from '../../services/sync.service';
+import { OfflineStorageService } from '../../services/offline-storage.service';
 import {
   SamplingDto,
   SamplingCreateDto,
@@ -29,6 +31,13 @@ export interface SamplingFormDialogData {
   sampling: SamplingDto | null;
   orderNumber: string;
   locationName: string;
+  /**
+   * AQ-409 — roundId is needed so that an offline save can be queued against the
+   * round's pending-actions store (SyncService / OfflineStorageService). Optional
+   * for backwards-compatibility with callers that haven't wired it yet — in that
+   * case an offline save falls back to using the orderId as a best-effort roundKey.
+   */
+  roundId?: string;
 }
 
 interface ContainerFormGroup {
@@ -189,6 +198,8 @@ export class SamplingFormDialogComponent implements OnInit {
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly translate = inject(TranslateService);
+  private readonly syncService = inject(SyncService);
+  private readonly offlineStorage = inject(OfflineStorageService);
 
   readonly saving = signal(false);
   readonly loadingContainers = signal(true);
@@ -320,6 +331,64 @@ export class SamplingFormDialogComponent implements OnInit {
         sampleBarcode: canonicalBarcode,
         containers,
       };
+
+      // AQ-409 — when the device is offline, queue the sampling payload in
+      // IndexedDB instead of hitting the network. The SyncService will replay
+      // CREATE_SAMPLING / UPDATE_SAMPLING on reconnect. We close the dialog with
+      // an optimistic SamplingDto shape so the caller's orderSamplings map
+      // immediately reflects the entry (and enables the "complete" button).
+      if (!this.syncService.onlineStatus()) {
+        const actionType = this.isEditMode() ? 'UPDATE_SAMPLING' : 'CREATE_SAMPLING';
+        const roundKey = this.data.roundId ?? this.data.orderId;
+        console.info('[offline] queuing', actionType, 'for order', this.data.orderId);
+        try {
+          await this.offlineStorage.queueAction({
+            roundId: roundKey,
+            actionType,
+            payload: { orderId: this.data.orderId, dto },
+          });
+          await this.syncService.refreshPendingCount();
+        } catch {
+          // IDB failure is fatal for offline persistence — surface it so the user
+          // knows the entry isn't safely stored.
+          this.errorMessage.set(this.translate.instant('sync.offlineSaveFailed'));
+          this.saving.set(false);
+          return;
+        }
+        this.snackBar.open(
+          this.translate.instant('sync.queuedOffline'),
+          this.translate.instant('common.close'),
+          { duration: 3000 },
+        );
+        // Close the dialog with an optimistic SamplingDto shape. The real id /
+        // createdAt will be materialised by the server on replay; the UI mainly
+        // uses this to toggle the "completeSampling" button on.
+        const optimistic: SamplingDto = {
+          id: this.data.sampling?.id ?? `offline-${Date.now()}`,
+          orderId: this.data.orderId,
+          preleveurId: this.data.sampling?.preleveurId ?? '',
+          preleveurName: this.data.sampling?.preleveurName ?? '',
+          samplingDateTime: dto.samplingDateTime,
+          temperature: dto.temperature,
+          weather: dto.weather,
+          notes: dto.notes,
+          hasWaterSoftener: dto.hasWaterSoftener,
+          isChlorinated: dto.isChlorinated,
+          sampleBarcode: dto.sampleBarcode,
+          barcodeScannedAt: null,
+          isValidated: false,
+          validatedAt: null,
+          createdAt: new Date().toISOString(),
+          containers: (dto.containers ?? []).map(c => ({
+            id: `offline-${c.containerId}`,
+            containerId: c.containerId,
+            barcode: c.barcode,
+            barcodeScannedAt: null,
+          })),
+        };
+        this.dialogRef.close(optimistic);
+        return;
+      }
 
       let result: SamplingDto;
       if (this.isEditMode()) {

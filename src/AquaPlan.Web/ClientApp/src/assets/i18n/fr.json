@@ -92,7 +92,9 @@
     "success": "{{count}} action(s) synchronisée(s)",
     "rejected": "Action rejetée par le serveur : {{reason}}",
     "unlockedLost": "Votre tournée a été réinitialisée par un administrateur. Les saisies non synchronisées sont perdues.",
-    "error5xx": "Erreur serveur, réessayez plus tard"
+    "error5xx": "Erreur serveur, réessayez plus tard",
+    "queuedOffline": "Saisie enregistrée hors ligne, elle sera synchronisée au retour du réseau.",
+    "offlineSaveFailed": "Impossible d'enregistrer hors ligne. Vérifiez que votre navigateur autorise le stockage local."
   },
   "users": {
     "title": "Gestion des utilisateurs",

@@ -870,7 +870,7 @@ export class SamplingRoundDetailComponent implements OnInit {
     // AQ-399 — if the order is still in New status, transition it to InProgress
     // before opening the sampling form. This is what the sampler expects when
     // clicking the Treat button on an unstarted order in an InProgress round.
-    // AQ-401 — when the browser is offline, do NOT block on the backend call.
+    // AQ-401 / AQ-409 — when the browser is offline, do NOT block on the backend call.
     // Queue the transition for replay on reconnect, optimistically flip the
     // local order status, and open the dialog immediately so the préleveur can
     // still fill the sampling form in the field.
@@ -880,9 +880,10 @@ export class SamplingRoundDetailComponent implements OnInit {
         const r = this.round();
         if (r) {
           try {
+            console.info('[offline] queuing UPDATE_ORDER_STATUS (New→InProgress) for', order.id);
             await this.offlineStorage.queueAction({
               roundId: r.id,
-              actionType: 'COMPLETE_ORDER',
+              actionType: 'UPDATE_ORDER_STATUS',
               payload: { orderId: order.id, newStatus: 'InProgress' },
             });
             await this.syncService.refreshPendingCount();
@@ -926,6 +927,8 @@ export class SamplingRoundDetailComponent implements OnInit {
       sampling: existingSampling,
       orderNumber: workingOrder.orderNumber,
       locationName: `${workingOrder.samplingLocationCode} — ${workingOrder.samplingLocationName}`,
+      // AQ-409 — round id propagated so offline saves queue against the round.
+      roundId: this.round()?.id,
     };
 
     // AQ-403 — responsive sizing; let CSS media queries inside the dialog drive the layout.

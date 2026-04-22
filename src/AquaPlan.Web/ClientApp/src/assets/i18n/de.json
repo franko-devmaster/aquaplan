@@ -87,7 +87,9 @@
     "success": "{{count}} Aktion(en) synchronisiert",
     "rejected": "Aktion vom Server abgelehnt: {{reason}}",
     "unlockedLost": "Ihre Tour wurde von einem Administrator zurückgesetzt. Nicht synchronisierte Einträge sind verloren.",
-    "error5xx": "Serverfehler, bitte später erneut versuchen"
+    "error5xx": "Serverfehler, bitte später erneut versuchen",
+    "queuedOffline": "Offline gespeichert — wird bei bestehender Netzwerkverbindung synchronisiert.",
+    "offlineSaveFailed": "Offline-Speichern fehlgeschlagen. Prüfen Sie, ob Ihr Browser lokale Speicherung erlaubt."
   },
   "analysisCatalog": {
     "categories": {

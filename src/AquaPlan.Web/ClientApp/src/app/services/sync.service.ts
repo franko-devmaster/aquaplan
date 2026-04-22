@@ -260,6 +260,19 @@ export class SyncService {
         );
         return;
       }
+      case 'UPDATE_ORDER_STATUS': {
+        // AQ-409 — generic order status transition queued from the field.
+        // Same backend as COMPLETE_ORDER but with an explicit target status so the
+        // préleveur can kick "New → InProgress" while offline without any assumption
+        // baked into the handler.
+        const orderId = this.readString(payload, 'orderId');
+        const newStatus = this.readString(payload, 'newStatus');
+        console.info('[offline] sync: replay UPDATE_ORDER_STATUS', orderId, '->', newStatus);
+        await firstValueFrom(
+          this.http.post(`/api/orders/${orderId}/transition`, { newStatus }),
+        );
+        return;
+      }
       default: {
         // Exhaustiveness guard — unknown action type, drop it silently.
         const _exhaustive: never = type;
