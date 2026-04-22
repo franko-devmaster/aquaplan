@@ -415,7 +415,6 @@
     "upcomingRounds": "Upcoming rounds",
     "noUpcomingRounds": "No upcoming rounds",
     "recentResults": "Recent results (7 days)",
-    "resultsPlaceholder": "LIMS results will be available after Limsophy integration (v0.8)",
     "pendingActions": "Pending actions",
     "ldpToValidate": "Sampling locations to validate",
     "ordersWithComments": "Orders with comments",

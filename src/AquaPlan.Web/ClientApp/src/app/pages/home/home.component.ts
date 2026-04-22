@@ -18,6 +18,7 @@ import {
     SamplingRoundListDto,
 } from '../../models/sampling-round.model';
 import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
+import { RecentResultsZoneComponent } from '../results/recent-results-zone.component';
 
 @Component({
     selector: 'app-home',
@@ -29,6 +30,7 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
         MatIconModule,
         MatButtonModule,
         StatusChipComponent,
+        RecentResultsZoneComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
@@ -163,19 +165,19 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
                 }
             </div>
 
-            <!-- Results Widget (full width) -->
+            <!-- Results Widget (full width) — AQ-417 : remplace placeholder Limsophy par vraie liste -->
             <mat-card class="widget-results">
                 <mat-card-header>
                     <mat-card-title>
                         <mat-icon>science</mat-icon>
                         {{ 'dashboard.recentResults' | translate }}
                     </mat-card-title>
+                    <button mat-button color="primary" (click)="navigateTo('/results')">
+                        {{ 'dashboard.viewAll' | translate }}
+                    </button>
                 </mat-card-header>
                 <mat-card-content>
-                    <div class="info-box">
-                        <mat-icon>info</mat-icon>
-                        <span>{{ 'dashboard.resultsPlaceholder' | translate }}</span>
-                    </div>
+                    <app-recent-results-zone></app-recent-results-zone>
                 </mat-card-content>
             </mat-card>
         </div>
