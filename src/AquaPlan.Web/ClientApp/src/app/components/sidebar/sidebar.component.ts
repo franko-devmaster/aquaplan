@@ -44,6 +44,12 @@ import { AuthService } from '../../services/auth.service';
                 <mat-icon>route</mat-icon>
                 <span>{{ 'nav.samplingRounds' | translate }}</span>
               </a>
+              <!-- AQ-426 — Mandats list entry between Tournées et Résultats. -->
+              <a routerLink="/orders" routerLinkActive="is-active"
+                 (click)="navigated.emit()" class="ap-sidebar__item">
+                <mat-icon>assignment</mat-icon>
+                <span>{{ 'nav.orders' | translate }}</span>
+              </a>
               <!-- AQ-415 — Results screen entry. Préleveur-only users are filtered out by the backend authorize roles. -->
               @if (!isPreleveurOnly()) {
                 <a routerLink="/results" routerLinkActive="is-active"
