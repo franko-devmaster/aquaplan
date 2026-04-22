@@ -17,8 +17,8 @@
   <link rel="apple-touch-icon" sizes="152x152" href="assets/icons/icon-152x152.png">
   <link rel="apple-touch-icon" sizes="192x192" href="assets/icons/icon-192x192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <!-- AQ-422 — fonts (Public Sans, JetBrains Mono) and Material Icons are self-hosted
+       via _fonts.scss / src/assets/fonts. No runtime CDN fetch (offline/PWA safe). -->
   <!-- AQ-408 — Safari iOS recovery: when a stale Service Worker points at chunks that
        no longer exist on the server, the app renders blank. Detect that before Angular
        bootstraps (window "error" and "unhandledrejection" fired while the SW is controlling

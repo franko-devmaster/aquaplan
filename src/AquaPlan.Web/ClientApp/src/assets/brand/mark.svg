@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Aquaplan mark">
+  <path d="M24 3 C12 19, 5 28, 5 37 a19 19 0 0 0 38 0 C43 28, 36 19, 24 3 Z" fill="#1f7aa6"></path>
+  <rect x="1" y="35.25" width="46" height="2.75" fill="#ffffff"></rect>
+  <circle cx="17" cy="26" r="3.5" fill="#ffffff" opacity="0.35"></circle>
+</svg>

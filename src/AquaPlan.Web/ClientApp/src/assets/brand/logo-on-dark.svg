@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 56" role="img" aria-label="Aquaplan">
+  <g transform="translate(8 8)">
+    <path d="M20 2 C10 16, 4 24, 4 32 a16 16 0 0 0 32 0 C36 24, 30 16, 20 2 Z" fill="#ffffff"></path>
+    <rect x="0" y="30" width="40" height="2.5" fill="#1f7aa6"></rect>
+    <circle cx="14" cy="22" r="3" fill="#1f7aa6" opacity="0.35"></circle>
+  </g>
+  <text x="60" y="37" font-family="Public Sans, Helvetica Neue, Arial, sans-serif" font-size="26" font-weight="600" letter-spacing="-0.4" fill="#ffffff">Aquaplan</text>
+</svg>

@@ -1,8 +1,39 @@
 @use '@angular/material' as mat;
+// AquaPlan Design System — v0.94 Sprint A (AQ-422)
+// _tokens.scss → CSS custom properties (colors, type, spacing, radii, elevation, z, motion)
+// _fonts.scss  → self-hosted @font-face declarations (Public Sans, JetBrains Mono, Material Icons)
+// _responsive  → pre-existing breakpoint utilities (AQ-219)
+// Tokens and fonts load BEFORE any rule that consumes them.
+@use 'styles/tokens' as *;
+@use 'styles/fonts' as *;
 @use 'styles/responsive' as *;
 
 // Global styles
 html, body { height: 100%; }
-body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+body {
+  margin: 0;
+  font-family: var(--font-family-base, "Public Sans", "Helvetica Neue", Arial, sans-serif);
+}
+
+// -----------------------------------------------------------------------------
+// Angular Material theme override — "Aquaplan Deep"
+// -----------------------------------------------------------------------------
+// v0.94 Sprint A approach: keep the azure-blue prebuilt Material theme (already
+// loaded via angular.json) but override the Material system CSS variables so
+// primary = #1f7aa6. No SCSS theme rebuild — minimal-risk non-breaking swap.
+// Sprint B+ may migrate to a fully SCSS-defined Material theme.
+// -----------------------------------------------------------------------------
+:root {
+  // Material 3 system tokens (Angular Material 19 uses --mat-sys-* as canonical)
+  --mat-sys-primary: var(--color-primary-500);
+  --mat-sys-on-primary: var(--color-on-primary);
+  --mat-sys-primary-container: var(--color-primary-100);
+  --mat-sys-on-primary-container: var(--color-primary-900);
+
+  // Material 2 legacy tokens (some components still read these)
+  --mat-primary-500: var(--color-primary-500);
+  --mat-primary-600: var(--color-primary-600);
+  --mat-primary-700: var(--color-primary-700);
+}
 
 // Status badges are rendered via <app-status-chip> (see components/status-chip)
