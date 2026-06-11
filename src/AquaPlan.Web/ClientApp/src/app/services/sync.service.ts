@@ -9,6 +9,7 @@ import {
   PendingAction,
   OfflineActionType,
 } from './offline-storage.service';
+import { devInfo } from '../utils/dev-log';
 
 /** AQ-376 — aggregate result of a single flush pass over the pending queue. */
 export interface SyncResult {
@@ -267,7 +268,7 @@ export class SyncService {
         // baked into the handler.
         const orderId = this.readString(payload, 'orderId');
         const newStatus = this.readString(payload, 'newStatus');
-        console.info('[offline] sync: replay UPDATE_ORDER_STATUS', orderId, '->', newStatus);
+        devInfo('[offline] sync: replay UPDATE_ORDER_STATUS', orderId, '->', newStatus);
         await firstValueFrom(
           this.http.post(`/api/orders/${orderId}/transition`, { newStatus }),
         );

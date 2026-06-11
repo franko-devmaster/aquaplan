@@ -15,6 +15,7 @@ public class AuthControllerTest
     private readonly Mock<IAuthService> _authServiceMock = new();
     private readonly Mock<ITokenService> _tokenServiceMock = new();
     private readonly Mock<IOidcUserService> _oidcUserServiceMock = new();
+    private readonly Mock<IOidcCodeExchangeService> _oidcCodeExchangeServiceMock = new();
     private readonly Mock<UserManager<AppUser>> _userManagerMock;
     private readonly Mock<ILogger<AuthController>> _loggerMock = new();
     private readonly IConfiguration _configuration;
@@ -38,6 +39,7 @@ public class AuthControllerTest
             _authServiceMock.Object,
             _tokenServiceMock.Object,
             _oidcUserServiceMock.Object,
+            _oidcCodeExchangeServiceMock.Object,
             _userManagerMock.Object,
             _configuration,
             _loggerMock.Object);
@@ -159,6 +161,7 @@ public class AuthControllerTest
             _authServiceMock.Object,
             _tokenServiceMock.Object,
             _oidcUserServiceMock.Object,
+            _oidcCodeExchangeServiceMock.Object,
             _userManagerMock.Object,
             config,
             _loggerMock.Object);
@@ -194,6 +197,7 @@ public class AuthControllerTest
             _authServiceMock.Object,
             _tokenServiceMock.Object,
             _oidcUserServiceMock.Object,
+            _oidcCodeExchangeServiceMock.Object,
             _userManagerMock.Object,
             config,
             _loggerMock.Object);
@@ -225,6 +229,53 @@ public class AuthControllerTest
     public void OidcConfig_ShouldHaveAllowAnonymousAttribute()
     {
         var method = typeof(AuthController).GetMethod(nameof(AuthController.OidcConfig));
+        var attribute = method!.GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute), true);
+        attribute.Should().NotBeEmpty();
+    }
+
+    // ─── Sprint Sec F-006 — one-time code exchange ─────────────
+
+    [Fact]
+    public void OidcExchange_ShouldReturnOkWithTokens_WhenCodeIsValid()
+    {
+        var tokens = new OidcExchangeResponseDto("jwt-token", "refresh-token");
+        _oidcCodeExchangeServiceMock
+            .Setup(s => s.RedeemCode("valid-code"))
+            .Returns(tokens);
+
+        var result = _sut.OidcExchange(new OidcExchangeRequestDto("valid-code"));
+
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().Be(tokens);
+    }
+
+    [Fact]
+    public void OidcExchange_ShouldReturnUnauthorized_WhenCodeIsInvalid()
+    {
+        _oidcCodeExchangeServiceMock
+            .Setup(s => s.RedeemCode("bad-code"))
+            .Returns((OidcExchangeResponseDto?)null);
+
+        var result = _sut.OidcExchange(new OidcExchangeRequestDto("bad-code"));
+
+        var unauthorized = result.Should().BeOfType<UnauthorizedObjectResult>().Subject;
+        var problem = unauthorized.Value.Should().BeOfType<ProblemDetails>().Subject;
+        problem.Detail.Should().Be("Invalid, expired, or already used exchange code");
+    }
+
+    [Fact]
+    public void OidcExchange_ShouldHaveHttpPostAttributeWithRoute()
+    {
+        var method = typeof(AuthController).GetMethod(nameof(AuthController.OidcExchange));
+        var attribute = method!.GetCustomAttributes(typeof(HttpPostAttribute), true);
+        attribute.Should().NotBeEmpty();
+        attribute.OfType<HttpPostAttribute>().First().Template.Should().Be("oidc-exchange");
+    }
+
+    [Fact]
+    public void OidcExchange_ShouldHaveAllowAnonymousAttribute()
+    {
+        var method = typeof(AuthController).GetMethod(nameof(AuthController.OidcExchange));
         var attribute = method!.GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute), true);
         attribute.Should().NotBeEmpty();
     }
