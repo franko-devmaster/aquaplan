@@ -1,0 +1,158 @@
+name: CI
+
+# AQ-428 — Pipeline GitHub Actions (port de l'ancien bitbucket-pipelines.yml).
+# Lance les builds + tests à chaque push, et publie les images Docker Hub
+# uniquement sur la branche Main.
+
+on:
+  push:
+    branches: [Main]
+  pull_request:
+    branches: [Main]
+
+jobs:
+
+  # --------------------------------------------------------------------
+  # Build + tests .NET (xUnit). Tourne en parallèle de build-angular.
+  # --------------------------------------------------------------------
+  build-test-dotnet:
+    name: Build & Test .NET
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore AquaPlan.slnx
+
+      - name: Build (Release)
+        run: dotnet build AquaPlan.slnx --configuration Release --no-restore
+
+      - name: Test (Release)
+        run: dotnet test AquaPlan.slnx --no-build --configuration Release --logger trx --collect:"XPlat Code Coverage"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-test-results
+          path: '**/TestResults/**'
+          retention-days: 14
+
+  # --------------------------------------------------------------------
+  # Build Angular production. Tourne en parallèle de build-test-dotnet.
+  # --------------------------------------------------------------------
+  build-angular:
+    name: Build Angular
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: src/AquaPlan.Web/ClientApp
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: src/AquaPlan.Web/ClientApp/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      # AQ-416 — version est stampée dans environment via scripts/generate-version.mjs
+      - name: Generate version
+        working-directory: .
+        run: node scripts/generate-version.mjs
+
+      - name: ng build (production)
+        run: npx ng build --configuration production
+
+      - name: Upload Angular dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: angular-dist
+          path: src/AquaPlan.Web/ClientApp/dist/**
+          retention-days: 14
+
+  # --------------------------------------------------------------------
+  # Build + push images Docker Hub. Uniquement sur push Main, après que
+  # les jobs build-test-dotnet et build-angular sont OK.
+  # --------------------------------------------------------------------
+  docker-build-push:
+    name: Docker Build & Push
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [build-test-dotnet, build-angular]
+    if: github.ref == 'refs/heads/Main' && github.event_name == 'push'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Angular dist
+        uses: actions/download-artifact@v4
+        with:
+          name: angular-dist
+          path: src/AquaPlan.Web/ClientApp/dist
+
+      - name: Set TAG (commit short)
+        id: tag
+        run: echo "tag=$(echo ${GITHUB_SHA} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Build & push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/AquaPlan.Api/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            francoischarriere/aquaplan-api:${{ steps.tag.outputs.tag }}
+            francoischarriere/aquaplan-api:latest
+          cache-from: type=registry,ref=francoischarriere/aquaplan-api:buildcache
+          cache-to: type=registry,ref=francoischarriere/aquaplan-api:buildcache,mode=max
+
+      - name: Stage Angular dist for Web image
+        run: |
+          mkdir -p _web-dist
+          cp -r src/AquaPlan.Web/ClientApp/dist/client-app/browser/* _web-dist/
+
+      - name: Build & push Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/AquaPlan.Web/Dockerfile.ci
+          push: true
+          platforms: linux/amd64
+          build-args: |
+            APP_VERSION=0.94.0-${{ steps.tag.outputs.tag }}
+          tags: |
+            francoischarriere/aquaplan-web:${{ steps.tag.outputs.tag }}
+            francoischarriere/aquaplan-web:latest
+          cache-from: type=registry,ref=francoischarriere/aquaplan-web:buildcache
+          cache-to: type=registry,ref=francoischarriere/aquaplan-web:buildcache,mode=max
