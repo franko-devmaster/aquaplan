@@ -6,7 +6,9 @@ services:
     environment:
       POSTGRES_DB: aquaplan
       POSTGRES_USER: aquaplan
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-AquaPlan-Synology-2026!}
+      # Sprint Sec F-004 (cross-cutting) — no committed fallback: DB_PASSWORD is required
+      # and must be defined in the NAS-local .env. Compose fails fast when missing.
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required (define it in the NAS-local .env)}
     volumes:
       - aquaplan-db-data:/var/lib/postgresql/data
     healthcheck:
@@ -24,10 +26,16 @@ services:
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ConnectionStrings__DefaultConnection: "Host=aquaplan-db;Port=5432;Database=aquaplan;Username=aquaplan;Password=${DB_PASSWORD:-AquaPlan-Synology-2026!}"
-      Jwt__SecretKey: "${JWT_SECRET:-AquaPlan-Prod-Secret-Key-Min-32-Chars!!}"
+      # Sprint Sec F-001/F-004 — secrets are required (no committed fallback values).
+      # Define DB_PASSWORD and JWT_SECRET in the NAS-local .env next to this file.
+      ConnectionStrings__DefaultConnection: "Host=aquaplan-db;Port=5432;Database=aquaplan;Username=aquaplan;Password=${DB_PASSWORD:?DB_PASSWORD is required (define it in the NAS-local .env)}"
+      Jwt__SecretKey: "${JWT_SECRET:?JWT_SECRET is required (min 32 chars, define it in the NAS-local .env)}"
       Jwt__Issuer: "AquaPlan"
       Jwt__Audience: "AquaPlan"
+      # Sprint Sec F-002 — initial admin account (one-shot): set both variables for the
+      # first boot, then remove them. The dev admin is no longer seeded in Production.
+      INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:-}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-}
     depends_on:
       aquaplan-db:
         condition: service_healthy

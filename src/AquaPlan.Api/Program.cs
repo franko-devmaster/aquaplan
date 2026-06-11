@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using AquaPlan.Api.Configuration;
 using AquaPlan.Api.Middleware;
 using AquaPlan.Application.DTOs.LimsSync;
 using AquaPlan.Application.DTOs.MockLims;
@@ -52,8 +53,12 @@ builder.Services.AddControllers()
     });
 
 // JWT Authentication
+// Sprint Sec F-001 — no hardcoded fallback: missing secret fails fast outside Development,
+// and Development gets an ephemeral random secret. The resolved value is pushed back into
+// configuration so TokenService signs with the same key the validation uses.
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var secretKey = jwtSettings["SecretKey"] ?? "AquaPlan-Dev-Secret-Key-Min-32-Chars!!";
+var secretKey = StartupSecurity.ResolveJwtSecret(jwtSettings["SecretKey"], builder.Environment.IsDevelopment());
+builder.Configuration["Jwt:SecretKey"] = secretKey;
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -152,8 +157,12 @@ using (var scope = app.Services.CreateScope())
     await db.Database.MigrateAsync();
 }
 
-// Seed roles, permissions, and default admin user
-await RoleAndPermissionSeeder.SeedAsync(app.Services);
+// Seed roles, permissions, and the admin user.
+// Sprint Sec F-002 — the well-known dev admin (admin@aquaplan.ch / Admin123!) is only
+// seeded in Development/Test. Production creates its initial admin from the
+// INITIAL_ADMIN_EMAIL / INITIAL_ADMIN_PASSWORD environment variables (one-shot).
+var seedDefaultDevAdmin = app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Test");
+await RoleAndPermissionSeeder.SeedAsync(app.Services, seedDefaultDevAdmin);
 
 // Seed analysis catalog (containers)
 await AnalysisCatalogSeeder.SeedAsync(app.Services);
