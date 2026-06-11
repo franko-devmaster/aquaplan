@@ -21,8 +21,13 @@ public interface IOrderService
     Task<bool> UserHasDistributorAccessAsync(string userId, Guid distributorId, CancellationToken cancellationToken = default);
     Task<bool> UserCanAccessOrderAsync(string userId, Guid orderId, Guid tenantId, CancellationToken cancellationToken = default);
     Task<IList<RequiredContainerDto>?> GetRequiredContainersAsync(Guid orderId, Guid tenantId, CancellationToken cancellationToken = default);
-    Task<BulkTransitionResultDto> BulkValidateAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default);
-    Task<BulkTransitionResultDto> BulkTransmitAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default);
-    Task<BulkFinalizeResultDto> BulkFinalizeAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Sprint Sec F-005 — bulk transitions follow the same scoping as
+    /// <see cref="GetOrdersFilteredAsync"/>: admins act on the whole tenant, every other
+    /// caller only on the orders of their authorized distributors (own + delegations).
+    /// </summary>
+    Task<BulkTransitionResultDto> BulkValidateAsync(string userId, Guid tenantId, bool isAdmin, CancellationToken cancellationToken = default);
+    Task<BulkTransitionResultDto> BulkTransmitAsync(string userId, Guid tenantId, bool isAdmin, CancellationToken cancellationToken = default);
+    Task<BulkFinalizeResultDto> BulkFinalizeAsync(string userId, Guid tenantId, bool isAdmin, CancellationToken cancellationToken = default);
     Task<OrderDashboardSummaryDto> GetDashboardSummaryAsync(string userId, Guid tenantId, bool isAdmin, bool isPreleveurOnly, CancellationToken cancellationToken = default);
 }

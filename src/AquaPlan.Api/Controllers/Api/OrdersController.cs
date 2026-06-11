@@ -267,14 +267,17 @@ public class OrdersController(
         return Ok(containers);
     }
 
+    // Sprint Sec F-005 — bulk endpoints are scoped like GetOrders (AQ-398/AQ-420):
+    // admins act on the whole tenant, requérants only on their authorized distributors.
     [HttpPost("bulk-validate")]
     [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}")]
     public async Task<ActionResult<BulkTransitionResultDto>> BulkValidate(CancellationToken cancellationToken)
     {
         var userId = GetUserId();
         var tenantId = GetTenantId();
+        var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
 
-        var result = await orderService.BulkValidateAsync(userId, tenantId, cancellationToken);
+        var result = await orderService.BulkValidateAsync(userId, tenantId, isAdmin, cancellationToken);
         return Ok(result);
     }
 
@@ -284,8 +287,9 @@ public class OrdersController(
     {
         var userId = GetUserId();
         var tenantId = GetTenantId();
+        var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
 
-        var result = await orderService.BulkTransmitAsync(userId, tenantId, cancellationToken);
+        var result = await orderService.BulkTransmitAsync(userId, tenantId, isAdmin, cancellationToken);
         return Ok(result);
     }
 
@@ -300,8 +304,9 @@ public class OrdersController(
     {
         var userId = GetUserId();
         var tenantId = GetTenantId();
+        var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
 
-        var result = await orderService.BulkFinalizeAsync(userId, tenantId, cancellationToken);
+        var result = await orderService.BulkFinalizeAsync(userId, tenantId, isAdmin, cancellationToken);
         return Ok(result);
     }
 

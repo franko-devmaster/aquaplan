@@ -561,7 +561,7 @@ public class OrderServiceTest : IDisposable
         await CreateSeedOrder(OrderStatus.New);
         await CreateSeedOrder(OrderStatus.Completed);
 
-        var result = await _sut.BulkValidateAsync(UserId, TenantId);
+        var result = await _sut.BulkValidateAsync(UserId, TenantId, isAdmin: true);
 
         result.Affected.Should().Be(3);
         var completedCount = await _dbContext.Orders
@@ -582,7 +582,7 @@ public class OrderServiceTest : IDisposable
         await CreateSeedOrder(OrderStatus.New);
         await CreateSeedOrder(OrderStatus.Completed);
 
-        var result = await _sut.BulkValidateAsync(UserId, TenantId);
+        var result = await _sut.BulkValidateAsync(UserId, TenantId, isAdmin: true);
 
         result.Affected.Should().Be(0);
         _auditServiceMock.Verify(a => a.LogAsync(
@@ -617,12 +617,170 @@ public class OrderServiceTest : IDisposable
         });
         await _dbContext.SaveChangesAsync();
 
-        var result = await _sut.BulkValidateAsync(UserId, TenantId);
+        var result = await _sut.BulkValidateAsync(UserId, TenantId, isAdmin: true);
 
         result.Affected.Should().Be(2);
         var otherOrder = await _dbContext.Orders
             .FirstAsync(o => o.TenantId == otherTenant);
         otherOrder.Status.Should().Be(OrderStatus.InProgress);
+    }
+
+    // ─── Sprint Sec F-005 — non-admin bulk scoping (pattern AQ-398/AQ-420) ───
+
+    [Fact]
+    public async Task BulkValidateAsync_WhenNotAdmin_ShouldOnlyTransitionOrdersOfAuthorizedDistributors()
+    {
+        var foreignDistributorId = Guid.Parse("00000000-0000-0000-0000-000000000777");
+        _dbContext.Distributors.Add(new Distributor
+        {
+            Id = foreignDistributorId,
+            Name = "Unauthorized Distributor",
+            TenantId = TenantId,
+            IsActive = true,
+        });
+        await CreateSeedOrder(OrderStatus.InProgress);
+        await CreateSeedOrder(OrderStatus.InProgress);
+        _dbContext.Orders.Add(new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = "ORD-FOREIGN-01",
+            Status = OrderStatus.InProgress,
+            CreatedById = "other-user",
+            DistributorId = foreignDistributorId,
+            TenantId = TenantId,
+        });
+        await _dbContext.SaveChangesAsync();
+        // Default mock: the user is only authorized on DistributorId.
+
+        var result = await _sut.BulkValidateAsync(UserId, TenantId, isAdmin: false);
+
+        result.Affected.Should().Be(2);
+        var foreignOrder = await _dbContext.Orders.FirstAsync(o => o.DistributorId == foreignDistributorId);
+        foreignOrder.Status.Should().Be(OrderStatus.InProgress);
+    }
+
+    [Fact]
+    public async Task BulkTransmitAsync_WhenNotAdmin_ShouldOnlyTransitionOrdersOfAuthorizedDistributors()
+    {
+        var foreignDistributorId = Guid.Parse("00000000-0000-0000-0000-000000000777");
+        _dbContext.Distributors.Add(new Distributor
+        {
+            Id = foreignDistributorId,
+            Name = "Unauthorized Distributor",
+            TenantId = TenantId,
+            IsActive = true,
+        });
+        await CreateSeedOrder(OrderStatus.Completed);
+        _dbContext.Orders.Add(new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = "ORD-FOREIGN-02",
+            Status = OrderStatus.Completed,
+            CreatedById = "other-user",
+            DistributorId = foreignDistributorId,
+            TenantId = TenantId,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.BulkTransmitAsync(UserId, TenantId, isAdmin: false);
+
+        result.Affected.Should().Be(1);
+        var foreignOrder = await _dbContext.Orders.FirstAsync(o => o.DistributorId == foreignDistributorId);
+        foreignOrder.Status.Should().Be(OrderStatus.Completed);
+        foreignOrder.TransmittedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task BulkTransmitAsync_WhenNotAdminWithDelegation_ShouldIncludeDelegatedDistributor()
+    {
+        var delegatedDistributorId = Guid.Parse("00000000-0000-0000-0000-000000000888");
+        _dbContext.Distributors.Add(new Distributor
+        {
+            Id = delegatedDistributorId,
+            Name = "Delegated Distributor",
+            TenantId = TenantId,
+            IsActive = true,
+        });
+        await CreateSeedOrder(OrderStatus.Completed);
+        _dbContext.Orders.Add(new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = "ORD-DELEG-01",
+            Status = OrderStatus.Completed,
+            CreatedById = "other-user",
+            DistributorId = delegatedDistributorId,
+            TenantId = TenantId,
+        });
+        await _dbContext.SaveChangesAsync();
+        _delegationServiceMock
+            .Setup(d => d.GetAuthorizedDistributorIdsForUserAsync(UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([DistributorId, delegatedDistributorId]);
+
+        var result = await _sut.BulkTransmitAsync(UserId, TenantId, isAdmin: false);
+
+        result.Affected.Should().Be(2);
+        var delegatedOrder = await _dbContext.Orders.FirstAsync(o => o.DistributorId == delegatedDistributorId);
+        delegatedOrder.Status.Should().Be(OrderStatus.Transmitted);
+    }
+
+    [Fact]
+    public async Task BulkFinalizeAsync_WhenNotAdmin_ShouldOnlyAffectAuthorizedDistributors()
+    {
+        var foreignDistributorId = Guid.Parse("00000000-0000-0000-0000-000000000777");
+        _dbContext.Distributors.Add(new Distributor
+        {
+            Id = foreignDistributorId,
+            Name = "Unauthorized Distributor",
+            TenantId = TenantId,
+            IsActive = true,
+        });
+        await CreateSeedOrder(OrderStatus.InProgress);
+        _dbContext.Orders.Add(new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = "ORD-FOREIGN-03",
+            Status = OrderStatus.InProgress,
+            CreatedById = "other-user",
+            DistributorId = foreignDistributorId,
+            TenantId = TenantId,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.BulkFinalizeAsync(UserId, TenantId, isAdmin: false);
+
+        result.Validated.Should().Be(1);
+        result.Transmitted.Should().Be(1);
+        var foreignOrder = await _dbContext.Orders.FirstAsync(o => o.DistributorId == foreignDistributorId);
+        foreignOrder.Status.Should().Be(OrderStatus.InProgress);
+    }
+
+    [Fact]
+    public async Task BulkFinalizeAsync_WhenAdmin_ShouldAffectWholeTenant()
+    {
+        var foreignDistributorId = Guid.Parse("00000000-0000-0000-0000-000000000777");
+        _dbContext.Distributors.Add(new Distributor
+        {
+            Id = foreignDistributorId,
+            Name = "Other Distributor",
+            TenantId = TenantId,
+            IsActive = true,
+        });
+        await CreateSeedOrder(OrderStatus.InProgress);
+        _dbContext.Orders.Add(new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = "ORD-FOREIGN-04",
+            Status = OrderStatus.InProgress,
+            CreatedById = "other-user",
+            DistributorId = foreignDistributorId,
+            TenantId = TenantId,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var result = await _sut.BulkFinalizeAsync(UserId, TenantId, isAdmin: true);
+
+        result.Validated.Should().Be(2);
+        result.Transmitted.Should().Be(2);
     }
 
     [Fact]
@@ -632,7 +790,7 @@ public class OrderServiceTest : IDisposable
         await CreateSeedOrder(OrderStatus.Completed);
         await CreateSeedOrder(OrderStatus.InProgress);
 
-        var result = await _sut.BulkTransmitAsync(UserId, TenantId);
+        var result = await _sut.BulkTransmitAsync(UserId, TenantId, isAdmin: true);
 
         result.Affected.Should().Be(2);
         var transmittedCount = await _dbContext.Orders
@@ -650,7 +808,7 @@ public class OrderServiceTest : IDisposable
         await CreateSeedOrder(OrderStatus.InProgress);
         await CreateSeedOrder(OrderStatus.New);
 
-        var result = await _sut.BulkTransmitAsync(UserId, TenantId);
+        var result = await _sut.BulkTransmitAsync(UserId, TenantId, isAdmin: true);
 
         result.Affected.Should().Be(0);
     }
@@ -664,7 +822,7 @@ public class OrderServiceTest : IDisposable
         await CreateSeedOrder(OrderStatus.Completed);
         await CreateSeedOrder(OrderStatus.New); // must stay untouched
 
-        var result = await _sut.BulkFinalizeAsync(UserId, TenantId);
+        var result = await _sut.BulkFinalizeAsync(UserId, TenantId, isAdmin: true);
 
         // 2 InProgress → Completed, then all 3 Completed (2 newly + 1 original) → Transmitted
         result.Validated.Should().Be(2);
@@ -683,7 +841,7 @@ public class OrderServiceTest : IDisposable
         await CreateSeedOrder(OrderStatus.New);
         await CreateSeedOrder(OrderStatus.Transmitted);
 
-        var result = await _sut.BulkFinalizeAsync(UserId, TenantId);
+        var result = await _sut.BulkFinalizeAsync(UserId, TenantId, isAdmin: true);
 
         result.Validated.Should().Be(0);
         result.Transmitted.Should().Be(0);
@@ -695,7 +853,7 @@ public class OrderServiceTest : IDisposable
         await CreateSeedOrder(OrderStatus.InProgress);
         await CreateSeedOrder(OrderStatus.InProgress);
 
-        var result = await _sut.BulkFinalizeAsync(UserId, TenantId);
+        var result = await _sut.BulkFinalizeAsync(UserId, TenantId, isAdmin: true);
 
         result.Validated.Should().Be(2);
         result.Transmitted.Should().Be(2);
@@ -727,7 +885,7 @@ public class OrderServiceTest : IDisposable
         });
         await _dbContext.SaveChangesAsync();
 
-        var result = await _sut.BulkFinalizeAsync(UserId, TenantId);
+        var result = await _sut.BulkFinalizeAsync(UserId, TenantId, isAdmin: true);
 
         result.Validated.Should().Be(1);
         result.Transmitted.Should().Be(1);
@@ -758,7 +916,7 @@ public class OrderServiceTest : IDisposable
         });
         await _dbContext.SaveChangesAsync();
 
-        var result = await _sut.BulkTransmitAsync(UserId, TenantId);
+        var result = await _sut.BulkTransmitAsync(UserId, TenantId, isAdmin: true);
 
         result.Affected.Should().Be(1);
         var otherOrder = await _dbContext.Orders
@@ -779,7 +937,7 @@ public class OrderServiceTest : IDisposable
             .Setup(s => s.ReceiveOrderAsync(It.IsAny<MockLimsOrderCreateDto>(), TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MockLimsOrderCreatedDto(expectedLimsId, DateTime.UtcNow));
 
-        var result = await sut.BulkTransmitAsync(UserId, TenantId);
+        var result = await sut.BulkTransmitAsync(UserId, TenantId, isAdmin: true);
 
         result.Affected.Should().Be(1);
         _mockLimsServiceMock.Verify(s => s.ReceiveOrderAsync(
@@ -797,7 +955,7 @@ public class OrderServiceTest : IDisposable
     {
         await CreateSeedOrder(OrderStatus.Completed);
 
-        var result = await _sut.BulkTransmitAsync(UserId, TenantId);
+        var result = await _sut.BulkTransmitAsync(UserId, TenantId, isAdmin: true);
 
         result.Affected.Should().Be(1);
         _mockLimsServiceMock.Verify(s => s.ReceiveOrderAsync(
@@ -820,7 +978,7 @@ public class OrderServiceTest : IDisposable
             .Setup(s => s.ReceiveOrderAsync(It.IsAny<MockLimsOrderCreateDto>(), TenantId, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Mock LIMS down"));
 
-        var result = await sut.BulkTransmitAsync(UserId, TenantId);
+        var result = await sut.BulkTransmitAsync(UserId, TenantId, isAdmin: true);
 
         result.Affected.Should().Be(1);
         var order = await _dbContext.Orders.SingleAsync(o => o.TenantId == TenantId);
@@ -848,7 +1006,7 @@ public class OrderServiceTest : IDisposable
         _dbContext.Orders.Add(order);
         await _dbContext.SaveChangesAsync();
 
-        var result = await sut.BulkTransmitAsync(UserId, TenantId);
+        var result = await sut.BulkTransmitAsync(UserId, TenantId, isAdmin: true);
 
         result.Affected.Should().Be(1);
         _mockLimsServiceMock.Verify(s => s.ReceiveOrderAsync(

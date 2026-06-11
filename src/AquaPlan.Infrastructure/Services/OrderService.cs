@@ -639,16 +639,16 @@ internal class OrderService(
             resultsStatus);
     }
 
-    public async Task<BulkTransitionResultDto> BulkValidateAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default)
+    public async Task<BulkTransitionResultDto> BulkValidateAsync(string userId, Guid tenantId, bool isAdmin, CancellationToken cancellationToken = default)
     {
         return await BulkTransitionAsync(
-            userId, tenantId, OrderStatus.InProgress, OrderStatus.Completed, cancellationToken);
+            userId, tenantId, isAdmin, OrderStatus.InProgress, OrderStatus.Completed, cancellationToken);
     }
 
-    public async Task<BulkTransitionResultDto> BulkTransmitAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default)
+    public async Task<BulkTransitionResultDto> BulkTransmitAsync(string userId, Guid tenantId, bool isAdmin, CancellationToken cancellationToken = default)
     {
         return await BulkTransitionAsync(
-            userId, tenantId, OrderStatus.Completed, OrderStatus.Transmitted, cancellationToken);
+            userId, tenantId, isAdmin, OrderStatus.Completed, OrderStatus.Transmitted, cancellationToken);
     }
 
     /// <summary>
@@ -658,12 +658,12 @@ internal class OrderService(
     /// were InProgress at call time end up Transmitted when the call returns,
     /// matching the user's expectation that "Tout transmettre" also validates.
     /// </summary>
-    public async Task<BulkFinalizeResultDto> BulkFinalizeAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default)
+    public async Task<BulkFinalizeResultDto> BulkFinalizeAsync(string userId, Guid tenantId, bool isAdmin, CancellationToken cancellationToken = default)
     {
         var validated = await BulkTransitionAsync(
-            userId, tenantId, OrderStatus.InProgress, OrderStatus.Completed, cancellationToken);
+            userId, tenantId, isAdmin, OrderStatus.InProgress, OrderStatus.Completed, cancellationToken);
         var transmitted = await BulkTransitionAsync(
-            userId, tenantId, OrderStatus.Completed, OrderStatus.Transmitted, cancellationToken);
+            userId, tenantId, isAdmin, OrderStatus.Completed, OrderStatus.Transmitted, cancellationToken);
 
         logger.LogInformation(
             "Bulk finalize by {UserId} in tenant {TenantId}: {Validated} validated, {Transmitted} transmitted",
@@ -732,12 +732,23 @@ internal class OrderService(
     }
 
     private async Task<BulkTransitionResultDto> BulkTransitionAsync(
-        string userId, Guid tenantId, OrderStatus fromStatus, OrderStatus toStatus,
+        string userId, Guid tenantId, bool isAdmin, OrderStatus fromStatus, OrderStatus toStatus,
         CancellationToken cancellationToken)
     {
-        var orders = await dbContext.Orders
-            .Where(o => o.TenantId == tenantId && o.Status == fromStatus)
-            .ToListAsync(cancellationToken);
+        var query = dbContext.Orders
+            .Where(o => o.TenantId == tenantId && o.Status == fromStatus);
+
+        // Sprint Sec F-005 — same scoping as GetOrdersFilteredAsync (AQ-398/AQ-420):
+        // non-admin callers only transition the orders of the distributors they are
+        // authorized on (own distributor + active delegations), never the whole tenant.
+        if (!isAdmin)
+        {
+            var authorizedDistributorIds = await delegationService
+                .GetAuthorizedDistributorIdsForUserAsync(userId, cancellationToken);
+            query = query.Where(o => authorizedDistributorIds.Contains(o.DistributorId));
+        }
+
+        var orders = await query.ToListAsync(cancellationToken);
 
         if (orders.Count == 0)
         {
