@@ -78,3 +78,14 @@
 - **Tests xUnit** : 953/953 verts (910 avant sprint, **+43 nouveaux**).
 - **ng build production** : 0 erreur.
 - **Commits** : 6 (un par lot), tous préfixés `fix(security)`/`fix(qa)` avec les IDs de findings.
+
+## Pull Request
+
+- Branche poussée : `feature/sprint-sec` sur `github` (`franko-devmaster/aquaplan`).
+- ⚠️ **PR non créée automatiquement** : le fine-grained PAT GitHub disponible n'a pas la
+  permission `Pull requests: write` (`403 — Resource not accessible by personal access token`,
+  header `x-accepted-github-permissions: pull_requests=write`).
+- Création manuelle en un clic : <https://github.com/franko-devmaster/aquaplan/pull/new/feature/sprint-sec>
+  — description prête à coller dans `docs/audit/sprint-sec-pr-body.md`.
+- Alternative : ajouter la permission "Pull requests: Read and write" au PAT dans
+  GitHub → Settings → Developer settings → Fine-grained tokens, puis relancer la création via API.
