@@ -84,11 +84,11 @@ public class UsersControllerTest
     [Fact]
     public async Task CreateUser_ShouldReturnCreatedAtAction()
     {
-        var createDto = new UserCreateDto("new@user.ch", "New", "User", "Password123", TenantId, "User", null);
+        var createDto = new UserCreateDto("new@user.ch", "New", "User", "Password123", "User", null);
         var createdUser = new UserDetailDto("u3", 100003, "new@user.ch", "New", "User", "User", null, null, true, TenantId,
             DateTime.UtcNow, null);
         _userManagementServiceMock
-            .Setup(x => x.CreateUserAsync(createDto, UserId, It.IsAny<CancellationToken>()))
+            .Setup(x => x.CreateUserAsync(createDto, UserId, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(createdUser);
 
         var result = await _sut.CreateUser(createDto, CancellationToken.None);
@@ -96,6 +96,24 @@ public class UsersControllerTest
         var createdResult = result.Result.Should().BeOfType<CreatedAtActionResult>().Subject;
         createdResult.ActionName.Should().Be(nameof(UsersController.GetUser));
         createdResult.Value.Should().Be(createdUser);
+    }
+
+    [Fact]
+    public async Task CreateUser_ShouldAlwaysUseCallerTenant()
+    {
+        // Sprint Sec F-004 — the caller's tenant_id claim is the only tenant source.
+        var createDto = new UserCreateDto("new@user.ch", "New", "User", "Password123", "User", null);
+        var createdUser = new UserDetailDto("u3", 100003, "new@user.ch", "New", "User", "User", null, null, true, TenantId,
+            DateTime.UtcNow, null);
+        _userManagementServiceMock
+            .Setup(x => x.CreateUserAsync(It.IsAny<UserCreateDto>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(createdUser);
+
+        await _sut.CreateUser(createDto, CancellationToken.None);
+
+        _userManagementServiceMock.Verify(
+            x => x.CreateUserAsync(createDto, UserId, TenantId, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

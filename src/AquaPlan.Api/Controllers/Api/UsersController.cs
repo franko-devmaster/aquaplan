@@ -60,8 +60,11 @@ public class UsersController(
     [Authorize(Roles = "Administrator")]
     public async Task<ActionResult<UserDetailDto>> CreateUser([FromBody] UserCreateDto dto, CancellationToken cancellationToken)
     {
+        // Sprint Sec F-004 — the user is created in the caller's tenant (JWT claim),
+        // never in a client-supplied tenant.
         var createdBy = GetUserId();
-        var user = await userManagementService.CreateUserAsync(dto, createdBy, cancellationToken);
+        var tenantId = GetTenantId();
+        var user = await userManagementService.CreateUserAsync(dto, createdBy, tenantId, cancellationToken);
         return CreatedAtAction(nameof(GetUser), new { id = user.Id }, user);
     }
 

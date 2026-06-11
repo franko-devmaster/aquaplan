@@ -1,11 +1,12 @@
 namespace AquaPlan.Application.DTOs.MockLims;
 
 /// <summary>
-/// AQ-404 — Optional payload for the admin backfill endpoint. Both properties are optional:
-/// when omitted, the service backfills every eligible order of the caller's tenant.
+/// AQ-404 — Optional payload for the admin backfill endpoint. When omitted, the service
+/// backfills every eligible order of the caller's tenant.
+/// Sprint Sec F-003 — <c>TenantId</c> was removed: the backfill always operates on the
+/// caller's tenant (taken from the JWT), never on a client-supplied tenant.
 /// </summary>
 public record MockLimsBackfillRequestDto(
-    Guid? TenantId = null,
     int? MaxOrders = null);
 
 /// <summary>

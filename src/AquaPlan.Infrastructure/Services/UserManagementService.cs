@@ -1,6 +1,7 @@
 using AquaPlan.Application.DTOs.Users;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
+using AquaPlan.Domain.Enums;
 using AquaPlan.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -91,8 +92,28 @@ internal class UserManagementService(
             user.IsActive, user.TenantId, user.CreatedAt, user.UpdatedAt);
     }
 
-    public async Task<UserDetailDto> CreateUserAsync(UserCreateDto dto, string createdBy, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Sprint Sec F-004 — the new user is always created in the caller's tenant
+    /// (<paramref name="tenantId"/> from the JWT). The role is validated against the
+    /// known role names and the distributor (when provided) must belong to the same tenant.
+    /// </summary>
+    public async Task<UserDetailDto> CreateUserAsync(UserCreateDto dto, string createdBy, Guid tenantId, CancellationToken cancellationToken = default)
     {
+        if (!string.IsNullOrEmpty(dto.Role) && !RoleName.All.Contains(dto.Role))
+        {
+            throw new InvalidOperationException($"Unknown role: {dto.Role}");
+        }
+
+        if (dto.DistributorId.HasValue)
+        {
+            var distributorInTenant = await dbContext.Distributors
+                .AnyAsync(d => d.Id == dto.DistributorId.Value && d.TenantId == tenantId, cancellationToken);
+            if (!distributorInTenant)
+            {
+                throw new InvalidOperationException("The distributor does not exist in the caller's tenant.");
+            }
+        }
+
         var user = new AppUser
         {
             UserName = dto.Email,
@@ -100,13 +121,13 @@ internal class UserManagementService(
             FirstName = dto.FirstName,
             LastName = dto.LastName,
             DistributorId = dto.DistributorId,
-            TenantId = dto.TenantId,
+            TenantId = tenantId,
             CreatedBy = createdBy,
         };
 
         // Generate next UserNumber for this tenant
         var maxNumber = await dbContext.Users
-            .Where(u => u.TenantId == dto.TenantId)
+            .Where(u => u.TenantId == tenantId)
             .Select(u => (int?)u.UserNumber)
             .MaxAsync(cancellationToken) ?? 100000;
         user.UserNumber = maxNumber + 1;
@@ -127,7 +148,7 @@ internal class UserManagementService(
 
         logger.LogInformation("User {Email} created by {CreatedBy}", dto.Email, createdBy);
 
-        return (await GetUserByIdAsync(user.Id, dto.TenantId, cancellationToken))!;
+        return (await GetUserByIdAsync(user.Id, tenantId, cancellationToken))!;
     }
 
     public async Task<UserDetailDto?> UpdateUserAsync(string userId, UserUpdateDto dto, string updatedBy, Guid tenantId, CancellationToken cancellationToken = default)
