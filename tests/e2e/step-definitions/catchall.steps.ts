@@ -4,8 +4,12 @@ import { AquaPlanWorld } from '../support/world.js';
 
 /**
  * Catch-all step definitions for Xray Gherkin steps that don't have
- * a specific implementation yet. These steps pass with a warning
- * rather than failing as "undefined".
+ * a specific implementation yet.
+ *
+ * Sprint Sec F-014 (cross-cutting audit) — unimplemented assertions return the
+ * Cucumber 'pending' status instead of auto-passing: a test that is not really
+ * executed must surface as PENDING (mapped TO DO in Xray), never as PASSED
+ * (CLAUDE.md QA rule). Implement the real assertion, then remove the pending.
  *
  * IMPORTANT: These must NOT conflict with specific step definitions
  * in other files (business-api, auth-roles, frontend, infrastructure, smoke).
@@ -439,251 +443,251 @@ Then('un token JWT est retourné avec les claims tenant et rôle', async functio
 });
 
 Then('un nouveau token JWT est généré', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('l\'authentification est refusée', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('la connexion est refusée', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('il est connecté automatiquement sans saisie', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('l\'utilisateur est connecté avec ses droits chargés', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('il est redirigé vers la page de connexion', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('la page de connexion classique s\'affiche', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then(/^le serveur retourne une erreur (\d+)$/, async function (this: AquaPlanWorld, _code: string) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then(/^l API retourne un code (\d+)$/, async function (this: AquaPlanWorld, _code: string) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 // ─── Then: Role & Permission assertions ────────────────────
 Then('il a accès à toutes les fonctionnalités', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('il peut gérer les comptes et attribuer les rôles', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('il peut créer des mandats et saisir des prélèvements', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then(/^les (\d+) rôles existent: (.+)$/, async function (this: AquaPlanWorld, _count: string, _roles: string) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then(/^je vois la liste des (\d+) permissions$/, async function (this: AquaPlanWorld, _count: string) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('les modifications sont enregistrées', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('les données de l\'utilisateur sont toujours accessibles', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('une erreur de duplication est retournée', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('le rôle est attribué avec succès', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('le rôle est retiré', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('les permissions correspondent au profil défini', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('seuls les menus autorisés sont visibles', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('le compte est créé dans le système', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 // ─── Then: Business assertions ─────────────────────────────
 Then('le mandat est créé avec succès', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('le mandat est enregistré avec succès', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('le mandat est enregistré', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('il voit uniquement les mandats qui lui sont attribués', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('il voit uniquement ses mandats', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('il ne voit que ses mandats attribués', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('il voit tous les LDP de tous les réseaux', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('il voit uniquement les LDP de son réseau', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('il reçoit une erreur', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('la validation serveur rejette la demande', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('le distributeur devient inactif', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('le lieu devient inactif', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then(/^le lieu "(.+)" est retourné$/, async function (this: AquaPlanWorld, _name: string) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('tous les lieux du tenant sont retournés', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then(/^(\d+) résultats sont retournés avec totalCount=(\d+)$/, async function (this: AquaPlanWorld, _count: string, _total: string) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('false est retourné', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then(/^le programme contient les (\d+) profils$/, async function (this: AquaPlanWorld, _count: string) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('le programme devient inactif', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then(/^les transitions possibles sont (.+)$/, async function (this: AquaPlanWorld, _transitions: string) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('aucune transition n\'est possible', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('le prélèvement est enregistré', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('les données sont enregistrées', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('le profil devient inactif', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('seuls les profils bactériologiques sont retournés', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('seuls les lieux du distributeur sélectionné sont retournés', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('un email de notification est envoyé', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 // ─── Then: Change request assertions ───────────────────────
 Then('il reçoit le détail complet incluant le commentaire de revue si disponible', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then(/^il reçoit ses (\d+) demandes triées par date décroissante$/, async function (this: AquaPlanWorld, _count: string) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('le SamplingLocation existant est mis à jour', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then(/^le SamplingLocation est désactivé \(IsActive=false\)$/, async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then(/^la demande passe en statut (.+)$/, async function (this: AquaPlanWorld, _status: string) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 // ─── Then: Infrastructure assertions ───────────────────────
 Then(/^tous les services démarrent \(PostgreSQL, API, frontend\)$/, async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('les deux services répondent correctement', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('le pipeline build le .NET et Angular', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('les tests unitaires passent avec rapport de couverture', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('les clients TypeScript sont générés automatiquement via NSwag', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('les logs sont écrits en console et dans un fichier', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('un Correlation ID unique est ajouté aux logs', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('une trace est générée', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('EF Core se connecte à la base de données', async function (this: AquaPlanWorld) {
@@ -702,7 +706,7 @@ Then(/^l'application démarre sur localhost:(\d+)$/, async function (this: AquaP
 });
 
 Then('les composants Material sont disponibles', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('les libellés s\'affichent en français', async function (this: AquaPlanWorld) {
@@ -716,11 +720,11 @@ Then('l\'interface Swagger UI s\'affiche', async function (this: AquaPlanWorld) 
 
 // ─── Then: UI assertions ───────────────────────────────────
 Then('je suis redirigé automatiquement vers \\/login', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('je suis redirigé vers la page accueil', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 // ─── Then: Generic catch-all patterns ──────────────────────
@@ -729,9 +733,9 @@ Then('je suis redirigé vers la page accueil', async function (this: AquaPlanWor
 // "la demande contient le nom, code, coordonnées...", "le compte est marqué comme inactif"
 
 Then(/^seules les demandes (.+)$/, async function (this: AquaPlanWorld, _desc: string) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then(/^seule[s]? celles? (.+)$/, async function (this: AquaPlanWorld, _desc: string) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });

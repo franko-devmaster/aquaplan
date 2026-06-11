@@ -181,8 +181,8 @@ Then('l\'accès est refusé', async function (this: AquaPlanWorld) {
   if (this.lastResponse) {
     expect([401, 403]).toContain(this.lastResponse.status);
   } else {
-    // No API call — accept as pass (scenario uses catch-all steps)
-    expect(true).toBeTruthy();
+    // Sprint Sec F-014 — no API call happened: PENDING instead of a fake pass.
+    return 'pending';
   }
 });
 
@@ -209,7 +209,7 @@ When('l\'admin désactive le compte via PUT', async function (this: AquaPlanWorl
 
 Then('un email de bienvenue est envoyé', async function (this: AquaPlanWorld) {
   // Email sending not testable in E2E — accept as true if user was created
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('le profil est mis à jour', async function (this: AquaPlanWorld) {
@@ -222,12 +222,12 @@ Then('le compte est marqué comme inactif', async function (this: AquaPlanWorld)
 
 Then('l\'utilisateur ne peut plus se connecter', async function (this: AquaPlanWorld) {
   // Disabled accounts should not be able to login
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 // Permissions
 When('le rôle Requérant a les permissions de créer et voir des mandats', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 When('il consulte les rôles', async function (this: AquaPlanWorld) {
@@ -250,7 +250,7 @@ Then('le rôle contient les permissions attendues', async function (this: AquaPl
 });
 
 Then('l\'utilisateur a les permissions du rôle', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('les permissions sont retirées', async function (this: AquaPlanWorld) {
