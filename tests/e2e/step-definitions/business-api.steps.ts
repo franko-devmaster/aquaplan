@@ -40,17 +40,18 @@ When(/^il appelle PATCH (.+?) avec (.+)$/, async function (this: AquaPlanWorld, 
 });
 
 Then(/^il reçoit (\d+) ?(OK|Created|No Content|Not Found|Forbidden|Bad Request|Conflict)?/, async function (this: AquaPlanWorld, expectedStatus: string, _statusText: string) {
-  if (this.lastResponse) {
-    // Verify we got a response — status may differ from expected
-    // because catch-all steps send minimal payloads
-    const expected = parseInt(expectedStatus);
-    const actual = this.lastResponse.status;
-    if (actual !== expected) {
-      // Log mismatch but don't fail — catch-all steps send empty bodies
-      console.log(`[WARN] Expected ${expected} but got ${actual} — catch-all step limitation`);
-    }
+  // Sprint Sec F-014 — no more auto-PASS: a mismatching or missing response is
+  // reported as PENDING (mapped TO DO in Xray) instead of a fake green.
+  if (!this.lastResponse) {
+    return 'pending';
   }
-  expect(true).toBeTruthy();
+  const expected = parseInt(expectedStatus);
+  const actual = this.lastResponse.status;
+  if (actual !== expected) {
+    console.log(`[WARN] Expected ${expected} but got ${actual} — minimal payload, marking PENDING`);
+    return 'pending';
+  }
+  expect(actual).toBe(expected);
 });
 
 Then('chaque distributeur contient id, name, cantonRegion, isActive', async function (this: AquaPlanWorld) {
@@ -79,7 +80,7 @@ Then('seuls les distributeurs actifs sont retournés', async function (this: Aqu
 });
 
 Then('le distributeur est actif par défaut', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 // Sampling Locations (LDP)
@@ -101,7 +102,7 @@ Then('le statut est maintenant inactif', async function (this: AquaPlanWorld) {
 });
 
 Then('statusChangedAt et statusChangedBy sont mis à jour', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 // Mandates & Status
@@ -124,7 +125,7 @@ Then('la transition est refusée', async function (this: AquaPlanWorld) {
 
 Then('l\'action est tracée dans l\'audit trail', async function (this: AquaPlanWorld) {
   // Audit trail not directly testable in E2E
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 // Analysis Profiles
@@ -216,9 +217,9 @@ Then('elles sont triées par date de soumission croissante', async function (thi
 });
 
 Then('un nouveau SamplingLocation est créé avec les données proposées', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });
 
 Then('le SamplingLocation n\'est pas modifié', async function (this: AquaPlanWorld) {
-  expect(true).toBeTruthy();
+  return 'pending';
 });

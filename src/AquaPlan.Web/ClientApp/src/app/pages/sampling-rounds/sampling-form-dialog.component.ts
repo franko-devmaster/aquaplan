@@ -16,6 +16,7 @@ import { SamplingApiService } from '../../services/sampling-api.service';
 import { OrderApiService } from '../../services/order-api.service';
 import { SyncService } from '../../services/sync.service';
 import { OfflineStorageService } from '../../services/offline-storage.service';
+import { devInfo } from '../../utils/dev-log';
 import {
   SamplingDto,
   SamplingCreateDto,
@@ -350,7 +351,7 @@ export class SamplingFormDialogComponent implements OnInit {
       if (!this.syncService.onlineStatus()) {
         const actionType = this.isEditMode() ? 'UPDATE_SAMPLING' : 'CREATE_SAMPLING';
         const roundKey = this.data.roundId ?? this.data.orderId;
-        console.info('[offline] queuing', actionType, 'for order', this.data.orderId);
+        devInfo('[offline] queuing', actionType, 'for order', this.data.orderId);
         try {
           await this.offlineStorage.queueAction({
             roundId: roundKey,

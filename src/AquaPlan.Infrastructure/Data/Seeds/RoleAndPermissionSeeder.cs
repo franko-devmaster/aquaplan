@@ -2,6 +2,7 @@ using AquaPlan.Domain.Entities;
 using AquaPlan.Domain.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -9,12 +10,29 @@ namespace AquaPlan.Infrastructure.Data.Seeds;
 
 public static class RoleAndPermissionSeeder
 {
-    public static async Task SeedAsync(IServiceProvider serviceProvider)
+    /// <summary>Configuration key (env var) holding the initial admin e-mail for non-dev environments.</summary>
+    public const string InitialAdminEmailKey = "INITIAL_ADMIN_EMAIL";
+
+    /// <summary>Configuration key (env var) holding the initial admin password for non-dev environments.</summary>
+    public const string InitialAdminPasswordKey = "INITIAL_ADMIN_PASSWORD";
+
+    private const string DefaultDevAdminEmail = "admin@aquaplan.ch";
+    private static readonly Guid DefaultTenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+
+    /// <summary>
+    /// Seeds roles, permissions, the default tenant, and the admin account.
+    /// Sprint Sec F-002 — <paramref name="seedDefaultDevAdmin"/> must only be true in
+    /// Development/Test: it creates the well-known dev admin (admin@aquaplan.ch / Admin123!).
+    /// In every other environment the initial admin is created once from the
+    /// <c>INITIAL_ADMIN_EMAIL</c> / <c>INITIAL_ADMIN_PASSWORD</c> environment variables.
+    /// </summary>
+    public static async Task SeedAsync(IServiceProvider serviceProvider, bool seedDefaultDevAdmin)
     {
         using var scope = serviceProvider.CreateScope();
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
         var dbContext = scope.ServiceProvider.GetRequiredService<AquaPlanDbContext>();
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<AquaPlanDbContext>>();
 
         // Seed roles
@@ -72,26 +90,82 @@ public static class RoleAndPermissionSeeder
             await dbContext.SaveChangesAsync();
         }
 
-        // Seed admin user
-        var adminEmail = "admin@aquaplan.ch";
-        if (await userManager.FindByEmailAsync(adminEmail) is null)
+        // Seed admin user — dev/test gets the well-known dev admin, every other
+        // environment requires INITIAL_ADMIN_EMAIL / INITIAL_ADMIN_PASSWORD (one-shot).
+        if (seedDefaultDevAdmin)
         {
-            var admin = new AppUser
+            await CreateAdminIfMissingAsync(userManager, logger, DefaultDevAdminEmail, "Admin123!");
+        }
+        else
+        {
+            await SeedInitialAdminFromConfigurationAsync(userManager, configuration, logger);
+        }
+    }
+
+    /// <summary>
+    /// Creates the initial production admin from configuration. No-op when the account
+    /// already exists. Logs a warning when no admin can be created and none exists, so
+    /// operators notice the missing INITIAL_ADMIN_* variables instead of silently
+    /// running an instance without administrator.
+    /// </summary>
+    public static async Task SeedInitialAdminFromConfigurationAsync(
+        UserManager<AppUser> userManager,
+        IConfiguration configuration,
+        ILogger logger)
+    {
+        var email = configuration[InitialAdminEmailKey];
+        var password = configuration[InitialAdminPasswordKey];
+
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            var hasAdmin = (await userManager.GetUsersInRoleAsync(RoleName.Administrator)).Count > 0;
+            if (!hasAdmin)
             {
-                UserName = adminEmail,
-                Email = adminEmail,
-                FirstName = "Admin",
-                LastName = "AquaPlan",
-                Organization = "Canton de Fribourg",
-                TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
-                EmailConfirmed = true,
-            };
-            var result = await userManager.CreateAsync(admin, "Admin123!");
-            if (result.Succeeded)
-            {
-                await userManager.AddToRoleAsync(admin, RoleName.Administrator);
-                logger.LogInformation("Created admin user: {Email}", adminEmail);
+                logger.LogWarning(
+                    "No administrator account exists and {EmailKey}/{PasswordKey} are not set. " +
+                    "Set both environment variables and restart to create the initial admin (one-shot).",
+                    InitialAdminEmailKey, InitialAdminPasswordKey);
             }
+            return;
+        }
+
+        await CreateAdminIfMissingAsync(userManager, logger, email, password);
+    }
+
+    private static async Task CreateAdminIfMissingAsync(
+        UserManager<AppUser> userManager,
+        ILogger logger,
+        string adminEmail,
+        string password)
+    {
+        if (await userManager.FindByEmailAsync(adminEmail) is not null)
+        {
+            return;
+        }
+
+        var admin = new AppUser
+        {
+            UserName = adminEmail,
+            Email = adminEmail,
+            FirstName = "Admin",
+            LastName = "AquaPlan",
+            Organization = "Canton de Fribourg",
+            TenantId = DefaultTenantId,
+            EmailConfirmed = true,
+        };
+        var result = await userManager.CreateAsync(admin, password);
+        if (result.Succeeded)
+        {
+            await userManager.AddToRoleAsync(admin, RoleName.Administrator);
+            logger.LogInformation("Created admin user: {Email}", adminEmail);
+        }
+        else
+        {
+            // Never log the password — only Identity error descriptions.
+            logger.LogError(
+                "Failed to create admin user {Email}: {Errors}",
+                adminEmail,
+                string.Join(", ", result.Errors.Select(e => e.Description)));
         }
     }
 

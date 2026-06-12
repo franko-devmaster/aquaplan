@@ -2,9 +2,16 @@
 # AquaPlan — Deploy to Synology DS218+
 # Usage: ./scripts/deploy-synology.sh [tag]
 #
+# Sprint Sec F-009 (cross-cutting) — `docker restart` keeps the OLD image of an
+# existing container: the previous version of this script pulled the new image but
+# never deployed it. Containers are now RECREATED via docker-compose so the freshly
+# pulled image (and the TAG argument) actually go live. The DB container is left
+# untouched unless its image changed (compose only recreates what changed).
+#
 # Prerequisites:
 #   - SSH access to Synology (fcharriere user)
-#   - Docker installed on Synology (/usr/local/bin/docker)
+#   - Docker + docker-compose installed on Synology (/usr/local/bin)
+#   - docker-compose.yml + .env (DB_PASSWORD, JWT_SECRET) present in /volume1/docker/aquaplan
 #   - macOS: "Réseau local" enabled for Terminal in System Settings
 #
 # Environment variables (set in .env or export before running):
@@ -17,6 +24,8 @@ TAG="${1:-latest}"
 SYNOLOGY_HOST="${SYNOLOGY_HOST:-192.168.1.159}"
 SYNOLOGY_USER="${SYNOLOGY_USER:-fcharriere}"
 DOCKER="/usr/local/bin/docker"
+DOCKER_COMPOSE="/usr/local/bin/docker-compose"
+DEPLOY_DIR="/volume1/docker/aquaplan"
 
 echo "=== AquaPlan — Deploiement Synology ==="
 echo "Tag:  $TAG"
@@ -32,10 +41,11 @@ ssh_cmd() {
 echo "[1/3] Pull des images (tag: $TAG)..."
 ssh_cmd "sudo $DOCKER pull francoischarriere/aquaplan-api:$TAG && sudo $DOCKER pull francoischarriere/aquaplan-web:$TAG"
 
-# 2. Restart containers (DB is NOT restarted — data preserved)
+# 2. Recreate containers via compose so the pulled image is actually used.
+#    --remove-orphans cleans up containers no longer declared in the compose file.
 echo ""
-echo "[2/3] Redemarrage des conteneurs (api + web)..."
-ssh_cmd "sudo $DOCKER restart aquaplan-api && sudo $DOCKER restart aquaplan-web"
+echo "[2/3] Recreation des conteneurs via docker-compose (api + web)..."
+ssh_cmd "cd $DEPLOY_DIR && sudo TAG=$TAG $DOCKER_COMPOSE up -d --remove-orphans aquaplan-api aquaplan-web"
 
 # 3. Verify
 echo ""

@@ -87,7 +87,7 @@ When('je clique sur {string}', async function (this: AquaPlanWorld, text: string
 
 // Visual assertions
 Then('je vois le titre {string}', async function (this: AquaPlanWorld, text: string) {
-  if (!this.page) { expect(true).toBeTruthy(); return; }
+  if (!this.page) { return 'pending'; }
   await expect(
     this.page.getByRole('heading', { name: text })
       .or(this.page.getByText(text))
@@ -95,12 +95,12 @@ Then('je vois le titre {string}', async function (this: AquaPlanWorld, text: str
 });
 
 Then('je vois le sous-titre {string}', async function (this: AquaPlanWorld, text: string) {
-  if (!this.page) { expect(true).toBeTruthy(); return; }
+  if (!this.page) { return 'pending'; }
   await expect(this.page.getByText(text)).toBeVisible({ timeout: 10_000 });
 });
 
 Then('je vois un champ {string}', async function (this: AquaPlanWorld, label: string) {
-  if (!this.page) { expect(true).toBeTruthy(); return; }
+  if (!this.page) { return 'pending'; }
   const field = this.page.getByLabel(label)
     .or(this.page.getByPlaceholder(label))
     .or(this.page.locator(`input[aria-label="${label}"]`));
@@ -108,49 +108,49 @@ Then('je vois un champ {string}', async function (this: AquaPlanWorld, label: st
 });
 
 Then('je vois un bouton {string}', async function (this: AquaPlanWorld, text: string) {
-  if (!this.page) { expect(true).toBeTruthy(); return; }
+  if (!this.page) { return 'pending'; }
   await expect(
     this.page.getByRole('button', { name: text })
   ).toBeVisible({ timeout: 10_000 });
 });
 
 Then('je vois le message {string}', async function (this: AquaPlanWorld, text: string) {
-  if (!this.page) { expect(true).toBeTruthy(); return; }
+  if (!this.page) { return 'pending'; }
   await expect(this.page.getByText(text)).toBeVisible({ timeout: 10_000 });
 });
 
 Then('je reste sur la page \\/login', async function (this: AquaPlanWorld) {
-  if (!this.page) { expect(true).toBeTruthy(); return; }
+  if (!this.page) { return 'pending'; }
   expect(this.page.url()).toContain('/login');
 });
 
 Then('le header affiche {string}', async function (this: AquaPlanWorld, text: string) {
-  if (!this.page) { expect(true).toBeTruthy(); return; }
+  if (!this.page) { return 'pending'; }
   await expect(this.page.getByText(text).first()).toBeVisible({ timeout: 10_000 });
 });
 
 Then('la sidebar contient Accueil, Mandats, Lieux de prélèvement, Utilisateurs, Rôles', async function (this: AquaPlanWorld) {
-  if (!this.page) { expect(true).toBeTruthy(); return; }
+  if (!this.page) { return 'pending'; }
   await expect(this.page.getByText('Accueil')).toBeVisible({ timeout: 10_000 });
   const text = await this.page.textContent('body');
   expect(text).toContain('Accueil');
 });
 
 Then('je suis redirigé vers la page d\'accueil', async function (this: AquaPlanWorld) {
-  if (!this.page) { expect(true).toBeTruthy(); return; }
+  if (!this.page) { return 'pending'; }
   await this.page.waitForTimeout(2000);
   expect(this.page.url()).not.toContain('/login');
 });
 
 Then('je suis redirigé vers \\/login', async function (this: AquaPlanWorld) {
-  if (!this.page) { expect(true).toBeTruthy(); return; }
+  if (!this.page) { return 'pending'; }
   await this.page.waitForTimeout(2000);
   expect(this.page.url()).toContain('/login');
 });
 
 // Table assertions
 Then(/^le tableau contient les colonnes (.+)$/, async function (this: AquaPlanWorld, columns: string) {
-  if (!this.page) { expect(true).toBeTruthy(); return; }
+  if (!this.page) { return 'pending'; }
   const expectedCols = columns.split(',').map(c => c.trim());
   const pageText = await this.page.textContent('body') || '';
   for (const col of expectedCols) {
@@ -159,13 +159,13 @@ Then(/^le tableau contient les colonnes (.+)$/, async function (this: AquaPlanWo
 });
 
 Then('je vois 4 rôles en accordéon', async function (this: AquaPlanWorld) {
-  if (!this.page) { expect(true).toBeTruthy(); return; }
+  if (!this.page) { return 'pending'; }
   const text = await this.page.textContent('body') || '';
   expect(text.toLowerCase()).toContain('admin');
 });
 
 Then('je vois l utilisateur admin avec le rôle Administrator et le statut Actif', async function (this: AquaPlanWorld) {
-  if (!this.page) { expect(true).toBeTruthy(); return; }
+  if (!this.page) { return 'pending'; }
   const text = await this.page.textContent('body') || '';
   expect(text).toContain('admin');
 });

@@ -26,5 +26,7 @@ RUN npx ng build --configuration production
 FROM nginx:alpine AS runtime
 COPY --from=build --chown=nginx:nginx /app/src/AquaPlan.Web/ClientApp/dist/client-app/browser /usr/share/nginx/html
 COPY src/AquaPlan.Web/nginx.conf /etc/nginx/conf.d/default.conf
+# Sprint Sec F-006 (cross-cutting) — shared security headers included by nginx.conf.
+COPY src/AquaPlan.Web/security-headers.conf /etc/nginx/security-headers.conf
 RUN chmod -R 755 /usr/share/nginx/html
 EXPOSE 80

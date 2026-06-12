@@ -460,7 +460,7 @@ public class OrdersControllerTest
     public async Task BulkValidate_ShouldReturnOkWithAffected()
     {
         _orderServiceMock
-            .Setup(x => x.BulkValidateAsync(UserId, TenantId, It.IsAny<CancellationToken>()))
+            .Setup(x => x.BulkValidateAsync(UserId, TenantId, false, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new BulkTransitionResultDto(5));
 
         var result = await _sut.BulkValidate(CancellationToken.None);
@@ -470,16 +470,57 @@ public class OrdersControllerTest
     }
 
     [Fact]
+    public async Task BulkValidate_WhenUserHasViewAllPermission_ShouldPassIsAdminTrue()
+    {
+        // Sprint Sec F-005 — admin scoping is derived from ViewAllOrders, like GetOrders.
+        _permissionServiceMock
+            .Setup(p => p.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _orderServiceMock
+            .Setup(x => x.BulkValidateAsync(UserId, TenantId, true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new BulkTransitionResultDto(7));
+
+        var result = await _sut.BulkValidate(CancellationToken.None);
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeEquivalentTo(new BulkTransitionResultDto(7));
+        _orderServiceMock.Verify(
+            x => x.BulkValidateAsync(UserId, TenantId, true, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task BulkTransmit_ShouldReturnOkWithAffected()
     {
         _orderServiceMock
-            .Setup(x => x.BulkTransmitAsync(UserId, TenantId, It.IsAny<CancellationToken>()))
+            .Setup(x => x.BulkTransmitAsync(UserId, TenantId, false, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new BulkTransitionResultDto(2));
 
         var result = await _sut.BulkTransmit(CancellationToken.None);
 
         var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         ok.Value.Should().BeEquivalentTo(new BulkTransitionResultDto(2));
+    }
+
+    [Fact]
+    public async Task BulkTransmit_WhenUserIsNotAdmin_ShouldPassIsAdminFalse()
+    {
+        // Sprint Sec F-005 — a requérant must not transmit the whole tenant.
+        _permissionServiceMock
+            .Setup(p => p.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.BulkTransmitAsync(UserId, TenantId, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new BulkTransitionResultDto(1));
+
+        await _sut.BulkTransmit(CancellationToken.None);
+
+        _orderServiceMock.Verify(
+            x => x.BulkTransmitAsync(UserId, TenantId, false, It.IsAny<CancellationToken>()),
+            Times.Once);
+        _orderServiceMock.Verify(
+            x => x.BulkTransmitAsync(It.IsAny<string>(), It.IsAny<Guid>(), true, It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
@@ -529,7 +570,7 @@ public class OrdersControllerTest
     public async Task BulkFinalize_ShouldReturnOkWithValidatedAndTransmittedCounts()
     {
         _orderServiceMock
-            .Setup(x => x.BulkFinalizeAsync(UserId, TenantId, It.IsAny<CancellationToken>()))
+            .Setup(x => x.BulkFinalizeAsync(UserId, TenantId, false, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new BulkFinalizeResultDto(3, 5));
 
         var result = await _sut.BulkFinalize(CancellationToken.None);

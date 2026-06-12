@@ -24,6 +24,8 @@ services:
       dockerfile: src/AquaPlan.Api/Dockerfile
     container_name: aquaplan-api
     environment:
+      # Sprint Sec F-002 — the dev admin (admin@aquaplan.ch) is only seeded in Development.
+      ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: "Host=aquaplan-db;Port=5432;Database=aquaplan_dev;Username=aquaplan;Password=aquaplan_dev"
       Jwt__SecretKey: "AquaPlan-Dev-Secret-Key-Min-32-Chars!!"
       Jwt__Issuer: "AquaPlan"

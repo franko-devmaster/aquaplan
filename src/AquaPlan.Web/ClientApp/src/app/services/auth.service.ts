@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { OfflineStorageService } from './offline-storage.service';
+import { devInfo } from '../utils/dev-log';
 
 export interface UserInfo {
   id: string;
@@ -96,7 +97,7 @@ export class AuthService {
       const persisted = await this.offlineStorage.loadAuth();
       if (persisted?.accessToken && !sessionToken) {
         // Session cache was wiped but IDB still holds a token — restore it.
-        console.info('[offline] auth: restored JWT from IndexedDB');
+        devInfo('[offline] auth: restored JWT from IndexedDB');
         this.accessToken.set(persisted.accessToken);
         this.safeSessionSet(SESSION_ACCESS_KEY, persisted.accessToken);
         if (persisted.refreshToken) {
@@ -160,10 +161,10 @@ export class AuthService {
   async handleAuthFailure(): Promise<void> {
     const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
     if (!online) {
-      console.info('[offline] auth: 401 received while offline, keeping session');
+      devInfo('[offline] auth: 401 received while offline, keeping session');
       return;
     }
-    console.info('[offline] auth: 401 received online, clearing session');
+    devInfo('[offline] auth: 401 received online, clearing session');
     await this.clearSession();
     await this.router.navigate(['/login']);
   }

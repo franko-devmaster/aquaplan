@@ -15,6 +15,7 @@ public class AuthController(
     IAuthService authService,
     ITokenService tokenService,
     IOidcUserService oidcUserService,
+    IOidcCodeExchangeService oidcCodeExchangeService,
     UserManager<AppUser> userManager,
     IConfiguration configuration,
     ILogger<AuthController> logger) : ControllerBase
@@ -152,8 +153,36 @@ public class AuthController(
         user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(refreshTokenExpirationDays);
         await userManager.UpdateAsync(user);
 
+        // Sprint Sec F-006 — never put tokens in a redirect URL (browser history, proxy
+        // logs, Referer). The SPA receives a short-lived single-use code and redeems it
+        // via POST /api/auth/oidc-exchange.
+        var exchangeCode = oidcCodeExchangeService.CreateCode(
+            new OidcExchangeResponseDto(accessToken, refreshToken));
+
         logger.LogInformation("OIDC login successful for user {Email}", email);
-        return Redirect($"/#/auth/callback?token={accessToken}&refresh={refreshToken}");
+        return Redirect($"/#/auth/callback?code={exchangeCode}");
+    }
+
+    /// <summary>
+    /// Sprint Sec F-006 — redeems the single-use code issued by the OIDC callback for
+    /// the actual tokens. The code is invalidated on first use and expires after ~60s.
+    /// </summary>
+    [HttpPost("oidc-exchange")]
+    [AllowAnonymous]
+    public IActionResult OidcExchange([FromBody] OidcExchangeRequestDto dto)
+    {
+        var tokens = oidcCodeExchangeService.RedeemCode(dto.Code);
+        if (tokens is null)
+        {
+            return Unauthorized(new ProblemDetails
+            {
+                Title = "Code exchange failed",
+                Detail = "Invalid, expired, or already used exchange code",
+                Status = StatusCodes.Status401Unauthorized,
+            });
+        }
+
+        return Ok(tokens);
     }
 
     [HttpGet("oidc-config")]

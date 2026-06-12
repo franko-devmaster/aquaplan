@@ -85,22 +85,26 @@ public class AdminLimsSyncControllerTest
     }
 
     [Fact]
-    public async Task BackfillResults_WithRequestOverrides_ShouldPassThroughTenantAndMax()
+    public async Task BackfillResults_WithMaxOrders_ShouldUseCallerTenantAndPassMax()
     {
-        var otherTenant = Guid.Parse("00000000-0000-0000-0000-0000000000ff");
-        var dto = new MockLimsBackfillRequestDto(TenantId: otherTenant, MaxOrders: 25);
+        // Sprint Sec F-003 — the request body cannot target another tenant anymore:
+        // the backfill is always scoped to the caller's tenant_id claim.
+        var dto = new MockLimsBackfillRequestDto(MaxOrders: 25);
         var expected = new MockLimsBackfillResultDto(25, 25, 24, 1, new[]
         {
             new MockLimsBackfillFailureDto(Guid.NewGuid(), "ORD-XYZ", "boom"),
         });
         _backfillServiceMock
-            .Setup(s => s.BackfillAsync(otherTenant, 25, It.IsAny<CancellationToken>()))
+            .Setup(s => s.BackfillAsync(TenantId, 25, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
         var result = await _sut.BackfillResults(dto, CancellationToken.None);
 
         var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         ok.Value.Should().BeSameAs(expected);
+        _backfillServiceMock.Verify(
+            s => s.BackfillAsync(It.Is<Guid>(t => t != TenantId), It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]

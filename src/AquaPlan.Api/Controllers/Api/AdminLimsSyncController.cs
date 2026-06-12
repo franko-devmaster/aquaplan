@@ -44,6 +44,8 @@ public class AdminLimsSyncController(
     /// <summary>
     /// AQ-404 — Reconciles legacy Transmitted orders (no <c>LimsOrderId</c>) with the Mock LIMS.
     /// Runs outbound + inbound pull per order, in isolation. Administrator-only.
+    /// Sprint Sec F-003 — always scoped to the caller's tenant (JWT claim); the request
+    /// body can no longer target another tenant.
     /// </summary>
     [HttpPost("backfill-results")]
     public async Task<ActionResult<MockLimsBackfillResultDto>> BackfillResults(
@@ -51,13 +53,12 @@ public class AdminLimsSyncController(
         CancellationToken cancellationToken)
     {
         var callerTenantId = GetTenantId();
-        var tenantId = request?.TenantId ?? callerTenantId;
         var maxOrders = Math.Clamp(
             request?.MaxOrders ?? DefaultBackfillMaxOrders,
             1,
             BackfillHardCap);
 
-        var result = await backfillService.BackfillAsync(tenantId, maxOrders, cancellationToken);
+        var result = await backfillService.BackfillAsync(callerTenantId, maxOrders, cancellationToken);
         return Ok(result);
     }
 

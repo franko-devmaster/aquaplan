@@ -24,6 +24,7 @@ import { AuthService } from '../../services/auth.service';
 import { NetworkCheckService } from '../../services/network-check.service';
 import { SyncService } from '../../services/sync.service';
 import { OfflineStorageService } from '../../services/offline-storage.service';
+import { devInfo } from '../../utils/dev-log';
 import {
   SamplingRoundDetailDto,
   SamplingRoundOrderDto,
@@ -936,7 +937,7 @@ export class SamplingRoundDetailComponent implements OnInit {
         const r = this.round();
         if (r) {
           try {
-            console.info('[offline] queuing UPDATE_ORDER_STATUS (New→InProgress) for', order.id);
+            devInfo('[offline] queuing UPDATE_ORDER_STATUS (New→InProgress) for', order.id);
             await this.offlineStorage.queueAction({
               roundId: r.id,
               actionType: 'UPDATE_ORDER_STATUS',
