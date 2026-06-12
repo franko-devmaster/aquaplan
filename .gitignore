@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+docs/deploy/render.md
+docs/deploy/render.local.md
 
 # .NET
 bin/
