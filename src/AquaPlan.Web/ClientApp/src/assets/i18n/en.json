@@ -1,7 +1,7 @@
 {
   "app": {
     "title": "AquaPlan",
-    "subtitle": "Water quality analysis management"
+    "subtitle": "Water analysis management"
   },
   "nav": {
     "home": "Home",
@@ -19,6 +19,9 @@
     "analysisPrograms": "Analysis programs",
     "analysisContainers": "Containers",
     "delegations": "Delegations",
+    "samplingPlans": "Sampling plans",
+    "samplingRounds": "Sampling rounds",
+    "sectors": "Sectors",
     "settings": "Settings",
     "groupPrincipal": "Main",
     "groupReseau": "Network",
@@ -26,12 +29,12 @@
     "groupAdmin": "Administration"
   },
   "auth": {
-    "login": "Sign in",
-    "logout": "Sign out",
+    "login": "Log in",
+    "logout": "Log out",
     "email": "Email address",
     "password": "Password",
-    "loginButton": "Sign in",
-    "loginSso": "Sign in with EntraID",
+    "loginButton": "Log in",
+    "loginSso": "Log in with EntraID",
     "loginFailed": "Invalid credentials. Please check your email and password.",
     "accountDisabled": "Account disabled. Contact your administrator.",
     "signInHeading": "Sign in",
@@ -55,11 +58,13 @@
     "inactive": "Inactive",
     "back": "Back",
     "close": "Close",
-    "all": "All",
     "status": "Status",
+    "all": "All",
     "activate": "Activate",
     "deactivate": "Deactivate",
-    "toggleStatus": "Toggle status",
+    "toggleStatus": "Activate / deactivate",
+    "createdBy": "Created by",
+    "createdAt": "Created on",
     "error": "Error"
   },
   "footer": {
@@ -67,10 +72,10 @@
   },
   "header": {
     "offline": "Offline",
-    "offlineTooltip": "You are working offline. Data will sync once you are back online.",
+    "offlineTooltip": "You are working offline. Data will sync when you are back online.",
     "pendingActions": "pending",
-    "pendingActionsTooltip": "{{count}} action(s) pending synchronization",
-    "syncing": "Synchronizing..."
+    "pendingActionsTooltip": "{{count}} action(s) waiting to sync",
+    "syncing": "Syncing..."
   },
   "notifications": {
     "bell": {
@@ -87,56 +92,13 @@
     }
   },
   "sync": {
-    "success": "{{count}} action(s) synchronized",
-    "rejected": "Action rejected by server: {{reason}}",
-    "unlockedLost": "Your round was reset by an administrator. Unsynchronized entries are lost.",
+    "success": "{{count}} action(s) synced",
+    "rejected": "Action rejected by the server: {{reason}}",
+    "permanentlyFailed": "An action could not be synced after several attempts and was discarded. Please re-enter it.",
+    "unlockedLost": "Your round was reset by an administrator. Unsynced entries are lost.",
     "error5xx": "Server error, please try again later",
-    "queuedOffline": "Saved offline — will sync when the network is back.",
-    "offlineSaveFailed": "Offline save failed. Check that your browser allows local storage."
-  },
-  "analysisCatalog": {
-    "categories": {
-      "Bacteriology": "Bacteriology",
-      "Chemistry": "Chemistry",
-      "Physical": "Physical",
-      "Other": "Other"
-    },
-    "profiles": {
-      "title": "Analysis profiles",
-      "code": "Code",
-      "name": "Name",
-      "description": "Description",
-      "category": "Category",
-      "container": "Container",
-      "create": "Create profile",
-      "edit": "Edit profile",
-      "view": "Profile details"
-    },
-    "programs": {
-      "title": "Analysis programs",
-      "code": "Code",
-      "name": "Name",
-      "description": "Description",
-      "profileCount": "Profiles",
-      "create": "Create program",
-      "edit": "Edit program",
-      "manageProfiles": "Manage profiles",
-      "assignedProfiles": "Assigned profiles",
-      "addProfile": "Add profiles",
-      "requiredContainers": "Required containers",
-      "noContainers": "No containers required"
-    },
-    "containers": {
-      "title": "Analysis containers",
-      "code": "Code",
-      "name": "Name",
-      "material": "Material",
-      "volume": "Volume",
-      "color": "Color",
-      "create": "Create container",
-      "edit": "Edit container",
-      "view": "Container details"
-    }
+    "queuedOffline": "Saved offline; it will sync when the network is back.",
+    "offlineSaveFailed": "Unable to save offline. Check that your browser allows local storage."
   },
   "users": {
     "title": "User management",
@@ -155,7 +117,8 @@
     "activateUser": "Activate user",
     "confirmDeactivate": "Are you sure you want to deactivate this user?",
     "password": "Password",
-    "createdAt": "Created"
+    "createdAt": "Created on",
+    "userNumber": "ID no."
   },
   "roles": {
     "title": "Role management",
@@ -171,24 +134,21 @@
   },
   "orders": {
     "title": "Sampling orders",
-    "orderNumber": "Order number",
+    "orderNumber": "Order no.",
     "status": {
       "label": "Status",
-      "draft": "Draft",
-      "assigned": "Assigned",
+      "new": "New",
       "inProgress": "In progress",
-      "samplingCompleted": "Sampling completed",
-      "validated": "Validated",
-      "sentToLims": "Sent to LIMS",
-      "resultsReceived": "Results received",
-      "completed": "Completed",
+      "completed": "Done",
+      "transmitted": "Transmitted",
+      "done": "Completed",
       "cancelled": "Cancelled"
     },
     "distributor": "Distributor",
     "preleveur": "Sampler",
     "createdBy": "Created by",
-    "createdAt": "Created",
-    "updatedAt": "Updated",
+    "createdAt": "Created on",
+    "updatedAt": "Updated on",
     "isUnplanned": "Unplanned",
     "unplannedReason": {
       "label": "Reason",
@@ -213,7 +173,7 @@
     "editOrder": "Edit order",
     "assignPreleveur": "Assign sampler",
     "details": "Order details",
-    "searchPlaceholder": "Search by order number, distributor...",
+    "searchPlaceholder": "Search by order no., distributor...",
     "unassignedOnly": "Unassigned only",
     "dateFrom": "Date from",
     "dateTo": "Date to",
@@ -223,8 +183,8 @@
     "bulkTransmit": "Transmit all",
     "bulkTransmitTooltip": "Transmit all validated orders",
     "bulkFinalize": "Finalize all",
-    "bulkFinalizeTooltip": "Validate every in-progress order then transmit every validated order to LIMS",
-    "bulkFinalizeConfirmMessage": "Validate {{validate}} in-progress order(s), then transmit {{transmit}} order(s) in total?",
+    "bulkFinalizeTooltip": "Validate all in-progress orders then transmit all to LIMS",
+    "bulkFinalizeConfirmMessage": "Validate {{validate}} in-progress order(s) then transmit {{transmit}} order(s) in total?",
     "bulkFinalizeSuccess": "{{validated}} order(s) validated, {{transmitted}} order(s) transmitted",
     "bulkConfirmTitle": "Confirm bulk action",
     "bulkValidateConfirmMessage": "Validate {{count}} in-progress order(s)?",
@@ -233,9 +193,16 @@
     "deleteConfirmTitle": "Delete order",
     "deleteConfirmMessage": "Are you sure you want to delete this order? This action cannot be undone.",
     "deleteSuccess": "Order deleted successfully",
-    "deleteError": "Error deleting order",
+    "deleteError": "Error deleting the order",
     "delegation": "Delegation",
     "delegated": "Delegated",
+    "linkToRound": "Link to a round",
+    "noRound": "No round",
+    "round": "Round",
+    "existingRound": "Existing round",
+    "newRound": "New round",
+    "selectRound": "Select a round",
+    "noRoundsAvailable": "No round available for this distributor",
     "transmit": "Transmit",
     "transmitNoNetwork": "No network. Try again once connected.",
     "bulkTransmitNoNetwork": "No network. Try again once connected.",
@@ -244,9 +211,9 @@
     "conformity": "Conformity",
     "results": {
       "title": "Analysis results",
-      "counter": "{{total}} parameter(s) analysed, {{nonConform}} non-compliant",
-      "conform": "Compliant",
-      "nonConform": "Non-compliant",
+      "counter": "{{total}} parameter(s) analyzed, {{nonConform}} non-conform",
+      "conform": "Conform",
+      "nonConform": "Non-conform",
       "pullNow": "Sync now",
       "empty": "Waiting for laboratory results",
       "columns": {
@@ -261,9 +228,9 @@
   "delegations": {
     "title": "Delegations",
     "delegatingDistributor": "Delegating distributor",
-    "delegatedToDistributor": "Delegated to distributor",
+    "delegatedToDistributor": "Delegated distributor",
     "validFrom": "Valid from",
-    "validTo": "Valid to",
+    "validTo": "Valid until",
     "createDelegation": "Create delegation",
     "deleteDelegation": "Delete delegation",
     "confirmDelete": "Are you sure you want to delete this delegation?",
@@ -273,6 +240,7 @@
   "distributors": {
     "title": "Distributor management",
     "name": "Name",
+    "shortName": "Short name",
     "cantonRegion": "Canton region",
     "distributionNetwork": "Distribution network",
     "status": "Status",
@@ -286,17 +254,53 @@
     "title": "Order statuses",
     "terminal": "Terminal",
     "allowedTransitions": "Allowed transitions",
-    "noTransitions": "No transitions available (terminal status)",
+    "noTransitions": "No transitions possible (terminal status)",
     "descriptions": {
-      "draft": "Order created, not yet assigned",
-      "assigned": "Sampler assigned to the order",
+      "new": "Order created, awaiting processing",
       "inProgress": "Sampling in progress",
-      "samplingCompleted": "Sampling completed, awaiting validation",
-      "validated": "Results validated, ready to send to LIMS",
-      "sentToLims": "Order sent to Limsophy LIMS",
-      "resultsReceived": "Results received from LIMS",
-      "completed": "Order fully completed",
+      "completed": "Sampling done",
+      "transmitted": "Order transmitted to Limsophy LIMS",
+      "done": "Order fully completed",
       "cancelled": "Order cancelled"
+    }
+  },
+  "samplingLocations": {
+    "title": "Sampling locations",
+    "name": "Name",
+    "locationCode": "Code",
+    "description": "Description",
+    "distributor": "Distributor",
+    "status": "Status",
+    "createLocation": "Create location",
+    "editLocation": "Edit location",
+    "viewLocation": "Location details",
+    "activate": "Activate location",
+    "deactivate": "Deactivate location",
+    "allDistributors": "All distributors",
+    "allStatuses": "All statuses",
+    "searchPlaceholder": "Search by name or code",
+    "address": "Address",
+    "accessDescription": "Access description",
+    "exportPdf": "Export PDF",
+    "sector": "Sector",
+    "allSectors": "All sectors",
+    "noSector": "None",
+    "toValidate": "To validate",
+    "confirmDelete": "Are you sure you want to delete this sampling location? This action cannot be undone.",
+    "deleteSuccess": "Sampling location deleted successfully",
+    "validateSuccess": "Sampling location validated successfully",
+    "actions": {
+      "edit": "Edit",
+      "validate": "Validate",
+      "delete": "Delete"
+    },
+    "form": {
+      "actions": {
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "validate": "Validate",
+        "save": "Save"
+      }
     }
   },
   "changeRequests": {
@@ -320,85 +324,159 @@
     "rejectCommentRequired": "A comment is required to reject a request",
     "noRequestsPending": "No pending requests",
     "submitRequest": "Submit request",
-    "tabLocations": "Locations to validate",
+    "tabLocations": "Sampling locations to validate",
     "tabRequests": "Change requests",
-    "noLocationsPending": "No locations pending validation",
+    "noLocationsPending": "No sampling location awaiting validation",
     "validate": "Validate",
     "viewAndValidate": "View and validate",
     "locationValidated": "Sampling location validated successfully"
   },
-  "samplingLocations": {
-    "title": "Sampling locations",
-    "name": "Name",
-    "locationCode": "Code",
-    "description": "Description",
+  "analysisCatalog": {
+    "categories": {
+      "Bacteriology": "Bacteriology",
+      "Chemistry": "Chemistry",
+      "Physical": "Physical",
+      "Other": "Other"
+    },
+    "profiles": {
+      "title": "Analysis profiles",
+      "code": "Code",
+      "name": "Name",
+      "description": "Description",
+      "category": "Category",
+      "container": "Container",
+      "create": "Create profile",
+      "edit": "Edit profile",
+      "view": "Profile details"
+    },
+    "programs": {
+      "title": "Analysis programs",
+      "code": "Code",
+      "name": "Name",
+      "description": "Description",
+      "profileCount": "No. of profiles",
+      "create": "Create program",
+      "edit": "Edit program",
+      "manageProfiles": "Manage profiles",
+      "assignedProfiles": "Assigned profiles",
+      "addProfile": "Add profiles",
+      "requiredContainers": "Required containers",
+      "noContainers": "No container required"
+    },
+    "containers": {
+      "title": "Analysis containers",
+      "code": "Code",
+      "name": "Name",
+      "material": "Material",
+      "volume": "Volume",
+      "color": "Color",
+      "create": "Create container",
+      "edit": "Edit container",
+      "view": "Container details"
+    }
+  },
+  "samplingPlans": {
+    "title": "Sampling plans",
+    "year": "Year",
     "distributor": "Distributor",
-    "status": "Status",
-    "createLocation": "Create location",
-    "editLocation": "Edit location",
-    "viewLocation": "Location details",
-    "activate": "Activate location",
-    "deactivate": "Deactivate location",
-    "allDistributors": "All distributors",
-    "allStatuses": "All statuses",
-    "searchPlaceholder": "Search by name or code",
-    "toValidate": "To validate",
-    "confirmDelete": "Are you sure you want to delete this sampling location? This action cannot be undone.",
-    "deleteSuccess": "Sampling location deleted successfully",
-    "validateSuccess": "Sampling location validated successfully",
-    "actions": {
-      "edit": "Edit",
-      "validate": "Validate",
-      "delete": "Delete"
+    "status": {
+      "label": "Status",
+      "draft": "Draft",
+      "submitted": "Submitted",
+      "validated": "Validated",
+      "rejected": "Rejected"
     },
-    "form": {
-      "actions": {
-        "cancel": "Cancel",
-        "delete": "Delete",
-        "validate": "Validate",
-        "save": "Save"
-      }
-    }
-  },
-  "scan": {
-    "title": "Scan a barcode",
-    "instruction": "Position the barcode within the frame.",
-    "cancel": "Cancel",
-    "permissionDenied": "Unable to access the camera. Allow access in Settings > Safari > Camera and reload the page.",
-    "httpsRequired": "Camera scanning requires a secure (HTTPS) connection. Contact your administrator.",
-    "noCamera": "No camera detected on this device.",
-    "unsupported": "This browser does not support camera access.",
-    "success": "Barcode captured: {{value}}"
-  },
-  "sampling": {
-    "weather3days": "Weather (3 days)",
-    "sampleBarcode": "Sample barcode",
-    "containersTitle": "Containers and barcodes",
-    "containerBarcode": "Barcode",
-    "noContainers": "No container required for this order.",
-    "barcodeSharedHint": "Every vial of a mandate shares the same barcode (one sample, multiple vials).",
-    "errors": {
-      "barcodesMustBeIdentical": "All barcodes of a mandate must be identical (one sample, multiple vials)."
-    },
-    "weatherOptions": {
-      "dry": "Dry",
-      "light_rain": "Light rain",
-      "heavy_rain": "Heavy rain"
-    }
+    "items": "Plan items",
+    "itemCount": "No. of items",
+    "samplingLocation": "Sampling location",
+    "analysisProfile": "Analysis profile",
+    "frequency": "Frequency/year",
+    "plannedMonths": "Planned months",
+    "notes": "Notes",
+    "rejectionReason": "Rejection reason",
+    "createPlan": "Create plan",
+    "details": "Plan details",
+    "submit": "Submit",
+    "validate": "Validate",
+    "reject": "Reject",
+    "addItem": "Add item",
+    "removeItem": "Remove item",
+    "confirmReject": "Rejection reason:",
+    "deleteConfirmMessage": "Are you sure you want to delete this plan? This action cannot be undone.",
+    "searchPlaceholder": "Search by distributor...",
+    "generateOrders": "Generate orders",
+    "confirmGenerateOrders": "Do you want to generate analysis orders from this plan? One order will be created for each location and planned month.",
+    "ordersGenerated": "{{count}} orders were generated successfully."
   },
   "samplingRounds": {
-    "replaceLocation": "Replace sampling location",
-    "replacementReason": "Replacement reason",
-    "locationReplaced": "Sampling location replaced",
-    "sector": "Sector",
+    "title": "Sampling rounds",
+    "name": "Name",
+    "description": "Description",
+    "deadline": "Deadline",
+    "distributor": "Distributor",
+    "sampler": "Sampler",
+    "orderCount": "No. of orders",
+    "progress": "Progress",
+    "orders": "Orders",
     "location": "Sampling location",
+    "profiles": "Profiles",
+    "programs": "Programs",
+    "indicators": "Indicators",
+    "sector": "Sector",
+    "remarks": "Remarks",
+    "noPreleveursAvailable": "No sampler available for this distributor",
+    "status": {
+      "label": "Status",
+      "draft": "Draft",
+      "assigned": "Assigned",
+      "inProgress": "In progress",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "createRound": "New round",
+    "createRoundTitle": "Create a round",
+    "linkToRound": "Link to a round",
+    "linkToExisting": "Existing round",
+    "createNew": "New round",
+    "selectRound": "Select a round",
+    "noRoundsAvailable": "No round available for this distributor",
+    "linkedSuccess": "Order linked to the round successfully",
+    "assignSampler": "Assign a sampler",
+    "cancelRound": "Cancel round",
+    "addOrder": "Add order",
+    "removeOrder": "Remove order",
     "materialToPrepare": "Material to prepare",
     "noMaterial": "No container required",
-    "startRequiresNetwork": "Network connection required to start the round",
+    "noOrders": "No orders in this round",
+    "searchPlaceholder": "Search by name, distributor...",
+    "confirmCancel": "Are you sure you want to cancel this round?",
+    "confirmDelete": "Are you sure you want to delete this round? This action cannot be undone.",
+    "confirmRemoveOrder": "Are you sure you want to remove this order from the round?",
+    "enterSamplerId": "Sampler ID:",
+    "addOrderTitle": "Add an order",
+    "linkExistingOrder": "Link an existing order",
+    "createNewOrder": "Create a new order",
+    "selectOrder": "Select an order",
+    "noUnassignedOrders": "No order without a round for this distributor",
+    "enterOrderId": "ID of the order to add:",
+    "revertToDraft": "Revert to draft",
+    "confirmRevertToDraft": "Revert this round to draft? The sampler will be unassigned.",
+    "revertedToDraft": "Round reverted to draft",
+    "startRound": "Start round",
+    "started": "Round started successfully",
+    "transmitAll": "Transmit all",
+    "confirmTransmitAll": "Transmit all completed orders to LIMS?",
+    "transmittedAll": "Orders transmitted successfully",
+    "assigned": "Sampler assigned successfully",
+    "replaceLocation": "Replace location",
+    "replacementReason": "Replacement reason",
+    "locationReplaced": "Sampling location replaced",
+    "editComment": "Sampler comment:",
+    "startRequiresNetwork": "Connection required to start the round",
     "lockedByYou": "Round locked by you",
     "lockedByOther": "Round locked by {{name}}",
-    "forceUnlock": "Force unlock (admin)",
-    "confirmForceUnlock": "Force unlock? Unsynchronised sampler inputs will be lost.",
+    "forceUnlock": "Unlock (admin)",
+    "confirmForceUnlock": "Force unlock? The sampler's unsynced entries will be lost.",
     "forceUnlocked": "Round unlocked",
     "actions": {
       "view": "View",
@@ -412,6 +490,22 @@
     "preleveurNote": "Sampler remark",
     "locationReplaced": "Sampling location replaced"
   },
+  "sectors": {
+    "title": "Sector management",
+    "name": "Name",
+    "code": "Code",
+    "description": "Description",
+    "status": "Status",
+    "addSector": "Create sector",
+    "editSector": "Edit sector",
+    "active": "Active",
+    "inactive": "Inactive",
+    "filterByName": "Filter by name",
+    "allStatuses": "All statuses",
+    "confirmToggle": "Are you sure you want to change the status of this sector?",
+    "noSectors": "No sectors",
+    "distributor": "Distributor"
+  },
   "dashboard": {
     "title": "Dashboard",
     "welcome": "Welcome, {{name}}",
@@ -419,19 +513,38 @@
     "plannedRounds": "Planned rounds",
     "myRounds": "My rounds",
     "nonConformities": "Non-conformities",
-    "conform": "Compliant orders",
-    "nonConform": "Non-compliant orders",
+    "conform": "Conform orders",
+    "nonConform": "Non-conform orders",
     "pending": "Awaiting results",
     "upcomingRounds": "Upcoming rounds",
-    "noUpcomingRounds": "No upcoming rounds",
+    "noUpcomingRounds": "No planned rounds",
     "recentResults": "Recent results (7 days)",
     "pendingActions": "Pending actions",
-    "ldpToValidate": "Sampling locations to validate",
+    "ldpToValidate": "Locations to validate",
     "ordersWithComments": "Orders with comments",
     "viewAll": "View all"
   },
   "results": {
     "title": "Analysis results",
+    "byRound": "By round",
+    "byLocation": "By sampling location",
+    "selectRound": "Select a round",
+    "selectLocation": "Select a sampling location",
+    "selectRoundPrompt": "Select a round to display the results",
+    "selectLocationPrompt": "Select a sampling location to view the history",
+    "orderNumber": "Order no.",
+    "samplingLocation": "Sampling location",
+    "date": "Date",
+    "status": "Status",
+    "preleveur": "Sampler",
+    "verdict": "Verdict",
+    "orders": "orders",
+    "orderHistory": "Order history",
+    "noOrdersInRound": "No orders in this round",
+    "noOrdersForLocation": "No orders for this sampling location",
+    "awaitingLims": "Awaiting LIMS",
+    "conforme": "CONFORM",
+    "nonConforme": "NON-CONFORM",
     "recentZone": {
       "title": "Recent results (7 days)",
       "empty": "No results received in the last 7 days."
@@ -449,13 +562,56 @@
       "anomaliesOnly": "Anomalies only"
     },
     "conformity": {
-      "conform": "Compliant",
+      "conform": "Conform",
       "minorAnomaly": "Minor anomaly",
       "criticalAnomaly": "Critical anomaly",
       "pending": "Pending"
     },
     "dialog": {
       "title": "Analysis results"
+    }
+  },
+  "scan": {
+    "title": "Scan a barcode",
+    "instruction": "Place the barcode within the frame.",
+    "cancel": "Cancel",
+    "permissionDenied": "Cannot access the camera. Allow access in Settings > Safari > Camera, then reload the page.",
+    "httpsRequired": "Camera scanning requires a secure (HTTPS) connection. Contact your administrator.",
+    "noCamera": "No camera detected on this device.",
+    "unsupported": "This browser does not support camera access.",
+    "success": "Barcode captured: {{value}}"
+  },
+  "sampling": {
+    "title": "Field entry",
+    "enter": "Enter field data",
+    "samplingDateTime": "Sampling date and time",
+    "temperature": "Temperature",
+    "weather": "Weather",
+    "notes": "Remarks",
+    "complete": "Complete sampling",
+    "validate": "Validate",
+    "completed": "Done",
+    "transmitted": "Transmitted",
+    "validated": "Sampling validated",
+    "completedSuccess": "Sampling completed successfully",
+    "confirmComplete": "Are you sure you want to complete this sampling? This action cannot be undone.",
+    "confirmValidate": "Are you sure you want to validate this sampling? The order will be transmitted to the laboratory.",
+    "validatedSuccess": "Sampling validated successfully",
+    "hasWaterSoftener": "Water softener installed",
+    "isChlorinated": "Chlorinated water",
+    "weather3days": "Weather (3 days)",
+    "sampleBarcode": "Sample barcode",
+    "containersTitle": "Containers and barcodes",
+    "containerBarcode": "Barcode",
+    "noContainers": "No container required for this order.",
+    "barcodeSharedHint": "All bottles of an order share the same barcode (a single sampling, multiple bottles).",
+    "errors": {
+      "barcodesMustBeIdentical": "All barcodes of an order must be identical (one sampling, multiple bottles)."
+    },
+    "weatherOptions": {
+      "dry": "Dry",
+      "light_rain": "Light rain",
+      "heavy_rain": "Heavy rain"
     }
   }
 }

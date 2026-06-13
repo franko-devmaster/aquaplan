@@ -94,6 +94,7 @@
   "sync": {
     "success": "{{count}} action(s) synchronisée(s)",
     "rejected": "Action rejetée par le serveur : {{reason}}",
+    "permanentlyFailed": "Une action n'a pas pu être synchronisée après plusieurs tentatives et a été abandonnée. Veuillez la ressaisir.",
     "unlockedLost": "Votre tournée a été réinitialisée par un administrateur. Les saisies non synchronisées sont perdues.",
     "error5xx": "Erreur serveur, réessayez plus tard",
     "queuedOffline": "Saisie enregistrée hors ligne, elle sera synchronisée au retour du réseau.",

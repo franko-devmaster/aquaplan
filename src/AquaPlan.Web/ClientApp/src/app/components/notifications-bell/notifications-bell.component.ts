@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -20,7 +21,7 @@ import { NotificationDto } from '../../models/notification.model';
   standalone: true,
   imports: [
     MatButtonModule, MatIconModule, MatMenuModule, MatBadgeModule,
-    MatDividerModule, MatTooltipModule, TranslateModule,
+    MatDividerModule, MatTooltipModule, TranslateModule, DatePipe,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -72,7 +73,7 @@ import { NotificationDto } from '../../models/notification.model';
             <div class="notification-body">
               <div class="notification-title">{{ n.title }}</div>
               <div class="notification-message">{{ n.message }}</div>
-              <div class="notification-date">{{ formatDate(n.createdAt) }}</div>
+              <div class="notification-date">{{ n.createdAt | date:'dd.MM.yyyy HH:mm' }}</div>
             </div>
           </button>
         }
@@ -179,14 +180,6 @@ export class NotificationsBellComponent implements OnInit, OnDestroy {
       case 'ResultsReceived': return 'fact_check';
       case 'NonConformResult': return 'warning';
       default: return 'notifications';
-    }
-  }
-
-  formatDate(iso: string): string {
-    try {
-      return new Date(iso).toLocaleString();
-    } catch {
-      return iso;
     }
   }
 
