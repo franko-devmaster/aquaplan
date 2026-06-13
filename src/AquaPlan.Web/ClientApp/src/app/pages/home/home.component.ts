@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
@@ -19,6 +19,7 @@ import {
 } from '../../models/sampling-round.model';
 import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
 import { RecentResultsZoneComponent } from '../results/recent-results-zone.component';
+import { DashboardRefreshService } from '../../services/dashboard-refresh.service';
 
 @Component({
     selector: 'app-home',
@@ -236,6 +237,7 @@ export class HomeComponent implements OnInit {
     private readonly roundApi = inject(SamplingRoundApiService);
     private readonly samplingLocationApi = inject(SamplingLocationApiService);
     private readonly router = inject(Router);
+    private readonly dashboardRefresh = inject(DashboardRefreshService);
 
     readonly ordersToFinalizeCount = signal(0);
     readonly plannedRoundsCount = signal(0);
@@ -270,6 +272,22 @@ export class HomeComponent implements OnInit {
         }
         return user.roles.some(r => r.toLowerCase().includes('réleveur')) && !user.roles.includes('Administrator');
     });
+
+    constructor() {
+        // F-035 — reload the dashboard counters whenever a bulk action (validate /
+        // transmit / finalize) reports it changed order statuses, so the tiles never
+        // stay frozen on stale numbers. Skips the very first emission: ngOnInit already
+        // performs the initial load.
+        let firstRun = true;
+        effect(() => {
+            this.dashboardRefresh.version();
+            if (firstRun) {
+                firstRun = false;
+                return;
+            }
+            void this.loadDashboardData();
+        });
+    }
 
     ngOnInit(): void {
         this.loadDashboardData();

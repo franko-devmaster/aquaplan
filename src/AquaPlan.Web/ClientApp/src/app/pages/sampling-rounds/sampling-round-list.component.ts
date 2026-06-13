@@ -190,30 +190,27 @@ export class SamplingRoundListComponent implements OnInit {
   private applyQueryParams(): void {
     const params = this.route.snapshot.queryParamMap;
 
+    // F-006 — the datastore is providedIn:'root', so its filters survive navigation.
+    // Every query-param-driven filter must be reset when the param is absent, otherwise
+    // a deep-link filter (e.g. "Mes tournées") stays silently active when the user comes
+    // back to the bare /sampling-rounds route without any visible UI control for it.
+
     // status=Assigned,InProgress
     const raw = params.get('status');
-    if (raw) {
-      const validValues = new Set<string>(Object.values(SamplingRoundStatus));
-      const parsed = raw
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s) => validValues.has(s)) as SamplingRoundStatus[];
-      if (parsed.length > 0) {
-        this.store.statusFilter.set(parsed);
-      }
-    }
+    const validValues = new Set<string>(Object.values(SamplingRoundStatus));
+    const parsed = (raw ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => validValues.has(s)) as SamplingRoundStatus[];
+    this.store.statusFilter.set(parsed);
 
     // AQ-411 — preleveurId deep-link ("Mes tournées"). "me" is a client-side alias here,
     // resolved to the current user's id so the backend receives a concrete string.
     const preleveurParam = params.get('preleveurId');
-    if (preleveurParam) {
-      const resolved = preleveurParam === 'me'
-        ? this.authService.currentUser()?.id
-        : preleveurParam;
-      if (resolved) {
-        this.store.preleveurFilter.set(resolved);
-      }
-    }
+    const resolvedPreleveur = preleveurParam
+      ? (preleveurParam === 'me' ? this.authService.currentUser()?.id : preleveurParam)
+      : undefined;
+    this.store.preleveurFilter.set(resolvedPreleveur);
 
     this.store.currentPage.set(1);
   }

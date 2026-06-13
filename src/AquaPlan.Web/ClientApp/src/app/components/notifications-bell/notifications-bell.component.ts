@@ -80,11 +80,13 @@ import { NotificationDto } from '../../models/notification.model';
     </mat-menu>
   `,
   styles: [`
+    /* AQ-423 — header is now a white surface; the bell must use the default
+       foreground token so the icon stays visible (was #fff from the legacy blue header). */
     .notifications-trigger {
-      color: #fff;
+      color: var(--color-fg-default);
       margin-right: 4px;
     }
-    .urgent-bell { color: #FFCDD2; }
+    .urgent-bell { color: var(--color-error-500); }
     .notifications-menu { max-width: 360px; }
     .notifications-header {
       display: flex;

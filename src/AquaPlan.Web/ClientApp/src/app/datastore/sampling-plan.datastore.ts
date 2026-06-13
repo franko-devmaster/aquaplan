@@ -29,7 +29,11 @@ export class SamplingPlanDatastore {
 
   readonly totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
 
+  // F-007 — out-of-order response guard (see OrderDatastore for rationale).
+  private requestSeq = 0;
+
   async loadFiltered(): Promise<void> {
+    const reqId = ++this.requestSeq;
     this.loading.set(true);
     try {
       const filter: SamplingPlanFilterDto = {
@@ -43,10 +47,15 @@ export class SamplingPlanDatastore {
         sortDescending: this.sortDescending(),
       };
       const result = await firstValueFrom(this.api.getFiltered(filter));
+      if (reqId !== this.requestSeq) {
+        return;
+      }
       this.plans.set(result.items);
       this.totalCount.set(result.totalCount);
     } finally {
-      this.loading.set(false);
+      if (reqId === this.requestSeq) {
+        this.loading.set(false);
+      }
     }
   }
 
