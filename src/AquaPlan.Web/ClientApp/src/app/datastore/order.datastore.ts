@@ -37,7 +37,13 @@ export class OrderDatastore {
 
   readonly totalPages = computed(() => Math.ceil(this.totalCount() / this.pageSize()));
 
+  // F-007 — out-of-order response guard. Each loadFiltered() bumps this counter;
+  // a response is only applied if it belongs to the latest request, so a slow
+  // wide query that resolves after a newer filtered one can no longer clobber the list.
+  private requestSeq = 0;
+
   async loadFiltered(): Promise<void> {
+    const reqId = ++this.requestSeq;
     this.loading.set(true);
     try {
       const filter: OrderFilterDto = {
@@ -55,10 +61,15 @@ export class OrderDatastore {
         resultsStatus: this.resultsStatusFilter(),
       };
       const result = await firstValueFrom(this.api.getFiltered(filter));
+      if (reqId !== this.requestSeq) {
+        return;
+      }
       this.orders.set(result.items);
       this.totalCount.set(result.totalCount);
     } finally {
-      this.loading.set(false);
+      if (reqId === this.requestSeq) {
+        this.loading.set(false);
+      }
     }
   }
 

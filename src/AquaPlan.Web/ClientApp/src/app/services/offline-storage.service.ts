@@ -242,6 +242,21 @@ export class OfflineStorageService {
     await db.delete('pending-actions', actionId);
   }
 
+  /**
+   * F-010 — persist the running retry counter for a queued action. Without this the
+   * `attempts` field is dead code: every `online` event restarts the full backoff
+   * budget for an action that keeps failing. Persisting it lets SyncService enforce a
+   * cumulative cap across flush passes (and reconnects) instead of per-flush.
+   */
+  async updateActionAttempts(actionId: number, attempts: number): Promise<void> {
+    const db = await this.getDb();
+    const existing = await db.get('pending-actions', actionId);
+    if (!existing) {
+      return;
+    }
+    await db.put('pending-actions', { ...existing, attempts });
+  }
+
   async clearActionsForRound(roundId: string): Promise<void> {
     const db = await this.getDb();
     const tx = db.transaction('pending-actions', 'readwrite');

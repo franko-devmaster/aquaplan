@@ -1,8 +1,10 @@
-import { ApplicationConfig, provideZoneChangeDetection, importProvidersFrom, isDevMode } from '@angular/core';
+import { ApplicationConfig, provideZoneChangeDetection, importProvidersFrom, isDevMode, LOCALE_ID } from '@angular/core';
+import { registerLocaleData } from '@angular/common';
+import localeFrCH from '@angular/common/locales/fr-CH';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { provideNativeDateAdapter } from '@angular/material/core';
+import { provideNativeDateAdapter, MAT_DATE_LOCALE } from '@angular/material/core';
 import { provideServiceWorker } from '@angular/service-worker';
 import { TranslateModule } from '@ngx-translate/core';
 import { TranslateHttpLoader, provideTranslateHttpLoader } from '@ngx-translate/http-loader';
@@ -10,6 +12,10 @@ import { TranslateHttpLoader, provideTranslateHttpLoader } from '@ngx-translate/
 import { routes } from './app.routes';
 import { authInterceptor } from './handlers/auth.interceptor';
 import { environment } from '../environments/environment';
+
+// F-004 — register the Swiss-French locale so DatePipe renders DD.MM.YYYY and numbers
+// use the Swiss grouping/decimal separators instead of the en-US defaults.
+registerLocaleData(localeFrCH);
 
 /**
  * AQ-425 — Safari iOS (et parfois macOS) a des bugs sévères avec le Service Worker
@@ -39,6 +45,9 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withInterceptors([authInterceptor])),
     provideAnimationsAsync(),
     provideNativeDateAdapter(),
+    // F-004 — fr-CH locale for DatePipe (DD.MM.YYYY) and the Material datepicker.
+    { provide: LOCALE_ID, useValue: 'fr-CH' },
+    { provide: MAT_DATE_LOCALE, useValue: 'fr-CH' },
     provideTranslateHttpLoader({ prefix: './assets/i18n/', suffix: '.json' }),
     importProvidersFrom(
       TranslateModule.forRoot({

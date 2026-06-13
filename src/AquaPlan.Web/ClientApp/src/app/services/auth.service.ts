@@ -174,9 +174,14 @@ export class AuthService {
   }
 
   async setTokensFromOidc(accessToken: string, refreshToken: string): Promise<void> {
-    await this.persistTokens(accessToken, refreshToken);
+    // F-008 — set the in-memory signal FIRST so authorizeGuard's isAuthenticated()
+    // is true the instant the callback navigates, regardless of IndexedDB latency.
+    // The user-load promise is reassigned synchronously here so whenUserLoaded()
+    // resolves against the fresh profile (not a stale resolved bootstrap promise).
     this.accessToken.set(accessToken);
     this._userLoaded = this.loadCurrentUser();
+    await this.persistTokens(accessToken, refreshToken);
+    await this._userLoaded;
   }
 
   private async loadCurrentUser(): Promise<void> {

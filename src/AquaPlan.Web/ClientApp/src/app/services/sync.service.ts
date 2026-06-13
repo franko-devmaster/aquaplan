@@ -22,6 +22,15 @@ const RETRY_DELAYS_MS = [2000, 5000, 15000] as const;
 const MAX_RETRIES = RETRY_DELAYS_MS.length;
 
 /**
+ * F-010 — cumulative retry cap across flush passes (and reconnect events). `attempts`
+ * is now persisted in IndexedDB after every 5xx, so a durably-failing action no longer
+ * burns a fresh 3-attempt budget on every `online` event indefinitely. Once an action
+ * has failed this many times in total, it is dropped with a distinct toast instead of
+ * being retried forever.
+ */
+const MAX_CUMULATIVE_ATTEMPTS = 10;
+
+/**
  * AQ-376 — replays offline pending actions (IndexedDB) against the backend when
  * connectivity returns. Event-driven via `window.online`/`offline`; exposes
  * signals consumed by the header badges (AQ-378).
@@ -153,8 +162,22 @@ export class SyncService {
   private async replayAction(
     action: PendingAction,
   ): Promise<'done' | 'rejected' | 'retry' | 'abort'> {
+    // F-010 — `attempt` resumes from the value persisted in IndexedDB across flushes
+    // and reconnects, so a durably-failing action keeps a single cumulative budget
+    // (MAX_CUMULATIVE_ATTEMPTS) instead of restarting MAX_RETRIES on every online event.
     let attempt = action.attempts;
-    while (attempt < MAX_RETRIES) {
+
+    // Already over budget from prior flushes — drop it with a distinct toast.
+    if (attempt >= MAX_CUMULATIVE_ATTEMPTS) {
+      await this.dropFailedAction(action);
+      return 'rejected';
+    }
+
+    // Per-flush ceiling: at most MAX_RETRIES attempts in one pass to avoid blocking the
+    // queue for too long, but never beyond the cumulative cap.
+    const flushCeiling = Math.min(attempt + MAX_RETRIES, MAX_CUMULATIVE_ATTEMPTS);
+
+    while (attempt < flushCeiling) {
       try {
         await this.dispatch(action);
         if (action.id !== undefined) {
@@ -172,7 +195,8 @@ export class SyncService {
           return 'abort';
         }
 
-        // 401 — session expired. Keep queue intact so user can re-login and retry.
+        // 401 — session expired. Keep queue intact (and attempts unchanged) so the user
+        // can re-login and retry without burning the retry budget.
         if (status === 401) {
           return 'retry';
         }
@@ -194,7 +218,19 @@ export class SyncService {
 
         // 5xx (and network errors with status 0) → exponential backoff.
         attempt++;
-        if (attempt >= MAX_RETRIES) {
+        // F-010 — persist the running counter so it survives this flush and reconnects.
+        if (action.id !== undefined) {
+          await this.offlineStorage.updateActionAttempts(action.id, attempt);
+        }
+
+        // Cumulative cap reached — give up permanently and drop it.
+        if (attempt >= MAX_CUMULATIVE_ATTEMPTS) {
+          await this.dropFailedAction(action);
+          return 'rejected';
+        }
+
+        // Per-flush ceiling reached — keep the action queued for the next online event.
+        if (attempt >= flushCeiling) {
           this.snackBar.open(
             this.translate.instant('sync.error5xx'),
             this.translate.instant('common.close'),
@@ -203,11 +239,27 @@ export class SyncService {
           return 'retry';
         }
 
-        const delay = RETRY_DELAYS_MS[attempt - 1];
+        const delay = RETRY_DELAYS_MS[Math.min(attempt - 1, RETRY_DELAYS_MS.length - 1)];
         await this.sleep(delay);
       }
     }
     return 'retry';
+  }
+
+  /**
+   * F-010 — an action that exhausted its cumulative retry budget. Removed from the queue
+   * with a distinct toast so the field user knows it must be re-entered, instead of the
+   * action silently looping forever on every reconnect.
+   */
+  private async dropFailedAction(action: PendingAction): Promise<void> {
+    if (action.id !== undefined) {
+      await this.offlineStorage.removeAction(action.id);
+    }
+    this.snackBar.open(
+      this.translate.instant('sync.permanentlyFailed'),
+      this.translate.instant('common.close'),
+      { duration: 8000 },
+    );
   }
 
   private async dispatch(action: PendingAction): Promise<void> {

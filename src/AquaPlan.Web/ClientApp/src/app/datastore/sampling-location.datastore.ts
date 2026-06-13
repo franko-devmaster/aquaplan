@@ -34,23 +34,38 @@ export class SamplingLocationDatastore {
     return Array.from(map, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
   });
 
+  // F-007 — out-of-order response guard shared by loadAll/loadFiltered (see OrderDatastore).
+  private requestSeq = 0;
+
   async loadAll(): Promise<void> {
+    const reqId = ++this.requestSeq;
     this.loading.set(true);
     try {
       const data = await firstValueFrom(this.api.getForCurrentUser());
+      if (reqId !== this.requestSeq) {
+        return;
+      }
       this.locations.set(data);
     } finally {
-      this.loading.set(false);
+      if (reqId === this.requestSeq) {
+        this.loading.set(false);
+      }
     }
   }
 
   async loadFiltered(filter: SamplingLocationFilteringInputDto): Promise<void> {
+    const reqId = ++this.requestSeq;
     this.loading.set(true);
     try {
       const data = await firstValueFrom(this.api.getFiltered(filter));
+      if (reqId !== this.requestSeq) {
+        return;
+      }
       this.filteredResult.set(data);
     } finally {
-      this.loading.set(false);
+      if (reqId === this.requestSeq) {
+        this.loading.set(false);
+      }
     }
   }
 

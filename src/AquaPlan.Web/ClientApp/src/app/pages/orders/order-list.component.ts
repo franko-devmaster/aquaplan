@@ -23,6 +23,7 @@ import { OrderDatastore } from '../../datastore/order.datastore';
 import { OrderApiService } from '../../services/order-api.service';
 import { AuthService } from '../../services/auth.service';
 import { NetworkCheckService } from '../../services/network-check.service';
+import { DashboardRefreshService } from '../../services/dashboard-refresh.service';
 import { OrderListDto, OrderStatus, OrderStatusLabels, ResultsStatus } from '../../models/order.model';
 import { DistributorApiService } from '../../services/distributor-api.service';
 import { DistributorListDto } from '../../models/distributor.model';
@@ -310,6 +311,7 @@ export class OrderListComponent implements OnInit {
   private readonly snackBar = inject(MatSnackBar);
   private readonly translate = inject(TranslateService);
   private readonly networkCheck = inject(NetworkCheckService);
+  private readonly dashboardRefresh = inject(DashboardRefreshService);
 
   readonly isAdmin = computed(() =>
     this.authService.currentUser()?.roles.includes('Administrator') ?? false
@@ -396,6 +398,8 @@ export class OrderListComponent implements OnInit {
         );
         this.store.loadFiltered();
         await this.refreshBulkCounts();
+        // F-035 — keep the dashboard tiles in sync with the new order statuses.
+        this.dashboardRefresh.notifyBulkChange();
       } finally {
         this.bulkLoading.set(false);
       }
@@ -454,6 +458,8 @@ export class OrderListComponent implements OnInit {
         );
         this.store.loadFiltered();
         await this.refreshBulkCounts();
+        // F-035 — keep the dashboard tiles in sync with the new order statuses.
+        this.dashboardRefresh.notifyBulkChange();
       } finally {
         this.bulkLoading.set(false);
       }
@@ -461,27 +467,27 @@ export class OrderListComponent implements OnInit {
   }
 
   private applyStatusesFromQueryParams(): void {
+    // F-006 — OrderDatastore is providedIn:'root', so its filters survive navigation.
+    // The dashboard tiles deep-link here with ?statuses / ?resultsStatus; when the user
+    // comes back to a bare /orders route those filters must be reset, otherwise the list
+    // stays silently filtered on "conform"/"non-conform" with no visible UI control.
     const raw = this.route.snapshot.queryParamMap.get('statuses');
-    if (raw) {
-      const validValues = new Set<string>(Object.values(OrderStatus));
-      const parsed = raw
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s) => validValues.has(s)) as OrderStatus[];
-      if (parsed.length > 0) {
-        this.store.statusFilter.set(parsed);
-        this.store.currentPage.set(1);
-      }
-    }
+    const validValues = new Set<string>(Object.values(OrderStatus));
+    const parsed = (raw ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => validValues.has(s)) as OrderStatus[];
+    this.store.statusFilter.set(parsed);
 
     const resultsStatusRaw = this.route.snapshot.queryParamMap.get('resultsStatus');
-    if (resultsStatusRaw) {
-      const values = new Set<string>(Object.values(ResultsStatus));
-      if (values.has(resultsStatusRaw)) {
-        this.store.resultsStatusFilter.set(resultsStatusRaw as ResultsStatus);
-        this.store.currentPage.set(1);
-      }
-    }
+    const resultsValues = new Set<string>(Object.values(ResultsStatus));
+    this.store.resultsStatusFilter.set(
+      resultsStatusRaw && resultsValues.has(resultsStatusRaw)
+        ? (resultsStatusRaw as ResultsStatus)
+        : undefined,
+    );
+
+    this.store.currentPage.set(1);
   }
 
   getConformityLabel(status: ResultsStatus | undefined): string {
