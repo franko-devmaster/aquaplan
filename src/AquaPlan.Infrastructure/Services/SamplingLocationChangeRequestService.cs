@@ -10,6 +10,7 @@ namespace AquaPlan.Infrastructure.Services;
 
 internal class SamplingLocationChangeRequestService(
     AquaPlanDbContext dbContext,
+    IDelegationService delegationService,
     ILogger<SamplingLocationChangeRequestService> logger) : ISamplingLocationChangeRequestService
 {
     public async Task<ChangeRequestDto> SubmitCreateRequestAsync(ChangeRequestCreateDto dto, string userId, Guid tenantId, CancellationToken cancellationToken = default)
@@ -219,12 +220,16 @@ internal class SamplingLocationChangeRequestService(
 
     private async Task ValidateUserDistributorAccessAsync(string userId, Guid distributorId, CancellationToken cancellationToken)
     {
-        var hasAccess = await dbContext.UserDistributors
-            .AnyAsync(ud => ud.UserId == userId && ud.DistributorId == distributorId, cancellationToken);
-
-        if (!hasAccess)
+        // Sprint Robustesse F-113 — authorization must use the same set as the rest of the app:
+        // the user's primary distributor (AppUser.DistributorId), their UserDistributors links,
+        // AND active delegations. The previous check only looked at UserDistributors, so users
+        // whose sole link was the primary distributor got a spurious 403 and delegatees could not
+        // submit requests for the delegating distributor.
+        var authorizedIds = await delegationService.GetAuthorizedDistributorIdsForUserAsync(userId, cancellationToken);
+        if (!authorizedIds.Contains(distributorId))
         {
-            throw new UnauthorizedAccessException($"User {userId} does not have access to distributor {distributorId}.");
+            // Generic message — never leak internal ids to the client (audit F-203).
+            throw new UnauthorizedAccessException("Access to this distributor is denied.");
         }
     }
 

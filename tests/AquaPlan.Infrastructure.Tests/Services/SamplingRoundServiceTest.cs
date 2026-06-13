@@ -1,3 +1,4 @@
+using AquaPlan.Application.DTOs.MockLims;
 using AquaPlan.Application.DTOs.SamplingRounds;
 using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
@@ -7,6 +8,7 @@ using AquaPlan.Infrastructure.Data;
 using AquaPlan.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AquaPlan.Infrastructure.Tests.Services;
 
@@ -15,7 +17,10 @@ public class SamplingRoundServiceTest : IDisposable
     private readonly AquaPlanDbContext _dbContext;
     private readonly Mock<IDelegationService> _delegationServiceMock = new();
     private readonly Mock<INotificationService> _notificationServiceMock = new();
+    private readonly Mock<IMockLimsService> _mockLimsServiceMock = new();
     private readonly Mock<ILogger<SamplingRoundService>> _loggerMock = new();
+    private readonly Mock<ILogger<OrderTransmissionService>> _transmissionLoggerMock = new();
+    private readonly Mock<IOrderAuditService> _auditServiceMock = new();
     private readonly SamplingRoundService _sut;
 
     private static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
@@ -41,7 +46,17 @@ public class SamplingRoundServiceTest : IDisposable
             .Setup(d => d.GetAuthorizedDistributorIdsForUserAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([DistributorId]);
 
-        _sut = new SamplingRoundService(_dbContext, _delegationServiceMock.Object, _notificationServiceMock.Object, _loggerMock.Object);
+        // Sprint Robustesse F-108 — TransmitAll now delegates the Completed → Transmitted
+        // transition to the shared transmission service (Mock LIMS enabled here to prove the
+        // round path forwards to the LIMS, which it previously skipped).
+        _mockLimsServiceMock
+            .Setup(s => s.ReceiveOrderAsync(It.IsAny<MockLimsOrderCreateDto>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MockLimsOrderCreatedDto(Guid.NewGuid(), DateTime.UtcNow));
+        var mockLimsOptions = Options.Create(new MockLimsOptions { Enabled = true });
+        var transmissionService = new OrderTransmissionService(
+            _dbContext, _auditServiceMock.Object, _mockLimsServiceMock.Object, mockLimsOptions, _transmissionLoggerMock.Object);
+
+        _sut = new SamplingRoundService(_dbContext, _delegationServiceMock.Object, _notificationServiceMock.Object, transmissionService, _loggerMock.Object);
 
         SeedData().GetAwaiter().GetResult();
     }
@@ -362,28 +377,56 @@ public class SamplingRoundServiceTest : IDisposable
             .WithMessage("*Cannot update*");
     }
 
-    // --- DeleteAsync ---
+    // --- DeleteAsync (F-107 soft-cancel) ---
 
     [Fact]
-    public async Task DeleteAsync_ShouldDeleteDraftRound()
+    public async Task DeleteAsync_ShouldSoftCancelRound_AndDetachOrdersWithoutDeleting()
     {
-        var round = await CreateDraftRound("To delete");
+        // F-107 — the round is marked Cancelled (not removed) and its orders are detached
+        // (SamplingRoundId = null) but preserved, instead of being hard-deleted.
+        var round = await CreateDraftRoundWithOrders(orderCount: 2);
+        var orderIds = (await _dbContext.Orders
+            .Where(o => o.SamplingRoundId == round.Id)
+            .Select(o => o.Id)
+            .ToListAsync());
 
-        var result = await _sut.DeleteAsync(round.Id, TenantId);
+        var result = await _sut.DeleteAsync(round.Id, UserId, TenantId);
 
         result.Should().BeTrue();
-        var deleted = await _sut.GetByIdAsync(round.Id, TenantId);
-        deleted.Should().BeNull();
+
+        var cancelled = await _dbContext.SamplingRounds.FindAsync(round.Id);
+        cancelled.Should().NotBeNull();
+        cancelled!.Status.Should().Be(SamplingRoundStatus.Cancelled);
+
+        // Orders are kept and detached — never deleted.
+        var orders = await _dbContext.Orders.Where(o => orderIds.Contains(o.Id)).ToListAsync();
+        orders.Should().HaveCount(2);
+        orders.Should().AllSatisfy(o => o.SamplingRoundId.Should().BeNull());
     }
 
     [Fact]
-    public async Task DeleteAsync_WhenNotDraft_ShouldThrow()
+    public async Task DeleteAsync_WhenRoundLocked_ShouldThrowRoundLocked()
     {
-        var round = await CreateRoundInStatus(SamplingRoundStatus.Assigned);
+        // F-107 — a locked (active préleveur session) round cannot be deleted.
+        var round = await CreateRoundInStatus(SamplingRoundStatus.InProgress);
+        var entity = await _dbContext.SamplingRounds.FindAsync(round.Id);
+        entity!.IsLocked = true;
+        entity.LockedById = PreleveurId;
+        entity.LockedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync();
 
-        await _sut.Awaiting(s => s.DeleteAsync(round.Id, TenantId))
-            .Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Draft*");
+        await _sut.Awaiting(s => s.DeleteAsync(round.Id, UserId, TenantId))
+            .Should().ThrowAsync<RoundLockedException>();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WhenInProgressUnlocked_ShouldThrowConflict()
+    {
+        // F-107 — an InProgress round (even if not locked) is a conflict, not deletable.
+        var round = await CreateRoundInStatus(SamplingRoundStatus.InProgress);
+
+        await _sut.Awaiting(s => s.DeleteAsync(round.Id, UserId, TenantId))
+            .Should().ThrowAsync<ConflictOperationException>();
     }
 
     // --- AssignPreleveurAsync ---
@@ -764,6 +807,21 @@ public class SamplingRoundServiceTest : IDisposable
             .Where(o => o.SamplingRoundId == round.Id)
             .ToListAsync();
         transmittedOrders.Should().AllSatisfy(o => o.Status.Should().Be(OrderStatus.Transmitted));
+        // F-108 — the round path now produces the SAME state as the bulk path: timestamps set,
+        // LimsOrderId assigned (forwarded to Mock LIMS), and an audit entry per order.
+        transmittedOrders.Should().AllSatisfy(o =>
+        {
+            o.TransmittedAt.Should().NotBeNull();
+            o.StatusChangedBy.Should().Be(UserId);
+            o.LimsOrderId.Should().NotBeNull();
+        });
+        _mockLimsServiceMock.Verify(
+            s => s.ReceiveOrderAsync(It.IsAny<MockLimsOrderCreateDto>(), TenantId, It.IsAny<CancellationToken>()),
+            Times.Exactly(transmittedOrders.Count));
+        _auditServiceMock.Verify(
+            a => a.LogAsync(It.IsAny<Guid>(), "StatusTransitioned", It.IsAny<string>(),
+                "Completed", "Transmitted", UserId, TenantId, It.IsAny<CancellationToken>()),
+            Times.Exactly(transmittedOrders.Count));
     }
 
     [Fact]

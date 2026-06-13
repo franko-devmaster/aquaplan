@@ -78,32 +78,46 @@ public class SamplingRoundsController(
         return CreatedAtAction(nameof(GetRound), new { id = result.Id }, result);
     }
 
+    // Sprint Robustesse F-106 — round write operations are mandataire/admin actions (same roles
+    // as CreateRound), scoped to the caller's authorized distributors for non-admins. Previously
+    // any authenticated tenant user (incl. a "préleveur only") could update/cancel/reorder any
+    // round, which for cancel meant cancelling every order of the round.
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}")]
     public async Task<ActionResult<SamplingRoundDetailDto>> UpdateRound(
         Guid id, [FromBody] SamplingRoundUpdateDto dto, CancellationToken cancellationToken)
     {
         var userId = GetUserId();
         var tenantId = GetTenantId();
+        var access = await EnsureCanAccessRoundAsync(id, userId, tenantId, cancellationToken);
+        if (access is not null) return access;
         var result = await samplingRoundService.UpdateAsync(id, dto, userId, tenantId, cancellationToken);
         if (result is null) return NotFound();
         return Ok(result);
     }
 
+    // Sprint Robustesse F-107 — DELETE is now an admin-only soft-cancel (round -> Cancelled,
+    // orders detached, never hard-deleted). See SamplingRoundService.DeleteAsync.
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = RoleName.Administrator)]
     public async Task<ActionResult> DeleteRound(Guid id, CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
         var tenantId = GetTenantId();
-        var deleted = await samplingRoundService.DeleteAsync(id, tenantId, cancellationToken);
+        var deleted = await samplingRoundService.DeleteAsync(id, userId, tenantId, cancellationToken);
         if (!deleted) return NotFound();
         return NoContent();
     }
 
     [HttpPost("{id:guid}/assign")]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}")]
     public async Task<ActionResult<SamplingRoundDetailDto>> AssignPreleveur(
         Guid id, [FromBody] SamplingRoundAssignDto dto, CancellationToken cancellationToken)
     {
         var userId = GetUserId();
         var tenantId = GetTenantId();
+        var access = await EnsureCanAccessRoundAsync(id, userId, tenantId, cancellationToken);
+        if (access is not null) return access;
         var result = await samplingRoundService.AssignPreleveurAsync(id, dto, userId, tenantId, cancellationToken);
         if (result is null) return NotFound();
         return Ok(result);
@@ -122,11 +136,14 @@ public class SamplingRoundsController(
     }
 
     [HttpPost("{id:guid}/transmit-all")]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}")]
     public async Task<ActionResult<SamplingRoundDetailDto>> TransmitAll(
         Guid id, CancellationToken cancellationToken)
     {
         var userId = GetUserId();
         var tenantId = GetTenantId();
+        var access = await EnsureCanAccessRoundAsync(id, userId, tenantId, cancellationToken);
+        if (access is not null) return access;
         var result = await samplingRoundService.TransmitAllAsync(id, userId, tenantId, cancellationToken);
         if (result is null) return NotFound();
         return Ok(result);
@@ -181,11 +198,14 @@ public class SamplingRoundsController(
     }
 
     [HttpPost("{id:guid}/cancel")]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}")]
     public async Task<ActionResult<SamplingRoundDetailDto>> CancelRound(
         Guid id, CancellationToken cancellationToken)
     {
         var userId = GetUserId();
         var tenantId = GetTenantId();
+        var access = await EnsureCanAccessRoundAsync(id, userId, tenantId, cancellationToken);
+        if (access is not null) return access;
         var result = await samplingRoundService.CancelAsync(id, userId, tenantId, cancellationToken);
         if (result is null) return NotFound();
         return Ok(result);
@@ -219,10 +239,14 @@ public class SamplingRoundsController(
     }
 
     [HttpPut("{id:guid}/orders/reorder")]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}")]
     public async Task<ActionResult<SamplingRoundDetailDto>> ReorderOrders(
         Guid id, [FromBody] SamplingRoundReorderDto dto, CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
         var tenantId = GetTenantId();
+        var access = await EnsureCanAccessRoundAsync(id, userId, tenantId, cancellationToken);
+        if (access is not null) return access;
         var result = await samplingRoundService.ReorderAsync(id, dto, tenantId, cancellationToken);
         if (result is null) return NotFound();
         return Ok(result);
@@ -259,6 +283,31 @@ public class SamplingRoundsController(
         var result = await samplingRoundService.UpdateSamplerCommentAsync(orderId, dto, userId, tenantId, cancellationToken);
         if (!result) return NotFound();
         return Ok();
+    }
+
+    /// <summary>
+    /// Sprint Robustesse F-106 — for non-admins, verifies the round belongs to one of the
+    /// caller's authorized distributors (own + active delegations), the same rule applied to
+    /// round visibility (AQ-398) and creation (AQ-369). Returns 404 when the round does not
+    /// exist, 403 when it exists but is out of scope, or null when access is granted.
+    /// </summary>
+    private async Task<ActionResult?> EnsureCanAccessRoundAsync(
+        Guid roundId, string userId, Guid tenantId, CancellationToken cancellationToken)
+    {
+        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        if (hasViewAll)
+        {
+            return null;
+        }
+
+        var round = await samplingRoundService.GetByIdAsync(roundId, tenantId, cancellationToken);
+        if (round is null)
+        {
+            return NotFound();
+        }
+
+        var authorizedIds = await delegationService.GetAuthorizedDistributorIdsForUserAsync(userId, cancellationToken);
+        return authorizedIds.Contains(round.DistributorId) ? null : Forbid();
     }
 
     private string GetUserId()

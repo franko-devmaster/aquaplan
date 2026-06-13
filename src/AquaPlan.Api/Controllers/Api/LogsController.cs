@@ -4,9 +4,12 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace AquaPlan.Api.Controllers.Api;
 
+// Sprint Robustesse F-114 — the client log sink is no longer anonymous: an unauthenticated
+// caller could otherwise flood the Serilog files and inject arbitrary content. The SPA only
+// emits client logs from authenticated sessions, so requiring authentication is non-breaking.
 [Route("api/[controller]")]
 [ApiController]
-[AllowAnonymous]
+[Authorize]
 public class LogsController(ILogger<LogsController> logger) : ControllerBase
 {
     [HttpPost]

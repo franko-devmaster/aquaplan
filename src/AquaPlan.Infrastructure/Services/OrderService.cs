@@ -1,4 +1,3 @@
-using AquaPlan.Application.DTOs.MockLims;
 using AquaPlan.Application.DTOs.Orders;
 using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
@@ -7,7 +6,6 @@ using AquaPlan.Domain.Enums;
 using AquaPlan.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace AquaPlan.Infrastructure.Services;
 
@@ -15,10 +13,9 @@ internal class OrderService(
     AquaPlanDbContext dbContext,
     IOrderAuditService auditService,
     ISamplingRoundService samplingRoundService,
-    IMockLimsService mockLimsService,
+    IOrderTransmissionService transmissionService,
     INotificationService notificationService,
     IDelegationService delegationService,
-    IOptions<MockLimsOptions> mockLimsOptions,
     ILogger<OrderService> logger) : IOrderService
 {
     public async Task<OrderPagedResultDto> GetOrdersFilteredAsync(
@@ -220,8 +217,6 @@ internal class OrderService(
 
     public async Task<OrderDetailDto> CreateOrderAsync(OrderCreateDto dto, string createdById, Guid tenantId, CancellationToken cancellationToken = default)
     {
-        var orderNumber = await GenerateOrderNumberAsync(cancellationToken);
-
         // Validation: unplanned orders must have a reason
         if (dto.IsUnplanned && dto.UnplannedReason is null)
         {
@@ -240,7 +235,6 @@ internal class OrderService(
         var order = new Order
         {
             Id = Guid.NewGuid(),
-            OrderNumber = orderNumber,
             Status = initialStatus,
             IsUnplanned = dto.IsUnplanned,
             UnplannedReason = dto.IsUnplanned ? dto.UnplannedReason : null,
@@ -274,9 +268,29 @@ internal class OrderService(
             }
         }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        // Sprint Robustesse F-110 — two concurrent creations (e.g. GenerateOrdersFromPlan
+        // looping) can read the same max OrderNumber and collide on the unique index.
+        // Compute the candidate number then retry on a unique-constraint violation rather
+        // than surfacing a 500.
+        const int maxAttempts = 5;
+        for (var attempt = 1; ; attempt++)
+        {
+            order.OrderNumber = await GenerateOrderNumberAsync(cancellationToken);
+            try
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+                break;
+            }
+            catch (DbUpdateException) when (attempt < maxAttempts)
+            {
+                // Roll back the rejected number so EF re-inserts with a fresh one on retry.
+                logger.LogWarning(
+                    "Order number {OrderNumber} collided on attempt {Attempt}; retrying",
+                    order.OrderNumber, attempt);
+            }
+        }
 
-        logger.LogInformation("Order {OrderNumber} created by {CreatedBy}", orderNumber, createdById);
+        logger.LogInformation("Order {OrderNumber} created by {CreatedBy}", order.OrderNumber, createdById);
 
         return (await GetOrderByIdAsync(order.Id, tenantId, cancellationToken))!;
     }
@@ -387,6 +401,19 @@ internal class OrderService(
         if (order is null)
         {
             return null;
+        }
+
+        // Sprint Robustesse F-104 — validate the target préleveur: it must be an active user of
+        // the same tenant holding a préleveur-capable role (Préleveur / Requérant-Préleveur).
+        // Without this an arbitrary (or cross-tenant) id could be assigned.
+        if (!string.IsNullOrWhiteSpace(dto.PreleveurId))
+        {
+            var isValidPreleveur = await IsValidPreleveurForTenantAsync(dto.PreleveurId, tenantId, cancellationToken);
+            if (!isValidPreleveur)
+            {
+                throw new InvalidOperationException(
+                    "The assigned préleveur must be an active user of the tenant with a préleveur role.");
+            }
         }
 
         var previousPreleveurId = order.PreleveurId;
@@ -503,6 +530,28 @@ internal class OrderService(
     {
         return await dbContext.UserDistributors
             .AnyAsync(ud => ud.UserId == userId && ud.DistributorId == distributorId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Sprint Robustesse F-104 — true when the given user is active, belongs to the tenant, and
+    /// holds a préleveur-capable role (Préleveur or Requérant-Préleveur).
+    /// </summary>
+    private async Task<bool> IsValidPreleveurForTenantAsync(string preleveurId, Guid tenantId, CancellationToken cancellationToken)
+    {
+        var user = await dbContext.Users
+            .FirstOrDefaultAsync(u => u.Id == preleveurId && u.TenantId == tenantId && u.IsActive, cancellationToken);
+        if (user is null)
+        {
+            return false;
+        }
+
+        var preleveurRoleIds = await dbContext.Roles
+            .Where(r => r.Name == RoleName.Preleveur || r.Name == RoleName.RequerantPreleveur)
+            .Select(r => r.Id)
+            .ToListAsync(cancellationToken);
+
+        return await dbContext.UserRoles
+            .AnyAsync(ur => ur.UserId == preleveurId && preleveurRoleIds.Contains(ur.RoleId), cancellationToken);
     }
 
     public async Task<IList<RequiredContainerDto>?> GetRequiredContainersAsync(
@@ -771,45 +820,47 @@ internal class OrderService(
 
         var now = DateTime.UtcNow;
         var roundIds = new HashSet<Guid>();
-        var transmittingToLims = toStatus == OrderStatus.Transmitted;
         foreach (var order in orders)
         {
-            order.Status = toStatus;
-            order.StatusChangedAt = now;
-            order.StatusChangedBy = userId;
-            order.UpdatedAt = now;
-            order.UpdatedBy = userId;
-            if (transmittingToLims)
-            {
-                order.TransmittedAt = now;
-            }
             if (order.SamplingRoundId.HasValue)
             {
                 roundIds.Add(order.SamplingRoundId.Value);
             }
         }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        // AQ-33 — when orders transition to Transmitted and the Mock LIMS feature flag
-        // is enabled, forward them to the internal Mock LIMS to close the integration loop.
-        if (transmittingToLims && mockLimsOptions.Value.Enabled)
+        // Sprint Robustesse F-105 / F-108 — the Completed → Transmitted transition (status +
+        // timestamps + Mock LIMS forward + audit) lives entirely in the shared transmission
+        // service so this path stays byte-for-byte identical to the single and round paths.
+        if (toStatus == OrderStatus.Transmitted)
         {
-            await TransmitOrdersToMockLimsAsync(orders, tenantId, cancellationToken);
+            await transmissionService.TransmitCompletedOrdersAsync(orders, userId, tenantId, cancellationToken);
         }
-
-        // Audit log per order (same pattern as OrderStatusService)
-        foreach (var order in orders)
+        else
         {
-            await auditService.LogAsync(
-                order.Id,
-                "StatusTransitioned",
-                $"Status changed from {fromStatus} to {toStatus} (bulk)",
-                fromStatus.ToString(),
-                toStatus.ToString(),
-                userId,
-                tenantId,
-                cancellationToken);
+            foreach (var order in orders)
+            {
+                order.Status = toStatus;
+                order.StatusChangedAt = now;
+                order.StatusChangedBy = userId;
+                order.UpdatedAt = now;
+                order.UpdatedBy = userId;
+            }
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            // Audit log per order (same pattern as OrderStatusService)
+            foreach (var order in orders)
+            {
+                await auditService.LogAsync(
+                    order.Id,
+                    "StatusTransitioned",
+                    $"Status changed from {fromStatus} to {toStatus} (bulk)",
+                    fromStatus.ToString(),
+                    toStatus.ToString(),
+                    userId,
+                    tenantId,
+                    cancellationToken);
+            }
         }
 
         // Auto-complete rounds where all orders reached terminal states (same as OrderStatusService)
@@ -845,109 +896,33 @@ internal class OrderService(
         return new BulkTransitionResultDto(orders.Count);
     }
 
-    /// <summary>
-    /// AQ-33 — Forward transmitted orders to the Mock LIMS and persist the returned LimsOrderId.
-    /// Failures are logged and swallowed per order (best-effort, do not block the bulk transition).
-    /// </summary>
-    private async Task TransmitOrdersToMockLimsAsync(
-        IList<Order> orders,
-        Guid tenantId,
-        CancellationToken cancellationToken)
-    {
-        if (orders.Count == 0)
-        {
-            return;
-        }
-
-        // Load the analysis programs + profiles so we can compose the parameter list for the Mock.
-        var orderIds = orders.Select(o => o.Id).ToList();
-        var programsByOrder = await dbContext.OrderAnalysisPrograms
-            .Where(oap => orderIds.Contains(oap.OrderId))
-            .Include(oap => oap.AnalysisProgram!)
-                .ThenInclude(p => p.AnalysisProgramProfiles)
-                    .ThenInclude(app => app.AnalysisProfile)
-            .ToListAsync(cancellationToken);
-
-        var persistNeeded = false;
-        foreach (var order in orders)
-        {
-            if (order.LimsOrderId.HasValue)
-            {
-                continue; // idempotence — already transmitted previously
-            }
-
-            var parameters = programsByOrder
-                .Where(oap => oap.OrderId == order.Id && oap.AnalysisProgram is not null)
-                .SelectMany(oap => oap.AnalysisProgram!.AnalysisProgramProfiles)
-                .Where(app => app.AnalysisProfile is not null)
-                .Select(app => app.AnalysisProfile!.Code)
-                .Distinct()
-                .ToList();
-
-            if (parameters.Count == 0)
-            {
-                // Default set if the mandate has no analysis profiles linked yet.
-                parameters = MockLimsParameterCatalog.All.Select(p => p.Code).ToList();
-            }
-            else
-            {
-                // Profiles may not map 1:1 to Mock parameter codes — keep only those that do, fall back to catalog otherwise.
-                var recognized = parameters.Where(code => MockLimsParameterCatalog.FindByCode(code) is not null).ToList();
-                if (recognized.Count == 0)
-                {
-                    parameters = MockLimsParameterCatalog.All.Select(p => p.Code).ToList();
-                }
-                else
-                {
-                    parameters = recognized;
-                }
-            }
-
-            var dto = new MockLimsOrderCreateDto(
-                OrderReference: order.OrderNumber,
-                SamplingDate: order.Sampling?.SamplingDateTime ?? order.PlannedDate ?? DateTime.UtcNow,
-                Parameters: parameters,
-                SourceOrderId: order.Id);
-
-            try
-            {
-                var response = await mockLimsService.ReceiveOrderAsync(dto, tenantId, cancellationToken);
-                order.LimsOrderId = response.LimsOrderId;
-                persistNeeded = true;
-                logger.LogInformation(
-                    "Order {OrderNumber} forwarded to Mock LIMS -> LimsOrderId={LimsOrderId}",
-                    order.OrderNumber, response.LimsOrderId);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex,
-                    "Failed to forward order {OrderNumber} to Mock LIMS; will remain without LimsOrderId",
-                    order.OrderNumber);
-            }
-        }
-
-        if (persistNeeded)
-        {
-            await dbContext.SaveChangesAsync(cancellationToken);
-        }
-    }
-
     private async Task<string> GenerateOrderNumberAsync(CancellationToken cancellationToken)
     {
         var today = DateTime.UtcNow;
         var prefix = $"ORD-{today:yyyyMMdd}";
-        var maxNumber = await dbContext.Orders
+
+        // Sprint Robustesse F-110 — parse the highest trailing sequence among today's orders
+        // rather than int.Parse-ing the lexicographic max blindly: a legacy/malformed number
+        // (different shape) must not throw a FormatException.
+        var sameDayNumbers = await dbContext.Orders
             .Where(o => o.OrderNumber.StartsWith(prefix))
             .Select(o => o.OrderNumber)
-            .MaxAsync(cancellationToken) as string;
+            .ToListAsync(cancellationToken);
 
-        var nextSeq = 1;
-        if (maxNumber is not null)
+        var maxSeq = 0;
+        foreach (var number in sameDayNumbers)
         {
-            var lastPart = maxNumber[(prefix.Length + 1)..];
-            nextSeq = int.Parse(lastPart) + 1;
+            if (number.Length <= prefix.Length + 1)
+            {
+                continue;
+            }
+            var lastPart = number[(prefix.Length + 1)..];
+            if (int.TryParse(lastPart, out var seq) && seq > maxSeq)
+            {
+                maxSeq = seq;
+            }
         }
 
-        return $"{prefix}-{nextSeq:D4}";
+        return $"{prefix}-{maxSeq + 1:D4}";
     }
 }

@@ -10,6 +10,7 @@ namespace AquaPlan.Infrastructure.Services;
 internal class OrderStatusService(
     AquaPlanDbContext dbContext,
     IOrderAuditService auditService,
+    IOrderTransmissionService transmissionService,
     ILogger<OrderStatusService> logger) : IOrderStatusService
 {
     private static readonly Dictionary<OrderStatus, OrderStatusDto> StatusDefinitions = new()
@@ -79,13 +80,34 @@ internal class OrderStatusService(
 
         var transitionDate = DateTime.UtcNow;
 
-        order.Status = newStatus;
-        order.StatusChangedAt = transitionDate;
-        order.StatusChangedBy = userId;
-        order.UpdatedAt = transitionDate;
-        order.UpdatedBy = userId;
+        // Sprint Robustesse F-105 — the Completed → Transmitted transition is owned by the
+        // shared transmission service so this single-order path no longer diverges from the
+        // bulk/round paths (it previously skipped TransmittedAt + the Mock LIMS forward,
+        // leaving Transmitted orders without a LimsOrderId the worker could never pull).
+        if (newStatus == OrderStatus.Transmitted)
+        {
+            await transmissionService.TransmitCompletedOrdersAsync([order], userId, tenantId, cancellationToken);
+        }
+        else
+        {
+            order.Status = newStatus;
+            order.StatusChangedAt = transitionDate;
+            order.StatusChangedBy = userId;
+            order.UpdatedAt = transitionDate;
+            order.UpdatedBy = userId;
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            await auditService.LogAsync(
+                orderId,
+                "StatusTransitioned",
+                $"Status changed from {currentStatus} to {newStatus}",
+                currentStatus.ToString(),
+                newStatus.ToString(),
+                userId,
+                tenantId,
+                cancellationToken);
+        }
 
         // Auto-complete round when all orders are transmitted/done
         if (order.SamplingRoundId.HasValue)
@@ -102,20 +124,12 @@ internal class OrderStatusService(
                     round.CompletedAt = DateTime.UtcNow;
                     round.UpdatedAt = DateTime.UtcNow;
                     round.UpdatedBy = userId;
+                    // F-215 (related) — releasing the lock on completion is handled by the
+                    // round paths; here we keep the existing single-transition behaviour.
                     await dbContext.SaveChangesAsync(cancellationToken);
                 }
             }
         }
-
-        await auditService.LogAsync(
-            orderId,
-            "StatusTransitioned",
-            $"Status changed from {currentStatus} to {newStatus}",
-            currentStatus.ToString(),
-            newStatus.ToString(),
-            userId,
-            tenantId,
-            cancellationToken);
 
         logger.LogInformation(
             "Order {OrderId} transitioned from {FromStatus} to {ToStatus} by {UserId}",

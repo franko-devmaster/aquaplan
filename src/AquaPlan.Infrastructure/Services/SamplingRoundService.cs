@@ -18,6 +18,7 @@ internal class SamplingRoundService(
     AquaPlanDbContext dbContext,
     IDelegationService delegationService,
     INotificationService notificationService,
+    IOrderTransmissionService transmissionService,
     ILogger<SamplingRoundService> logger) : ISamplingRoundService
 {
     public async Task<SamplingRoundDetailDto> CreateAsync(
@@ -197,7 +198,7 @@ internal class SamplingRoundService(
         return await GetByIdAsync(id, tenantId, cancellationToken);
     }
 
-    public async Task<bool> DeleteAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default)
+    public async Task<bool> DeleteAsync(Guid id, string userId, Guid tenantId, CancellationToken cancellationToken = default)
     {
         var round = await dbContext.SamplingRounds
             .Include(sr => sr.Orders)
@@ -206,17 +207,41 @@ internal class SamplingRoundService(
 
         if (round is null) return false;
 
-        if (round.Status != SamplingRoundStatus.Draft)
+        // Sprint Robustesse F-107 — a locked (InProgress) round is the préleveur's active session;
+        // it cannot be removed. Use the dedicated force-unlock endpoint first (AQ-372).
+        if (round.IsLocked)
         {
-            throw new InvalidOperationException("Only Draft sampling rounds can be deleted");
+            throw new RoundLockedException(round.Id, round.LockedById, null, round.LockedAt);
+        }
+        if (round.Status is SamplingRoundStatus.InProgress)
+        {
+            throw new ConflictOperationException(
+                $"Cannot delete a sampling round in status {round.Status}.");
         }
 
+        // Sprint Robustesse F-107 — soft-cancel instead of hard-deleting the round AND its
+        // mandates (the previous behaviour destroyed orders + their analysis programs). The
+        // round is marked Cancelled and its orders are detached (SamplingRoundId = null) so they
+        // are preserved and can be re-planned. This mirrors RemoveOrderAsync (AQ-413).
         foreach (var order in round.Orders.ToList())
         {
-            dbContext.Orders.Remove(order);
+            order.SamplingRoundId = null;
+            order.SortOrder = 0;
+            if (order.PreleveurId == round.PreleveurId)
+            {
+                order.PreleveurId = null;
+            }
+            order.UpdatedAt = DateTime.UtcNow;
+            order.UpdatedBy = userId;
         }
 
-        dbContext.SamplingRounds.Remove(round);
+        round.Status = SamplingRoundStatus.Cancelled;
+        round.IsLocked = false;
+        round.LockedById = null;
+        round.LockedAt = null;
+        round.UpdatedAt = DateTime.UtcNow;
+        round.UpdatedBy = userId;
+
         await dbContext.SaveChangesAsync(cancellationToken);
         return true;
     }
@@ -630,12 +655,12 @@ internal class SamplingRoundService(
             throw new InvalidOperationException("No completed orders to transmit");
         }
 
-        foreach (var order in completedOrders)
-        {
-            order.Status = OrderStatus.Transmitted;
-            order.UpdatedAt = DateTime.UtcNow;
-            order.UpdatedBy = userId;
-        }
+        // Sprint Robustesse F-108 — delegate the Completed → Transmitted transition to the
+        // shared transmission service so the round path now performs the SAME work as the bulk
+        // path: TransmittedAt + StatusChangedAt/By + Mock LIMS forward (LimsOrderId) + audit.
+        // This is the root-cause fix for the AQ-404 backfill (round-transmitted orders used to
+        // be left without a LimsOrderId, so the worker never pulled their results).
+        await transmissionService.TransmitCompletedOrdersAsync(completedOrders, userId, tenantId, cancellationToken);
 
         // If all orders are now transmitted or done, mark round as completed
         if (round.Orders.All(o => o.Status == OrderStatus.Transmitted || o.Status == OrderStatus.Done || o.Status == OrderStatus.Cancelled))

@@ -9,6 +9,7 @@ namespace AquaPlan.Application.Services;
 
 internal class AuthService(
     UserManager<AppUser> userManager,
+    SignInManager<AppUser> signInManager,
     ITokenService tokenService,
     IConfiguration configuration,
     ILogger<AuthService> logger) : IAuthService
@@ -22,8 +23,17 @@ internal class AuthService(
             return null;
         }
 
-        var isValidPassword = await userManager.CheckPasswordAsync(user, dto.Password);
-        if (!isValidPassword)
+        // Sprint Robustesse F-111 — check the password through the SignInManager with
+        // lockoutOnFailure so AccessFailedCount is incremented and the account is locked
+        // after MaxFailedAccessAttempts (configured in WithInfrastructure).
+        var signInResult = await signInManager.CheckPasswordSignInAsync(user, dto.Password, lockoutOnFailure: true);
+        if (signInResult.IsLockedOut)
+        {
+            logger.LogWarning("Login failed for email {Email}: account locked out", dto.Email);
+            return null;
+        }
+
+        if (!signInResult.Succeeded)
         {
             logger.LogWarning("Login failed for email {Email}: invalid password", dto.Email);
             return null;

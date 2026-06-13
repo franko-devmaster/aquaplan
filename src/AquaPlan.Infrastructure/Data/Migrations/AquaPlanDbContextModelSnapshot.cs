@@ -1320,6 +1320,10 @@ namespace AquaPlan.Infrastructure.Data.Migrations
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("notes");
 
+                    b.Property<DateTime?>("OrdersGeneratedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("orders_generated_at");
+
                     b.Property<string>("RejectionReason")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)")

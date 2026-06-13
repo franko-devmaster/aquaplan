@@ -1,0 +1,327 @@
+/* =========================================================================
+   AQUAPLAN — Colors & Type tokens
+   -------------------------------------------------------------------------
+   Consumed in Angular inline styles via var(--token). Mirrors _tokens.scss
+   that lives inside the Aquaplan codebase. Offline/PWA safe: pure CSS,
+   no runtime fetch.
+   ========================================================================= */
+
+:root {
+  /* ---------- PRIMARY — "Aquaplan Deep" ---------------------------------
+     A deeper, more intentional version of Material's azure-blue. Reads as
+     water, lab precision, and Swiss sobriety without feeling generic.   */
+  --color-primary-50:  #eff7fb;
+  --color-primary-100: #d6ebf3;
+  --color-primary-200: #aed6e7;
+  --color-primary-300: #7ebad6;
+  --color-primary-400: #4a99c0;
+  --color-primary-500: #1f7aa6;   /* ← brand primary */
+  --color-primary-600: #166389;
+  --color-primary-700: #114f6e;
+  --color-primary-800: #0d3e56;
+  --color-primary-900: #0a2f42;
+
+  --color-primary:        var(--color-primary-500);
+  --color-primary-hover:  var(--color-primary-600);
+  --color-primary-active: var(--color-primary-700);
+  --color-on-primary:     #ffffff;
+
+  /* ---------- ACCENT — "Lagoon" -----------------------------------------
+     Second-step accent for highlights, chart series, focus rings where
+     primary would fight the UI. Compositions with primary should be rare. */
+  --color-accent-500: #2aa89c;
+  --color-accent-600: #1f8a81;
+
+  /* ---------- NEUTRALS — warm gray scale --------------------------------
+     Slight warmth (+2 on H, +1 on C) so cards don't feel morgue-white.
+     Replaces the ad-hoc #666/#e0e0e0/#f0f0f0/#f5f5f5 values in the repo. */
+  --color-neutral-0:    #ffffff;
+  --color-neutral-25:   #fafaf9;
+  --color-neutral-50:   #f5f5f4;   /* was #f5f5f5 — page bg */
+  --color-neutral-100:  #ececea;
+  --color-neutral-200:  #dfdfdc;   /* was #e0e0e0 — default border */
+  --color-neutral-300:  #c8c8c4;
+  --color-neutral-400:  #9a9a96;
+  --color-neutral-500:  #6b6b67;   /* was #666 — muted text */
+  --color-neutral-600:  #4f4f4c;
+  --color-neutral-700:  #3a3a38;
+  --color-neutral-800:  #26262a;
+  --color-neutral-900:  #17171a;
+
+  /* ---------- SEMANTIC FG/BG --------------------------------------------- */
+  --color-bg-page:       var(--color-neutral-50);
+  --color-bg-surface:    var(--color-neutral-0);
+  --color-bg-sunken:     var(--color-neutral-25);
+  --color-bg-subtle:     var(--color-neutral-100);
+
+  --color-fg-default:    var(--color-neutral-800);
+  --color-fg-muted:      var(--color-neutral-500);
+  --color-fg-subtle:     var(--color-neutral-400);
+  --color-fg-on-dark:    var(--color-neutral-0);
+  --color-fg-link:       var(--color-primary-600);
+
+  --color-border-default: var(--color-neutral-200);
+  --color-border-subtle:  var(--color-neutral-100);
+  --color-border-strong:  var(--color-neutral-300);
+  --color-border-focus:   var(--color-primary-500);
+
+  --color-row-hover:     rgba(17, 79, 110, 0.05);
+  --color-row-active:    rgba(17, 79, 110, 0.09);
+  --color-row-selected:  rgba(31, 122, 166, 0.12);
+
+  /* ---------- SEMANTIC — success / warning / error / info ---------------
+     Tuned for WCAG AA against neutral-50 and white. All pairs the 600 step
+     with a soft tinted bg for chips / alerts.                            */
+  --color-success-50:  #eaf7ef;
+  --color-success-500: #2e9257;
+  --color-success-600: #237347;
+  --color-success-700: #1a5836;
+
+  --color-warning-50:  #fdf4e2;
+  --color-warning-500: #c98a1a;
+  --color-warning-600: #a36d0f;
+  --color-warning-700: #7a510a;
+
+  --color-error-50:   #fdecea;
+  --color-error-500:  #d94b3d;   /* evolves #f44336, better a11y */
+  --color-error-600:  #b33427;
+  --color-error-700:  #86251b;
+
+  --color-info-50:    #e9f2fa;
+  --color-info-500:   #2f7fc4;
+  --color-info-600:   #1f6299;
+  --color-info-700:   #14476f;
+
+  /* ---------- STATUS CHIP PALETTE ---------------------------------------
+     Explicit palette for <app-status-chip>. Based on metier workflow
+     mentioned in the context doc. Pairs a tint (bg) with a readable fg.
+     Tints target ~15% saturation to sit quietly in dense tables.        */
+
+  /* Orders — hue-per-state mapping (user-driven):
+     gris · turquoise · bleu · rose · violet · ambre · vert · noir */
+  --chip-to-plan-bg:     #ececea;  --chip-to-plan-fg:     #4f4f4c;  /* à planifier — gris */
+  --chip-planned-bg:     #c9fbf6;  --chip-planned-fg:     #065f56;  /* planifié — cyan base #25fde9 */
+  --chip-in-progress-bg: #fde4cf;  --chip-in-progress-fg: #8a4a0b;  /* en cours — orange (bloqué préleveur) */
+  --chip-sampled-bg:     #ffe0ef;  --chip-sampled-fg:     #b3306e;  /* prélevé — pink base #ff69b4 */
+  --chip-in-analysis-bg: #ebe3f6;  --chip-in-analysis-fg: #5b3da0;  /* en analyse — violet */
+  --chip-results-bg:     #dce8f4;  --chip-results-fg:     #0f4a87;  /* résultats — bleu */
+  --chip-closed-bg:      #dfeee1;  --chip-closed-fg:      #1e5c32;  /* clôturé — vert */
+  --chip-cancelled-bg:   #2a2a2a;  --chip-cancelled-fg:   #ffffff;  /* annulé — noir */
+
+  /* Rounds (tournées) */
+  --chip-draft-bg:       #f3f3f1;  --chip-draft-fg:       #4f4f4c;
+  --chip-assigned-bg:    #e0edf8;  --chip-assigned-fg:    #134a78;
+
+  /* Results */
+  --chip-conform-bg:     #dfeee1;  --chip-conform-fg:     #1e5c32;
+  --chip-non-conform-bg: #ffe0ef;  --chip-non-conform-fg: #b3306e;
+  --chip-pending-bg:     #fde4cf;  --chip-pending-fg:     #8a4a0b;
+
+  /* =====================================================================
+     TYPOGRAPHY
+     ===================================================================== */
+  --font-family-base: "Public Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-family-mono: "JetBrains Mono", "SF Mono", "Consolas", monospace;
+
+  /* Type scale — base 16px, modular ratio ≈ 1.200 (minor third).
+     Conservative for density required in a LIMS. */
+  --font-size-12:  0.75rem;   /* micro labels, legal */
+  --font-size-13:  0.8125rem; /* info, captions */
+  --font-size-14:  0.875rem;  /* secondary body, table dense */
+  --font-size-16:  1rem;      /* body, mobile forced (iOS zoom) */
+  --font-size-18:  1.125rem;
+  --font-size-20:  1.25rem;   /* h4 / page header mobile */
+  --font-size-22:  1.375rem;  /* h3 */
+  --font-size-26:  1.625rem;  /* h2 */
+  --font-size-32:  2rem;      /* h1 */
+  --font-size-40:  2.5rem;    /* display */
+
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:     700;
+
+  --line-height-tight:   1.2;
+  --line-height-snug:    1.35;
+  --line-height-normal:  1.5;
+  --line-height-relaxed: 1.65;
+
+  --letter-spacing-tight:  -0.01em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide:   0.04em;   /* caps section labels */
+  --letter-spacing-wider:  0.08em;
+
+  /* =====================================================================
+     SPACING — 4px base, exposed as t-shirt + numeric
+     ===================================================================== */
+  --space-0:   0;
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+  --space-16:  64px;
+
+  /* =====================================================================
+     RADII
+     ===================================================================== */
+  --radius-none:  0;
+  --radius-sm:    4px;
+  --radius-md:    8px;        /* cards, round-section (matches repo) */
+  --radius-lg:    12px;
+  --radius-pill:  999px;
+  --radius-chip:  6px;
+
+  /* =====================================================================
+     ELEVATION — 4 steps, subtle; LIMS is not a consumer app
+     ===================================================================== */
+  --elevation-0: none;
+  --elevation-1: 0 1px 2px rgba(17, 47, 66, 0.06), 0 1px 3px rgba(17, 47, 66, 0.08);
+  --elevation-2: 0 2px 4px rgba(17, 47, 66, 0.06), 0 4px 8px rgba(17, 47, 66, 0.08);
+  --elevation-3: 0 4px 8px rgba(17, 47, 66, 0.08), 0 8px 20px rgba(17, 47, 66, 0.10);
+  --elevation-4: 0 8px 16px rgba(17, 47, 66, 0.10), 0 16px 32px rgba(17, 47, 66, 0.12);
+
+  /* =====================================================================
+     Z-INDEX — previously missing from repo
+     ===================================================================== */
+  --z-base:       0;
+  --z-dropdown:   1000;
+  --z-sticky:     1020;
+  --z-overlay:    1030;
+  --z-drawer:     1040;
+  --z-modal:      1050;
+  --z-toast:      1060;
+  --z-tooltip:    1070;
+
+  /* =====================================================================
+     TOUCH TARGETS — enforced by the brief (≥44 mobile, ≥48 iPad)
+     ===================================================================== */
+  --touch-sm: 40px;   /* paginator, secondary ctrls */
+  --touch-md: 44px;   /* mobile standard */
+  --touch-lg: 48px;   /* iPad standard (field usage) */
+
+  /* =====================================================================
+     MOTION
+     ===================================================================== */
+  --duration-fast:   120ms;
+  --duration-normal: 180ms;
+  --duration-slow:   280ms;
+
+  --easing-standard:     cubic-bezier(0.2, 0.0, 0.1, 1);    /* default */
+  --easing-decelerate:   cubic-bezier(0.0, 0.0, 0.1, 1);    /* enter */
+  --easing-accelerate:   cubic-bezier(0.4, 0.0, 1.0, 1);    /* exit */
+
+  /* =====================================================================
+     FOCUS
+     ===================================================================== */
+  --focus-ring: 0 0 0 3px rgba(31, 122, 166, 0.35);
+}
+
+/* =========================================================================
+   SEMANTIC TYPE CLASSES
+   Mirror these with utility classes in _typography.scss. Keep class names
+   aligned with Material / Bootstrap sensibilities so the team doesn't
+   fight two vocabularies.
+   ========================================================================= */
+
+body,
+.ap-body {
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-normal);
+  color: var(--color-fg-default);
+  background: var(--color-bg-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.ap-display {
+  font-size: var(--font-size-40);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+h1, .ap-h1 {
+  font-size: var(--font-size-32);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  letter-spacing: var(--letter-spacing-tight);
+  margin: 0;
+}
+
+h2, .ap-h2 {
+  font-size: var(--font-size-26);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-snug);
+  margin: 0;
+}
+
+h3, .ap-h3 {
+  font-size: var(--font-size-22);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-snug);
+  margin: 0;
+}
+
+h4, .ap-h4 {
+  font-size: var(--font-size-20);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-snug);
+  margin: 0;
+}
+
+.ap-body-strong {
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-medium);
+}
+
+.ap-body-sm {
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-normal);
+}
+
+.ap-caption {
+  font-size: var(--font-size-13);
+  color: var(--color-fg-muted);
+  line-height: var(--line-height-normal);
+}
+
+.ap-info {
+  font-size: var(--font-size-13);
+  font-style: italic;
+  color: var(--color-fg-muted);
+}
+
+.ap-section-label {
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+  color: var(--color-fg-muted);
+}
+
+.ap-micro {
+  font-size: var(--font-size-12);
+  line-height: var(--line-height-snug);
+  color: var(--color-fg-muted);
+}
+
+code, .ap-code {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-14);
+  background: var(--color-bg-subtle);
+  padding: 0.1em 0.4em;
+  border-radius: var(--radius-sm);
+}
+
+a, .ap-link {
+  color: var(--color-fg-link);
+  text-decoration: none;
+}
+a:hover, .ap-link:hover { text-decoration: underline; }

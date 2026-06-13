@@ -21,7 +21,9 @@ public class OrderServiceTest : IDisposable
     private readonly Mock<INotificationService> _notificationServiceMock = new();
     private readonly Mock<ILogger<OrderService>> _loggerMock = new();
     private readonly Mock<ILogger<SamplingRoundService>> _roundLoggerMock = new();
+    private readonly Mock<ILogger<OrderTransmissionService>> _transmissionLoggerMock = new();
     private readonly SamplingRoundService _roundService;
+    private readonly OrderTransmissionService _transmissionService;
     private readonly OrderService _sut;
 
     private static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
@@ -42,9 +44,14 @@ public class OrderServiceTest : IDisposable
             .Setup(d => d.GetAuthorizedDistributorIdsForUserAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([DistributorId]);
 
-        _roundService = new SamplingRoundService(_dbContext, _delegationServiceMock.Object, _notificationServiceMock.Object, _roundLoggerMock.Object);
+        // Sprint Robustesse F-105/F-108 — the Completed → Transmitted transition is now owned
+        // by OrderTransmissionService; wire a real one (Mock LIMS disabled by default) so the
+        // transmission side effects are exercised end-to-end exactly as in production.
         var mockLimsOptions = Options.Create(new MockLimsOptions { Enabled = false });
-        _sut = new OrderService(_dbContext, _auditServiceMock.Object, _roundService, _mockLimsServiceMock.Object, _notificationServiceMock.Object, _delegationServiceMock.Object, mockLimsOptions, _loggerMock.Object);
+        _transmissionService = new OrderTransmissionService(
+            _dbContext, _auditServiceMock.Object, _mockLimsServiceMock.Object, mockLimsOptions, _transmissionLoggerMock.Object);
+        _roundService = new SamplingRoundService(_dbContext, _delegationServiceMock.Object, _notificationServiceMock.Object, _transmissionService, _roundLoggerMock.Object);
+        _sut = new OrderService(_dbContext, _auditServiceMock.Object, _roundService, _transmissionService, _notificationServiceMock.Object, _delegationServiceMock.Object, _loggerMock.Object);
 
         SeedData().GetAwaiter().GetResult();
     }
@@ -137,6 +144,45 @@ public class OrderServiceTest : IDisposable
         var result = await _sut.CreateOrderAsync(dto, UserId, TenantId);
 
         result.UnplannedReason.Should().Be(reason);
+    }
+
+    [Fact]
+    public async Task CreateOrderAsync_ShouldGenerateSequentialOrderNumbers_OnSameDay()
+    {
+        // F-110 — consecutive creations get distinct, incrementing numbers for the day.
+        var dto = new OrderCreateDto(
+            DistributorId, null, null, null, null, null, IsUnplanned: false);
+
+        var first = await _sut.CreateOrderAsync(dto, UserId, TenantId);
+        var second = await _sut.CreateOrderAsync(dto, UserId, TenantId);
+
+        var prefix = $"ORD-{DateTime.UtcNow:yyyyMMdd}";
+        first.OrderNumber.Should().Be($"{prefix}-0001");
+        second.OrderNumber.Should().Be($"{prefix}-0002");
+    }
+
+    [Fact]
+    public async Task CreateOrderAsync_ShouldNotThrow_WhenLegacyOrderNumberPresent()
+    {
+        // F-110 — a malformed/legacy number sharing today's prefix must not break int parsing.
+        var prefix = $"ORD-{DateTime.UtcNow:yyyyMMdd}";
+        _dbContext.Orders.Add(new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = $"{prefix}-LEGACY",
+            Status = OrderStatus.New,
+            CreatedById = UserId,
+            DistributorId = DistributorId,
+            TenantId = TenantId,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var dto = new OrderCreateDto(
+            DistributorId, null, null, null, null, null, IsUnplanned: false);
+
+        var result = await _sut.CreateOrderAsync(dto, UserId, TenantId);
+
+        result.OrderNumber.Should().Be($"{prefix}-0001");
     }
 
     // --- Admin order management ---
@@ -1020,14 +1066,15 @@ public class OrderServiceTest : IDisposable
     private OrderService CreateSutWithMockLimsEnabled()
     {
         var options = Options.Create(new MockLimsOptions { Enabled = true });
+        var transmission = new OrderTransmissionService(
+            _dbContext, _auditServiceMock.Object, _mockLimsServiceMock.Object, options, _transmissionLoggerMock.Object);
         return new OrderService(
             _dbContext,
             _auditServiceMock.Object,
             _roundService,
-            _mockLimsServiceMock.Object,
+            transmission,
             _notificationServiceMock.Object,
             _delegationServiceMock.Object,
-            options,
             _loggerMock.Object);
     }
 
@@ -1209,6 +1256,18 @@ public class OrderServiceTest : IDisposable
     }
 
     [Fact]
+    public async Task AssignPreleveurAsync_WhenPreleveurNotValid_ShouldThrow()
+    {
+        // F-104 — assigning an unknown/non-préleveur id is rejected.
+        var order = await CreateSeedOrder(OrderStatus.New);
+        var dto = new OrderAssignDto(PreleveurId: "not-a-preleveur");
+
+        await _sut.Awaiting(s => s.AssignPreleveurAsync(order.Id, dto, UserId, TenantId))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*préleveur*");
+    }
+
+    [Fact]
     public async Task AssignPreleveurAsync_WhenPreleveurUnchanged_ShouldNotCreateNotification()
     {
         var order = await CreateSeedOrder(OrderStatus.New);
@@ -1260,6 +1319,25 @@ public class OrderServiceTest : IDisposable
         {
             UserId = UserId,
             DistributorId = DistributorId,
+        });
+
+        // F-104 — a valid préleveur target: active user of the tenant holding the Préleveur role.
+        _dbContext.Users.Add(new AppUser
+        {
+            Id = "preleveur-X",
+            UserName = "preleveur-x@test.com",
+            Email = "preleveur-x@test.com",
+            FirstName = "Paul",
+            LastName = "Eleveur",
+            TenantId = TenantId,
+            IsActive = true,
+        });
+        var preleveurRole = new ApplicationRole { Id = "role-preleveur", Name = RoleName.Preleveur, NormalizedName = RoleName.Preleveur.ToUpperInvariant() };
+        _dbContext.Roles.Add(preleveurRole);
+        _dbContext.UserRoles.Add(new Microsoft.AspNetCore.Identity.IdentityUserRole<string>
+        {
+            UserId = "preleveur-X",
+            RoleId = preleveurRole.Id,
         });
 
         await _dbContext.SaveChangesAsync();

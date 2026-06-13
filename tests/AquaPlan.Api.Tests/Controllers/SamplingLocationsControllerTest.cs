@@ -13,6 +13,7 @@ public class SamplingLocationsControllerTest
 {
     private readonly Mock<ISamplingLocationService> _samplingLocationServiceMock = new();
     private readonly Mock<IPermissionService> _permissionServiceMock = new();
+    private readonly Mock<IDelegationService> _delegationServiceMock = new();
     private readonly Mock<ILogger<SamplingLocationsController>> _loggerMock = new();
     private readonly SamplingLocationsController _sut;
 
@@ -24,9 +25,15 @@ public class SamplingLocationsControllerTest
 
     public SamplingLocationsControllerTest()
     {
+        // F-112 — by default a non-admin caller is authorized on the test distributor.
+        _delegationServiceMock
+            .Setup(d => d.GetAuthorizedDistributorIdsForUserAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([DistributorId]);
+
         _sut = new SamplingLocationsController(
             _samplingLocationServiceMock.Object,
             _permissionServiceMock.Object,
+            _delegationServiceMock.Object,
             _loggerMock.Object);
         _sut.ControllerContext = new ControllerContext
         {
@@ -187,10 +194,10 @@ public class SamplingLocationsControllerTest
     [Fact]
     public async Task Create_ShouldReturnCreatedAtAction_WhenCodeIsUnique()
     {
-        _sut.ControllerContext = new ControllerContext
-        {
-            HttpContext = new DefaultHttpContext { User = CreateUser(isAdmin: true) }
-        };
+        // F-112 — admin is resolved via the ViewAllOrders permission (server-side), not a claim.
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         var createDto = new SamplingLocationCreateDto("New Source", "LOC-003", "New location", null, null, DistributorId, SectorId);
         var created = CreateLocationDto(name: "New Source", code: "LOC-003");
         _samplingLocationServiceMock
@@ -210,10 +217,9 @@ public class SamplingLocationsControllerTest
     [Fact]
     public async Task Create_WhenNonAdmin_ShouldPassIsValidatedFalse()
     {
-        _sut.ControllerContext = new ControllerContext
-        {
-            HttpContext = new DefaultHttpContext { User = CreateUser(isAdmin: false) }
-        };
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
         var createDto = new SamplingLocationCreateDto("New Source", "LOC-003", "New location", null, null, DistributorId, SectorId);
         var created = CreateLocationDto(name: "New Source", code: "LOC-003", isValidated: false);
         _samplingLocationServiceMock
@@ -232,8 +238,31 @@ public class SamplingLocationsControllerTest
     }
 
     [Fact]
+    public async Task Create_WhenNonAdminNotAuthorizedOnDistributor_ShouldReturnForbid()
+    {
+        // F-112 — a non-admin cannot create an LDP on a distributor outside their scope.
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _delegationServiceMock
+            .Setup(d => d.GetAuthorizedDistributorIdsForUserAsync(UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([Guid.NewGuid()]);
+        var createDto = new SamplingLocationCreateDto("New Source", "LOC-003", "New location", null, null, DistributorId, SectorId);
+
+        var result = await _sut.Create(createDto, CancellationToken.None);
+
+        result.Result.Should().BeOfType<ForbidResult>();
+        _samplingLocationServiceMock.Verify(
+            x => x.CreateAsync(It.IsAny<SamplingLocationCreateDto>(), It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task Create_ShouldReturnConflict_WhenCodeIsNotUnique()
     {
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         var createDto = new SamplingLocationCreateDto("New Source", "LOC-001", "New location", null, null, DistributorId, SectorId);
         _samplingLocationServiceMock
             .Setup(x => x.IsLocationCodeUniqueAsync("LOC-001", DistributorId, null, TenantId, It.IsAny<CancellationToken>()))
@@ -246,12 +275,15 @@ public class SamplingLocationsControllerTest
     }
 
     [Fact]
-    public void Create_ShouldNotHaveAdministratorRoleAttribute()
+    public void Create_ShouldHaveAuthorizeAttributeRestrictingPreleveurOnly()
     {
+        // F-112 — creation is restricted to admin + mandataire roles (préleveur-only excluded).
         var method = typeof(SamplingLocationsController).GetMethod(nameof(SamplingLocationsController.Create));
-        var attributes = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true).OfType<AuthorizeAttribute>();
-        attributes.Should().NotContain(a => a.Roles == "Administrator",
-            "any authenticated user should be able to create a sampling location");
+        var auth = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true).OfType<AuthorizeAttribute>().FirstOrDefault();
+        auth.Should().NotBeNull();
+        var roles = (auth!.Roles ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        roles.Should().Contain("Administrator").And.Contain("Requérant").And.Contain("Requérant-Préleveur");
+        roles.Should().NotContain("Préleveur");
     }
 
     [Fact]

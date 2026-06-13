@@ -1,3 +1,4 @@
+using AquaPlan.Application.DTOs.MockLims;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Domain.Enums;
@@ -5,6 +6,7 @@ using AquaPlan.Infrastructure.Data;
 using AquaPlan.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AquaPlan.Infrastructure.Tests.Services;
 
@@ -12,7 +14,9 @@ public class OrderStatusServiceTest : IDisposable
 {
     private readonly AquaPlanDbContext _dbContext;
     private readonly Mock<IOrderAuditService> _auditServiceMock = new();
+    private readonly Mock<IMockLimsService> _mockLimsServiceMock = new();
     private readonly Mock<ILogger<OrderStatusService>> _loggerMock = new();
+    private readonly Mock<ILogger<OrderTransmissionService>> _transmissionLoggerMock = new();
     private readonly OrderStatusService _sut;
 
     private static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
@@ -26,7 +30,18 @@ public class OrderStatusServiceTest : IDisposable
             .Options;
 
         _dbContext = new AquaPlanDbContext(options);
-        _sut = new OrderStatusService(_dbContext, _auditServiceMock.Object, _loggerMock.Object);
+
+        // Sprint Robustesse F-105 — the Completed → Transmitted transition is delegated to the
+        // shared transmission service. Mock LIMS enabled so the single-transition path is shown
+        // to forward to the LIMS just like the bulk/round paths.
+        _mockLimsServiceMock
+            .Setup(s => s.ReceiveOrderAsync(It.IsAny<MockLimsOrderCreateDto>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MockLimsOrderCreatedDto(Guid.NewGuid(), DateTime.UtcNow));
+        var mockLimsOptions = Options.Create(new MockLimsOptions { Enabled = true });
+        var transmissionService = new OrderTransmissionService(
+            _dbContext, _auditServiceMock.Object, _mockLimsServiceMock.Object, mockLimsOptions, _transmissionLoggerMock.Object);
+
+        _sut = new OrderStatusService(_dbContext, _auditServiceMock.Object, transmissionService, _loggerMock.Object);
     }
 
     public void Dispose()
@@ -239,6 +254,32 @@ public class OrderStatusServiceTest : IDisposable
                 UserId,
                 TenantId,
                 It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task TransitionOrderAsync_ToTransmitted_ShouldSetTransmittedFieldsAndForwardToLims()
+    {
+        // F-105 — the single-order transition to Transmitted must behave exactly like the
+        // bulk/round paths: TransmittedAt + StatusChangedAt/By set, Mock LIMS forwarded, audit.
+        await SeedOrder(OrderStatus.Completed);
+
+        var result = await _sut.TransitionOrderAsync(OrderId, OrderStatus.Transmitted, UserId, TenantId);
+
+        result.ToStatus.Should().Be(OrderStatus.Transmitted);
+
+        var reloaded = await _dbContext.Orders.SingleAsync(o => o.Id == OrderId);
+        reloaded.Status.Should().Be(OrderStatus.Transmitted);
+        reloaded.TransmittedAt.Should().NotBeNull();
+        reloaded.StatusChangedBy.Should().Be(UserId);
+        reloaded.LimsOrderId.Should().NotBeNull();
+
+        _mockLimsServiceMock.Verify(
+            s => s.ReceiveOrderAsync(It.IsAny<MockLimsOrderCreateDto>(), TenantId, It.IsAny<CancellationToken>()),
+            Times.Once);
+        _auditServiceMock.Verify(
+            a => a.LogAsync(OrderId, "StatusTransitioned", It.IsAny<string>(),
+                "Completed", "Transmitted", UserId, TenantId, It.IsAny<CancellationToken>()),
             Times.Once);
     }
 

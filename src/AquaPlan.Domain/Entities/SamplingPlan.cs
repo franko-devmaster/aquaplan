@@ -20,5 +20,10 @@ public class SamplingPlan
     public DateTime? StatusChangedAt { get; set; }
     public string? StatusChangedBy { get; set; }
 
+    // Sprint Robustesse F-109 — set the first time orders are generated from this plan.
+    // Guards against duplicate generation (double-click, retry, replay): a second call
+    // is rejected while this is non-null.
+    public DateTime? OrdersGeneratedAt { get; set; }
+
     public ICollection<SamplingPlanItem> Items { get; set; } = new List<SamplingPlanItem>();
 }

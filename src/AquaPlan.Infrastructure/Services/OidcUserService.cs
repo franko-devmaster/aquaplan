@@ -20,6 +20,7 @@ internal class OidcUserService(
     public async Task<AppUser> FindOrCreateFromExternalLoginAsync(
         string externalId,
         string email,
+        bool emailVerified,
         string firstName,
         string lastName,
         Guid tenantId,
@@ -32,7 +33,20 @@ internal class OidcUserService(
             return existingUser;
         }
 
-        // Check if a user with the same email already exists (link accounts)
+        // Sprint Robustesse F-101 — never bind or create a local account from an
+        // unverified e-mail: an attacker who controls an IdP account with an arbitrary
+        // (unverified) e-mail could otherwise take over an existing local account or
+        // squat a future one.
+        if (!emailVerified)
+        {
+            logger.LogWarning(
+                "OIDC login: rejected unverified e-mail {Email} for ExternalId {ExternalId}",
+                email, externalId);
+            throw new UnauthorizedAccessException(
+                "The identity provider did not return a verified e-mail address.");
+        }
+
+        // Check if a user with the same (verified) email already exists (link accounts)
         var emailUser = await userManager.FindByEmailAsync(email);
         if (emailUser is not null)
         {

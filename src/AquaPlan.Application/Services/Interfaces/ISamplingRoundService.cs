@@ -17,7 +17,13 @@ public interface ISamplingRoundService
     /// </summary>
     Task<SamplingRoundPagedResultDto> GetFilteredAsync(string userId, Guid tenantId, SamplingRoundFilterDto filter, bool isAdmin, bool isPreleveurOnly, CancellationToken cancellationToken = default);
     Task<SamplingRoundDetailDto?> UpdateAsync(Guid id, SamplingRoundUpdateDto dto, string updatedBy, Guid tenantId, CancellationToken cancellationToken = default);
-    Task<bool> DeleteAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Sprint Robustesse F-107 — soft-cancels a round instead of hard-deleting it and its
+    /// mandates: the round becomes <c>Cancelled</c> and its orders are detached
+    /// (<c>SamplingRoundId = null</c>) but preserved. A locked (InProgress) round is refused
+    /// with a <see cref="AquaPlan.Application.Exceptions.ConflictOperationException"/>.
+    /// </summary>
+    Task<bool> DeleteAsync(Guid id, string userId, Guid tenantId, CancellationToken cancellationToken = default);
     Task<SamplingRoundDetailDto?> AssignPreleveurAsync(Guid id, SamplingRoundAssignDto dto, string updatedBy, Guid tenantId, CancellationToken cancellationToken = default);
     Task<SamplingRoundDetailDto?> CancelAsync(Guid id, string updatedBy, Guid tenantId, CancellationToken cancellationToken = default);
     Task<SamplingRoundDetailDto?> AddOrderAsync(Guid roundId, Guid orderId, Guid tenantId, CancellationToken cancellationToken = default);

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Colors — Semantic</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+html,body{margin:0;background:#fff;font-family:var(--font-family-base);}
+.wrap{padding:18px 20px;box-sizing:border-box;width:700px;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.item{border:1px solid var(--color-border-default);border-radius:8px;padding:10px 12px;}
+.item .name{font-size:12px;font-weight:600;display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.item .name .dot{width:10px;height:10px;border-radius:3px;}
+.stops{display:flex;gap:4px;}
+.stop{flex:1;height:28px;border-radius:4px;font-size:9px;color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-family-mono);}
+.stop.light{color:#17171a;}
+.label{font-size:11px;color:var(--color-fg-muted);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:10px;font-weight:600;}
+</style><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+</head><body>
+<div class="wrap">
+<div class="label">Semantic — Success · Warning · Error · Info</div>
+<div class="grid">
+  <div class="item"><div class="name"><span class="dot" style="background:#2e9257"></span>Success</div><div class="stops">
+    <div class="stop light" style="background:#eaf7ef">50</div>
+    <div class="stop" style="background:#2e9257">500</div>
+    <div class="stop" style="background:#237347">600</div>
+    <div class="stop" style="background:#1a5836">700</div></div></div>
+  <div class="item"><div class="name"><span class="dot" style="background:#c98a1a"></span>Warning</div><div class="stops">
+    <div class="stop light" style="background:#fdf4e2">50</div>
+    <div class="stop" style="background:#c98a1a">500</div>
+    <div class="stop" style="background:#a36d0f">600</div>
+    <div class="stop" style="background:#7a510a">700</div></div></div>
+  <div class="item"><div class="name"><span class="dot" style="background:#d94b3d"></span>Error</div><div class="stops">
+    <div class="stop light" style="background:#fdecea">50</div>
+    <div class="stop" style="background:#d94b3d">500</div>
+    <div class="stop" style="background:#b33427">600</div>
+    <div class="stop" style="background:#86251b">700</div></div></div>
+  <div class="item"><div class="name"><span class="dot" style="background:#2f7fc4"></span>Info</div><div class="stops">
+    <div class="stop light" style="background:#e9f2fa">50</div>
+    <div class="stop" style="background:#2f7fc4">500</div>
+    <div class="stop" style="background:#1f6299">600</div>
+    <div class="stop" style="background:#14476f">700</div></div></div>
+</div>
+</div></body></html>

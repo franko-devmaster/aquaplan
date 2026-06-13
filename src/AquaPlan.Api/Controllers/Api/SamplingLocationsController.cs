@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using AquaPlan.Application.DTOs.SamplingLocations;
 using AquaPlan.Application.Services.Interfaces;
+using AquaPlan.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,6 +13,7 @@ namespace AquaPlan.Api.Controllers.Api;
 public class SamplingLocationsController(
     ISamplingLocationService samplingLocationService,
     IPermissionService permissionService,
+    IDelegationService delegationService,
     ILogger<SamplingLocationsController> logger) : ControllerBase
 {
     [HttpGet]
@@ -57,10 +59,25 @@ public class SamplingLocationsController(
         return Ok(location);
     }
 
+    // Sprint Robustesse F-112 — creating an LDP is a mandataire/admin action; for non-admins the
+    // target distributor must be one they are authorized on (own + active delegations), the same
+    // rule as order/round creation (AQ-369). The service also validates the distributor ∈ tenant.
     [HttpPost]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}")]
     public async Task<ActionResult<SamplingLocationDto>> Create([FromBody] SamplingLocationCreateDto dto, CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
         var tenantId = GetTenantId();
+
+        var isAdmin = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        if (!isAdmin)
+        {
+            var authorizedIds = await delegationService.GetAuthorizedDistributorIdsForUserAsync(userId, cancellationToken);
+            if (!authorizedIds.Contains(dto.DistributorId))
+            {
+                return Forbid();
+            }
+        }
 
         var isUnique = await samplingLocationService.IsLocationCodeUniqueAsync(dto.LocationCode, dto.DistributorId, null, tenantId, cancellationToken);
         if (!isUnique)
@@ -68,9 +85,15 @@ public class SamplingLocationsController(
             return Conflict(new { message = $"A sampling location with code '{dto.LocationCode}' already exists for this distributor." });
         }
 
-        var isAdmin = User.IsInRole("Administrator");
-        var location = await samplingLocationService.CreateAsync(dto, tenantId, isValidated: isAdmin, cancellationToken);
-        return CreatedAtAction(nameof(GetById), new { id = location.Id }, location);
+        try
+        {
+            var location = await samplingLocationService.CreateAsync(dto, tenantId, isValidated: isAdmin, cancellationToken);
+            return CreatedAtAction(nameof(GetById), new { id = location.Id }, location);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpPut("{id:guid}")]

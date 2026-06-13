@@ -9,6 +9,7 @@ public interface IOidcUserService
     Task<AppUser> FindOrCreateFromExternalLoginAsync(
         string externalId,
         string email,
+        bool emailVerified,
         string firstName,
         string lastName,
         Guid tenantId,

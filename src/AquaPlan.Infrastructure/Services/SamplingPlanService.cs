@@ -371,6 +371,16 @@ internal class SamplingPlanService(
             throw new InvalidOperationException($"Cannot generate orders from a plan in status {plan.Status}. Only Validated plans can generate orders.");
         }
 
+        // Sprint Robustesse F-109 — generation is a one-shot operation. The plan stays
+        // Validated afterwards, so without this guard a second call (double-click, retry,
+        // replay) would duplicate every order. OrdersGeneratedAt is set in the same
+        // transaction below, so concurrent callers cannot both pass this check.
+        if (plan.OrdersGeneratedAt is not null)
+        {
+            throw new InvalidOperationException(
+                $"Orders were already generated from this plan on {plan.OrdersGeneratedAt:yyyy-MM-dd HH:mm} UTC.");
+        }
+
         if (plan.Items.Count == 0)
         {
             throw new InvalidOperationException("Cannot generate orders from an empty plan.");
@@ -424,6 +434,13 @@ internal class SamplingPlanService(
                         plannedDate));
                 }
             }
+
+            // F-109 — mark the plan as generated in the same transaction as the orders so
+            // the idempotence guard above is honoured even under concurrency.
+            plan.OrdersGeneratedAt = DateTime.UtcNow;
+            plan.UpdatedAt = DateTime.UtcNow;
+            plan.UpdatedBy = userId;
+            await dbContext.SaveChangesAsync(cancellationToken);
 
             if (transaction is not null)
             {

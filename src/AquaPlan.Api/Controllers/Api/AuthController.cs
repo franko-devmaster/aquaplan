@@ -138,11 +138,34 @@ public class AuthController(
         var firstName = principal.FindFirstValue(ClaimTypes.GivenName) ?? string.Empty;
         var lastName = principal.FindFirstValue(ClaimTypes.Surname) ?? string.Empty;
 
+        // Sprint Robustesse F-101 — only an explicitly verified e-mail may link or create a
+        // local account. The OIDC standard claim is "email_verified" (string "true"/"false").
+        var emailVerified = string.Equals(
+            principal.FindFirstValue("email_verified"), "true", StringComparison.OrdinalIgnoreCase);
+
         var defaultTenantId = Guid.Parse(
             configuration["Oidc:DefaultTenantId"] ?? "00000000-0000-0000-0000-000000000001");
 
-        var user = await oidcUserService.FindOrCreateFromExternalLoginAsync(
-            externalId, email, firstName, lastName, defaultTenantId, cancellationToken);
+        AppUser user;
+        try
+        {
+            user = await oidcUserService.FindOrCreateFromExternalLoginAsync(
+                externalId, email, emailVerified, firstName, lastName, defaultTenantId, cancellationToken);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // F-101 — IdP returned an unverified e-mail; refuse to link/create.
+            logger.LogWarning("OIDC callback: unverified e-mail rejected for {Email}", email);
+            return Redirect("/#/login?error=oidc_email_unverified");
+        }
+
+        // Sprint Robustesse F-102 — a deactivated account must not obtain tokens through OIDC,
+        // mirroring the IsActive check already enforced on the password login path.
+        if (!user.IsActive)
+        {
+            logger.LogWarning("OIDC callback: inactive account {Email} denied", email);
+            return Redirect("/#/login?error=account_disabled");
+        }
 
         var roles = await authService.GetUserRolesAsync(user.Id, cancellationToken);
         var accessToken = tokenService.GenerateAccessToken(user, roles);

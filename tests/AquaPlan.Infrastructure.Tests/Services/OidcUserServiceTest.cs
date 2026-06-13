@@ -56,7 +56,7 @@ public class OidcUserServiceTest
         _userManagerMock.Setup(x => x.Users).Returns(users);
 
         var result = await _sut.FindOrCreateFromExternalLoginAsync(
-            "ext-123", "existing@aquaplan.ch", "John", "Doe", TenantId);
+            "ext-123", "existing@aquaplan.ch", emailVerified: true, "John", "Doe", TenantId);
 
         result.Should().Be(existingUser);
         _userManagerMock.Verify(x => x.CreateAsync(It.IsAny<AppUser>()), Times.Never);
@@ -75,7 +75,7 @@ public class OidcUserServiceTest
             .ReturnsAsync(IdentityResult.Success);
 
         var result = await _sut.FindOrCreateFromExternalLoginAsync(
-            "ext-456", "john@aquaplan.ch", "John", "Doe", TenantId);
+            "ext-456", "john@aquaplan.ch", emailVerified: true, "John", "Doe", TenantId);
 
         result.Should().Be(emailUser);
         result.ExternalId.Should().Be("ext-456");
@@ -95,7 +95,7 @@ public class OidcUserServiceTest
             .ReturnsAsync(IdentityResult.Success);
 
         var result = await _sut.FindOrCreateFromExternalLoginAsync(
-            "ext-789", "new@aquaplan.ch", "Jane", "Smith", TenantId);
+            "ext-789", "new@aquaplan.ch", emailVerified: true, "Jane", "Smith", TenantId);
 
         result.Should().NotBeNull();
         result.Email.Should().Be("new@aquaplan.ch");
@@ -118,8 +118,54 @@ public class OidcUserServiceTest
             .ReturnsAsync(IdentityResult.Failed(new IdentityError { Description = "Duplicate email" }));
 
         await _sut.Awaiting(x => x.FindOrCreateFromExternalLoginAsync(
-                "ext-fail", "fail@aquaplan.ch", "Fail", "User", TenantId))
+                "ext-fail", "fail@aquaplan.ch", emailVerified: true, "Fail", "User", TenantId))
             .Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*Duplicate email*");
+    }
+
+    [Fact]
+    public async Task FindOrCreateFromExternalLoginAsync_ShouldThrow_WhenEmailNotVerifiedAndEmailUserExists()
+    {
+        // F-101 — an unverified e-mail must never link to an existing local account.
+        var users = new List<AppUser>().BuildMock();
+        _userManagerMock.Setup(x => x.Users).Returns(users);
+
+        await _sut.Awaiting(x => x.FindOrCreateFromExternalLoginAsync(
+                "ext-unverified", "victim@aquaplan.ch", emailVerified: false, "Mal", "Ory", TenantId))
+            .Should().ThrowAsync<UnauthorizedAccessException>();
+
+        // The link/create paths must not even be reached.
+        _userManagerMock.Verify(x => x.FindByEmailAsync(It.IsAny<string>()), Times.Never);
+        _userManagerMock.Verify(x => x.CreateAsync(It.IsAny<AppUser>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task FindOrCreateFromExternalLoginAsync_ShouldThrow_WhenEmailNotVerifiedForNewUser()
+    {
+        // F-101 — an unverified e-mail must never create a new local account.
+        var users = new List<AppUser>().BuildMock();
+        _userManagerMock.Setup(x => x.Users).Returns(users);
+
+        await _sut.Awaiting(x => x.FindOrCreateFromExternalLoginAsync(
+                "ext-new-unverified", "newbie@aquaplan.ch", emailVerified: false, "New", "Bie", TenantId))
+            .Should().ThrowAsync<UnauthorizedAccessException>();
+
+        _userManagerMock.Verify(x => x.CreateAsync(It.IsAny<AppUser>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task FindOrCreateFromExternalLoginAsync_ShouldReturnExistingUser_EvenWhenEmailNotVerified()
+    {
+        // F-101 — a returning user already bound by ExternalId is trusted regardless of the
+        // email_verified claim (the binding happened earlier under a verified e-mail).
+        var existingUser = new AppUser { ExternalId = "ext-known", Email = "known@aquaplan.ch" };
+        var users = new List<AppUser> { existingUser }.BuildMock();
+        _userManagerMock.Setup(x => x.Users).Returns(users);
+
+        var result = await _sut.FindOrCreateFromExternalLoginAsync(
+            "ext-known", "known@aquaplan.ch", emailVerified: false, "K", "N", TenantId);
+
+        result.Should().Be(existingUser);
+        _userManagerMock.Verify(x => x.FindByEmailAsync(It.IsAny<string>()), Times.Never);
     }
 }

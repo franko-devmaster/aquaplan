@@ -307,10 +307,20 @@ public class OrdersControllerTest
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
+    // F-104 / F-105 — grant ViewAllOrders so the per-order access checks added to
+    // AssignPreleveur and TransitionOrder pass for the happy-path tests.
+    private void GrantViewAllOrders()
+    {
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+    }
+
     // ─── AssignPreleveur ───────────────────────────────────────
     [Fact]
     public async Task AssignPreleveur_ShouldReturnOk_WhenSuccess()
     {
+        GrantViewAllOrders();
         var assignDto = new OrderAssignDto("preleveur-1");
         var updatedOrder = CreateOrderDetail(status: OrderStatus.New, preleveurId: "preleveur-1", preleveurName: "Preleveur Name");
         _orderServiceMock
@@ -326,6 +336,7 @@ public class OrdersControllerTest
     [Fact]
     public async Task AssignPreleveur_ShouldReturnNotFound_WhenOrderDoesNotExist()
     {
+        GrantViewAllOrders();
         var assignDto = new OrderAssignDto("preleveur-1");
         _orderServiceMock
             .Setup(x => x.AssignPreleveurAsync(OrderId, assignDto, UserId, TenantId, It.IsAny<CancellationToken>()))
@@ -336,10 +347,45 @@ public class OrdersControllerTest
         result.Result.Should().BeOfType<NotFoundResult>();
     }
 
+    [Fact]
+    public async Task AssignPreleveur_ShouldReturnForbid_WhenNonAdminCannotAccessOrder()
+    {
+        // F-104 — a non-admin without access to the order cannot assign a préleveur.
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.UserCanAccessOrderAsync(UserId, OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.GetOrderByIdAsync(OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateOrderDetail());
+
+        var result = await _sut.AssignPreleveur(OrderId, new OrderAssignDto("preleveur-1"), CancellationToken.None);
+
+        result.Result.Should().BeOfType<ForbidResult>();
+        _orderServiceMock.Verify(
+            x => x.AssignPreleveurAsync(It.IsAny<Guid>(), It.IsAny<OrderAssignDto>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public void AssignPreleveur_ShouldHaveAuthorizeAttributeRestrictingPreleveurOnly()
+    {
+        // F-104 — restricted to admin + mandataire roles.
+        var method = typeof(OrdersController).GetMethod(nameof(OrdersController.AssignPreleveur));
+        var auth = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true).OfType<AuthorizeAttribute>().FirstOrDefault();
+        auth.Should().NotBeNull();
+        var roles = (auth!.Roles ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        roles.Should().Contain("Administrator").And.Contain("Requérant").And.Contain("Requérant-Préleveur");
+        roles.Should().NotContain("Préleveur");
+    }
+
     // ─── Transition ────────────────────────────────────────────
     [Fact]
     public async Task TransitionOrder_ShouldReturnOk_WhenTransitionIsValid()
     {
+        GrantViewAllOrders();
         var dto = new OrderTransitionRequestDto(OrderStatus.InProgress);
         var transition = new OrderStatusTransitionDto(OrderStatus.New, OrderStatus.InProgress, DateTime.UtcNow);
         _orderStatusServiceMock
@@ -354,6 +400,7 @@ public class OrdersControllerTest
     [Fact]
     public async Task TransitionOrder_ShouldReturnBadRequest_WhenTransitionIsInvalid()
     {
+        GrantViewAllOrders();
         var dto = new OrderTransitionRequestDto(OrderStatus.Completed);
         _orderStatusServiceMock
             .Setup(x => x.TransitionOrderAsync(OrderId, OrderStatus.Completed, UserId, TenantId, It.IsAny<CancellationToken>()))
@@ -362,6 +409,28 @@ public class OrdersControllerTest
         var result = await _sut.TransitionOrder(OrderId, dto, CancellationToken.None);
 
         result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task TransitionOrder_ShouldReturnForbid_WhenNonAdminCannotAccessOrder()
+    {
+        // F-105 — a transition is a write, so a non-admin without access to the order is refused.
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.UserCanAccessOrderAsync(UserId, OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.GetOrderByIdAsync(OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateOrderDetail());
+
+        var result = await _sut.TransitionOrder(OrderId, new OrderTransitionRequestDto(OrderStatus.Cancelled), CancellationToken.None);
+
+        result.Result.Should().BeOfType<ForbidResult>();
+        _orderStatusServiceMock.Verify(
+            x => x.TransitionOrderAsync(It.IsAny<Guid>(), It.IsAny<OrderStatus>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     // ─── GetRequiredContainers ─────────────────────────────────

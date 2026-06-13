@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AquaPlan.Application.DTOs.Roles;
 using AquaPlan.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -40,7 +41,9 @@ public class RolesController(
     [HttpPost("users/{userId}/assign")]
     public async Task<IActionResult> AssignRole(string userId, [FromBody] RoleAssignDto dto, CancellationToken cancellationToken)
     {
-        var result = await permissionService.AssignRoleToUserAsync(userId, dto.RoleName, cancellationToken);
+        // F-103 — pass the caller's tenant so a tenant-A admin cannot grant roles in tenant B.
+        var callerTenantId = GetTenantId();
+        var result = await permissionService.AssignRoleToUserAsync(userId, dto.RoleName, callerTenantId, cancellationToken);
         if (!result)
         {
             return NotFound();
@@ -51,11 +54,18 @@ public class RolesController(
     [HttpPost("users/{userId}/remove")]
     public async Task<IActionResult> RemoveRole(string userId, [FromBody] RoleAssignDto dto, CancellationToken cancellationToken)
     {
-        var result = await permissionService.RemoveRoleFromUserAsync(userId, dto.RoleName, cancellationToken);
+        var callerTenantId = GetTenantId();
+        var result = await permissionService.RemoveRoleFromUserAsync(userId, dto.RoleName, callerTenantId, cancellationToken);
         if (!result)
         {
             return NotFound();
         }
         return NoContent();
+    }
+
+    private Guid GetTenantId()
+    {
+        var tenantClaim = User.FindFirst("tenant_id")?.Value ?? throw new UnauthorizedAccessException();
+        return Guid.Parse(tenantClaim);
     }
 }

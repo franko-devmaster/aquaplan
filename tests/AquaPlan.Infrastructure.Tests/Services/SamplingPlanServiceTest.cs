@@ -389,6 +389,44 @@ public class SamplingPlanServiceTest : IDisposable
     }
 
     [Fact]
+    public async Task GenerateOrdersFromPlanAsync_ShouldSetOrdersGeneratedAt_OnSuccess()
+    {
+        // F-109 — the plan is flagged so it cannot generate twice.
+        var planId = await CreateValidatedPlanWithItems([1, 4]);
+        _orderServiceMock
+            .Setup(s => s.CreateOrderAsync(It.IsAny<OrderCreateDto>(), UserId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrderCreateDto dto, string _, Guid _, CancellationToken _) =>
+                CreateFakeOrderDetailDto(Guid.NewGuid(), "ORD-0001", dto));
+
+        await _sut.GenerateOrdersFromPlanAsync(planId, UserId, TenantId);
+
+        var plan = await _dbContext.SamplingPlans.FindAsync(planId);
+        plan!.OrdersGeneratedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task GenerateOrdersFromPlanAsync_WhenAlreadyGenerated_ShouldThrowAndNotDuplicate()
+    {
+        // F-109 — a second call (double-click / retry / replay) must be refused.
+        var planId = await CreateValidatedPlanWithItems([1, 4]);
+        _orderServiceMock
+            .Setup(s => s.CreateOrderAsync(It.IsAny<OrderCreateDto>(), UserId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrderCreateDto dto, string _, Guid _, CancellationToken _) =>
+                CreateFakeOrderDetailDto(Guid.NewGuid(), "ORD-0001", dto));
+
+        await _sut.GenerateOrdersFromPlanAsync(planId, UserId, TenantId);
+
+        await _sut.Invoking(s => s.GenerateOrdersFromPlanAsync(planId, UserId, TenantId))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*already generated*");
+
+        // Exactly the 2 orders of the first call — no duplicates.
+        _orderServiceMock.Verify(
+            s => s.CreateOrderAsync(It.IsAny<OrderCreateDto>(), UserId, TenantId, It.IsAny<CancellationToken>()),
+            Times.Exactly(2));
+    }
+
+    [Fact]
     public async Task GenerateOrdersFromPlanAsync_WhenPlanNotFound_ShouldThrow()
     {
         await _sut.Invoking(s => s.GenerateOrdersFromPlanAsync(Guid.NewGuid(), UserId, TenantId))

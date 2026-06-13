@@ -119,6 +119,17 @@ internal class SamplingLocationService(
 
     public async Task<SamplingLocationDto> CreateAsync(SamplingLocationCreateDto dto, Guid tenantId, bool isValidated = true, CancellationToken cancellationToken = default)
     {
+        // Sprint Robustesse F-112 — the LDP's tenant is derived from its distributor, so the
+        // distributor MUST belong to the caller's tenant; otherwise an LDP could be written into
+        // another tenant. (Per-distributor authorization for non-admins is enforced at the
+        // controller via GetAuthorizedDistributorIdsForUserAsync.)
+        var distributorInTenant = await dbContext.Distributors
+            .AnyAsync(d => d.Id == dto.DistributorId && d.TenantId == tenantId, cancellationToken);
+        if (!distributorInTenant)
+        {
+            throw new InvalidOperationException("The distributor does not belong to your tenant.");
+        }
+
         var isUnique = await IsLocationCodeUniqueAsync(dto.LocationCode, dto.DistributorId, null, tenantId, cancellationToken);
         if (!isUnique)
         {

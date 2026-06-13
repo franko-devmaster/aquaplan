@@ -208,24 +208,61 @@ public class OrdersController(
         }
     }
 
+    // Sprint Robustesse F-104 — assigning a préleveur is a mandataire/admin action, restricted
+    // to the same roles as CreateOrder, with a per-order access check for non-admins. The
+    // service additionally validates the target préleveur (active, same tenant, préleveur role).
     [HttpPost("{id:guid}/assign")]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}")]
     public async Task<ActionResult<OrderDetailDto>> AssignPreleveur(Guid id, [FromBody] OrderAssignDto dto, CancellationToken cancellationToken)
     {
         var tenantId = GetTenantId();
         var updatedBy = GetUserId();
-        var order = await orderService.AssignPreleveurAsync(id, dto, updatedBy, tenantId, cancellationToken);
-        if (order is null)
+
+        var hasViewAll = await permissionService.UserHasPermissionAsync(updatedBy, "ViewAllOrders", cancellationToken);
+        if (!hasViewAll)
         {
-            return NotFound();
+            var canAccess = await orderService.UserCanAccessOrderAsync(updatedBy, id, tenantId, cancellationToken);
+            if (!canAccess)
+            {
+                var exists = await orderService.GetOrderByIdAsync(id, tenantId, cancellationToken);
+                return exists is null ? NotFound() : Forbid();
+            }
         }
-        return Ok(order);
+
+        try
+        {
+            var order = await orderService.AssignPreleveurAsync(id, dto, updatedBy, tenantId, cancellationToken);
+            if (order is null)
+            {
+                return NotFound();
+            }
+            return Ok(order);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
+    // Sprint Robustesse F-105 — a status transition is a write on the order, so it must pass the
+    // same access check as UpdateOrder/DeleteOrder (creator, assigned préleveur, authorized
+    // distributor or admin) instead of being open to any authenticated tenant user.
     [HttpPost("{id:guid}/transition")]
     public async Task<ActionResult<OrderStatusTransitionDto>> TransitionOrder(Guid id, [FromBody] OrderTransitionRequestDto dto, CancellationToken cancellationToken)
     {
         var userId = GetUserId();
         var tenantId = GetTenantId();
+
+        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        if (!hasViewAll)
+        {
+            var canAccess = await orderService.UserCanAccessOrderAsync(userId, id, tenantId, cancellationToken);
+            if (!canAccess)
+            {
+                var exists = await orderService.GetOrderByIdAsync(id, tenantId, cancellationToken);
+                return exists is null ? NotFound() : Forbid();
+            }
+        }
 
         try
         {
