@@ -47,3 +47,8 @@ src/AquaPlan.Web/ClientApp/src/environments/version.ts
 
 # Local Claude Code settings (contains tokens, never commit)
 .claude/settings.local.json
+# Test artefacts (jamais versionnés)
+**/TestResults/
+# macOS Finder duplicate files
+* 2.*
+*\ 2.*
