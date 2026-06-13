@@ -43,6 +43,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IOrderStatusService, OrderStatusService>();
+        // Sprint Robustesse F-105 / F-108 — shared Completed → Transmitted transition.
+        services.AddScoped<IOrderTransmissionService, OrderTransmissionService>();
         services.AddScoped<ISamplingLocationService, SamplingLocationService>();
         services.AddScoped<IDistributorService, DistributorService>();
         services.AddScoped<ISectorService, SectorService>();

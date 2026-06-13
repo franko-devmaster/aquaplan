@@ -21,7 +21,9 @@ public class OrderServiceTest : IDisposable
     private readonly Mock<INotificationService> _notificationServiceMock = new();
     private readonly Mock<ILogger<OrderService>> _loggerMock = new();
     private readonly Mock<ILogger<SamplingRoundService>> _roundLoggerMock = new();
+    private readonly Mock<ILogger<OrderTransmissionService>> _transmissionLoggerMock = new();
     private readonly SamplingRoundService _roundService;
+    private readonly OrderTransmissionService _transmissionService;
     private readonly OrderService _sut;
 
     private static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
@@ -42,9 +44,14 @@ public class OrderServiceTest : IDisposable
             .Setup(d => d.GetAuthorizedDistributorIdsForUserAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([DistributorId]);
 
-        _roundService = new SamplingRoundService(_dbContext, _delegationServiceMock.Object, _notificationServiceMock.Object, _roundLoggerMock.Object);
+        // Sprint Robustesse F-105/F-108 — the Completed → Transmitted transition is now owned
+        // by OrderTransmissionService; wire a real one (Mock LIMS disabled by default) so the
+        // transmission side effects are exercised end-to-end exactly as in production.
         var mockLimsOptions = Options.Create(new MockLimsOptions { Enabled = false });
-        _sut = new OrderService(_dbContext, _auditServiceMock.Object, _roundService, _mockLimsServiceMock.Object, _notificationServiceMock.Object, _delegationServiceMock.Object, mockLimsOptions, _loggerMock.Object);
+        _transmissionService = new OrderTransmissionService(
+            _dbContext, _auditServiceMock.Object, _mockLimsServiceMock.Object, mockLimsOptions, _transmissionLoggerMock.Object);
+        _roundService = new SamplingRoundService(_dbContext, _delegationServiceMock.Object, _notificationServiceMock.Object, _transmissionService, _roundLoggerMock.Object);
+        _sut = new OrderService(_dbContext, _auditServiceMock.Object, _roundService, _transmissionService, _notificationServiceMock.Object, _delegationServiceMock.Object, _loggerMock.Object);
 
         SeedData().GetAwaiter().GetResult();
     }
@@ -1059,14 +1066,15 @@ public class OrderServiceTest : IDisposable
     private OrderService CreateSutWithMockLimsEnabled()
     {
         var options = Options.Create(new MockLimsOptions { Enabled = true });
+        var transmission = new OrderTransmissionService(
+            _dbContext, _auditServiceMock.Object, _mockLimsServiceMock.Object, options, _transmissionLoggerMock.Object);
         return new OrderService(
             _dbContext,
             _auditServiceMock.Object,
             _roundService,
-            _mockLimsServiceMock.Object,
+            transmission,
             _notificationServiceMock.Object,
             _delegationServiceMock.Object,
-            options,
             _loggerMock.Object);
     }
 

@@ -1,4 +1,3 @@
-using AquaPlan.Application.DTOs.MockLims;
 using AquaPlan.Application.DTOs.Orders;
 using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
@@ -7,7 +6,6 @@ using AquaPlan.Domain.Enums;
 using AquaPlan.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace AquaPlan.Infrastructure.Services;
 
@@ -15,10 +13,9 @@ internal class OrderService(
     AquaPlanDbContext dbContext,
     IOrderAuditService auditService,
     ISamplingRoundService samplingRoundService,
-    IMockLimsService mockLimsService,
+    IOrderTransmissionService transmissionService,
     INotificationService notificationService,
     IDelegationService delegationService,
-    IOptions<MockLimsOptions> mockLimsOptions,
     ILogger<OrderService> logger) : IOrderService
 {
     public async Task<OrderPagedResultDto> GetOrdersFilteredAsync(
@@ -788,45 +785,47 @@ internal class OrderService(
 
         var now = DateTime.UtcNow;
         var roundIds = new HashSet<Guid>();
-        var transmittingToLims = toStatus == OrderStatus.Transmitted;
         foreach (var order in orders)
         {
-            order.Status = toStatus;
-            order.StatusChangedAt = now;
-            order.StatusChangedBy = userId;
-            order.UpdatedAt = now;
-            order.UpdatedBy = userId;
-            if (transmittingToLims)
-            {
-                order.TransmittedAt = now;
-            }
             if (order.SamplingRoundId.HasValue)
             {
                 roundIds.Add(order.SamplingRoundId.Value);
             }
         }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        // AQ-33 — when orders transition to Transmitted and the Mock LIMS feature flag
-        // is enabled, forward them to the internal Mock LIMS to close the integration loop.
-        if (transmittingToLims && mockLimsOptions.Value.Enabled)
+        // Sprint Robustesse F-105 / F-108 — the Completed → Transmitted transition (status +
+        // timestamps + Mock LIMS forward + audit) lives entirely in the shared transmission
+        // service so this path stays byte-for-byte identical to the single and round paths.
+        if (toStatus == OrderStatus.Transmitted)
         {
-            await TransmitOrdersToMockLimsAsync(orders, tenantId, cancellationToken);
+            await transmissionService.TransmitCompletedOrdersAsync(orders, userId, tenantId, cancellationToken);
         }
-
-        // Audit log per order (same pattern as OrderStatusService)
-        foreach (var order in orders)
+        else
         {
-            await auditService.LogAsync(
-                order.Id,
-                "StatusTransitioned",
-                $"Status changed from {fromStatus} to {toStatus} (bulk)",
-                fromStatus.ToString(),
-                toStatus.ToString(),
-                userId,
-                tenantId,
-                cancellationToken);
+            foreach (var order in orders)
+            {
+                order.Status = toStatus;
+                order.StatusChangedAt = now;
+                order.StatusChangedBy = userId;
+                order.UpdatedAt = now;
+                order.UpdatedBy = userId;
+            }
+
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            // Audit log per order (same pattern as OrderStatusService)
+            foreach (var order in orders)
+            {
+                await auditService.LogAsync(
+                    order.Id,
+                    "StatusTransitioned",
+                    $"Status changed from {fromStatus} to {toStatus} (bulk)",
+                    fromStatus.ToString(),
+                    toStatus.ToString(),
+                    userId,
+                    tenantId,
+                    cancellationToken);
+            }
         }
 
         // Auto-complete rounds where all orders reached terminal states (same as OrderStatusService)
@@ -860,93 +859,6 @@ internal class OrderService(
             orders.Count, fromStatus, toStatus, userId, tenantId);
 
         return new BulkTransitionResultDto(orders.Count);
-    }
-
-    /// <summary>
-    /// AQ-33 — Forward transmitted orders to the Mock LIMS and persist the returned LimsOrderId.
-    /// Failures are logged and swallowed per order (best-effort, do not block the bulk transition).
-    /// </summary>
-    private async Task TransmitOrdersToMockLimsAsync(
-        IList<Order> orders,
-        Guid tenantId,
-        CancellationToken cancellationToken)
-    {
-        if (orders.Count == 0)
-        {
-            return;
-        }
-
-        // Load the analysis programs + profiles so we can compose the parameter list for the Mock.
-        var orderIds = orders.Select(o => o.Id).ToList();
-        var programsByOrder = await dbContext.OrderAnalysisPrograms
-            .Where(oap => orderIds.Contains(oap.OrderId))
-            .Include(oap => oap.AnalysisProgram!)
-                .ThenInclude(p => p.AnalysisProgramProfiles)
-                    .ThenInclude(app => app.AnalysisProfile)
-            .ToListAsync(cancellationToken);
-
-        var persistNeeded = false;
-        foreach (var order in orders)
-        {
-            if (order.LimsOrderId.HasValue)
-            {
-                continue; // idempotence — already transmitted previously
-            }
-
-            var parameters = programsByOrder
-                .Where(oap => oap.OrderId == order.Id && oap.AnalysisProgram is not null)
-                .SelectMany(oap => oap.AnalysisProgram!.AnalysisProgramProfiles)
-                .Where(app => app.AnalysisProfile is not null)
-                .Select(app => app.AnalysisProfile!.Code)
-                .Distinct()
-                .ToList();
-
-            if (parameters.Count == 0)
-            {
-                // Default set if the mandate has no analysis profiles linked yet.
-                parameters = MockLimsParameterCatalog.All.Select(p => p.Code).ToList();
-            }
-            else
-            {
-                // Profiles may not map 1:1 to Mock parameter codes — keep only those that do, fall back to catalog otherwise.
-                var recognized = parameters.Where(code => MockLimsParameterCatalog.FindByCode(code) is not null).ToList();
-                if (recognized.Count == 0)
-                {
-                    parameters = MockLimsParameterCatalog.All.Select(p => p.Code).ToList();
-                }
-                else
-                {
-                    parameters = recognized;
-                }
-            }
-
-            var dto = new MockLimsOrderCreateDto(
-                OrderReference: order.OrderNumber,
-                SamplingDate: order.Sampling?.SamplingDateTime ?? order.PlannedDate ?? DateTime.UtcNow,
-                Parameters: parameters,
-                SourceOrderId: order.Id);
-
-            try
-            {
-                var response = await mockLimsService.ReceiveOrderAsync(dto, tenantId, cancellationToken);
-                order.LimsOrderId = response.LimsOrderId;
-                persistNeeded = true;
-                logger.LogInformation(
-                    "Order {OrderNumber} forwarded to Mock LIMS -> LimsOrderId={LimsOrderId}",
-                    order.OrderNumber, response.LimsOrderId);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex,
-                    "Failed to forward order {OrderNumber} to Mock LIMS; will remain without LimsOrderId",
-                    order.OrderNumber);
-            }
-        }
-
-        if (persistNeeded)
-        {
-            await dbContext.SaveChangesAsync(cancellationToken);
-        }
     }
 
     private async Task<string> GenerateOrderNumberAsync(CancellationToken cancellationToken)

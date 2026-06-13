@@ -18,6 +18,7 @@ internal class SamplingRoundService(
     AquaPlanDbContext dbContext,
     IDelegationService delegationService,
     INotificationService notificationService,
+    IOrderTransmissionService transmissionService,
     ILogger<SamplingRoundService> logger) : ISamplingRoundService
 {
     public async Task<SamplingRoundDetailDto> CreateAsync(
@@ -630,12 +631,12 @@ internal class SamplingRoundService(
             throw new InvalidOperationException("No completed orders to transmit");
         }
 
-        foreach (var order in completedOrders)
-        {
-            order.Status = OrderStatus.Transmitted;
-            order.UpdatedAt = DateTime.UtcNow;
-            order.UpdatedBy = userId;
-        }
+        // Sprint Robustesse F-108 — delegate the Completed → Transmitted transition to the
+        // shared transmission service so the round path now performs the SAME work as the bulk
+        // path: TransmittedAt + StatusChangedAt/By + Mock LIMS forward (LimsOrderId) + audit.
+        // This is the root-cause fix for the AQ-404 backfill (round-transmitted orders used to
+        // be left without a LimsOrderId, so the worker never pulled their results).
+        await transmissionService.TransmitCompletedOrdersAsync(completedOrders, userId, tenantId, cancellationToken);
 
         // If all orders are now transmitted or done, mark round as completed
         if (round.Orders.All(o => o.Status == OrderStatus.Transmitted || o.Status == OrderStatus.Done || o.Status == OrderStatus.Cancelled))

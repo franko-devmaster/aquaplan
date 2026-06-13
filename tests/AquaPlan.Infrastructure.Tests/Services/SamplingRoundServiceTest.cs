@@ -1,3 +1,4 @@
+using AquaPlan.Application.DTOs.MockLims;
 using AquaPlan.Application.DTOs.SamplingRounds;
 using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
@@ -7,6 +8,7 @@ using AquaPlan.Infrastructure.Data;
 using AquaPlan.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AquaPlan.Infrastructure.Tests.Services;
 
@@ -15,7 +17,10 @@ public class SamplingRoundServiceTest : IDisposable
     private readonly AquaPlanDbContext _dbContext;
     private readonly Mock<IDelegationService> _delegationServiceMock = new();
     private readonly Mock<INotificationService> _notificationServiceMock = new();
+    private readonly Mock<IMockLimsService> _mockLimsServiceMock = new();
     private readonly Mock<ILogger<SamplingRoundService>> _loggerMock = new();
+    private readonly Mock<ILogger<OrderTransmissionService>> _transmissionLoggerMock = new();
+    private readonly Mock<IOrderAuditService> _auditServiceMock = new();
     private readonly SamplingRoundService _sut;
 
     private static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
@@ -41,7 +46,17 @@ public class SamplingRoundServiceTest : IDisposable
             .Setup(d => d.GetAuthorizedDistributorIdsForUserAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([DistributorId]);
 
-        _sut = new SamplingRoundService(_dbContext, _delegationServiceMock.Object, _notificationServiceMock.Object, _loggerMock.Object);
+        // Sprint Robustesse F-108 — TransmitAll now delegates the Completed → Transmitted
+        // transition to the shared transmission service (Mock LIMS enabled here to prove the
+        // round path forwards to the LIMS, which it previously skipped).
+        _mockLimsServiceMock
+            .Setup(s => s.ReceiveOrderAsync(It.IsAny<MockLimsOrderCreateDto>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MockLimsOrderCreatedDto(Guid.NewGuid(), DateTime.UtcNow));
+        var mockLimsOptions = Options.Create(new MockLimsOptions { Enabled = true });
+        var transmissionService = new OrderTransmissionService(
+            _dbContext, _auditServiceMock.Object, _mockLimsServiceMock.Object, mockLimsOptions, _transmissionLoggerMock.Object);
+
+        _sut = new SamplingRoundService(_dbContext, _delegationServiceMock.Object, _notificationServiceMock.Object, transmissionService, _loggerMock.Object);
 
         SeedData().GetAwaiter().GetResult();
     }
@@ -764,6 +779,21 @@ public class SamplingRoundServiceTest : IDisposable
             .Where(o => o.SamplingRoundId == round.Id)
             .ToListAsync();
         transmittedOrders.Should().AllSatisfy(o => o.Status.Should().Be(OrderStatus.Transmitted));
+        // F-108 — the round path now produces the SAME state as the bulk path: timestamps set,
+        // LimsOrderId assigned (forwarded to Mock LIMS), and an audit entry per order.
+        transmittedOrders.Should().AllSatisfy(o =>
+        {
+            o.TransmittedAt.Should().NotBeNull();
+            o.StatusChangedBy.Should().Be(UserId);
+            o.LimsOrderId.Should().NotBeNull();
+        });
+        _mockLimsServiceMock.Verify(
+            s => s.ReceiveOrderAsync(It.IsAny<MockLimsOrderCreateDto>(), TenantId, It.IsAny<CancellationToken>()),
+            Times.Exactly(transmittedOrders.Count));
+        _auditServiceMock.Verify(
+            a => a.LogAsync(It.IsAny<Guid>(), "StatusTransitioned", It.IsAny<string>(),
+                "Completed", "Transmitted", UserId, TenantId, It.IsAny<CancellationToken>()),
+            Times.Exactly(transmittedOrders.Count));
     }
 
     [Fact]
