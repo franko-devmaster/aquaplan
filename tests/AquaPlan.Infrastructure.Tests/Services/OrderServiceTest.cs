@@ -139,6 +139,45 @@ public class OrderServiceTest : IDisposable
         result.UnplannedReason.Should().Be(reason);
     }
 
+    [Fact]
+    public async Task CreateOrderAsync_ShouldGenerateSequentialOrderNumbers_OnSameDay()
+    {
+        // F-110 — consecutive creations get distinct, incrementing numbers for the day.
+        var dto = new OrderCreateDto(
+            DistributorId, null, null, null, null, null, IsUnplanned: false);
+
+        var first = await _sut.CreateOrderAsync(dto, UserId, TenantId);
+        var second = await _sut.CreateOrderAsync(dto, UserId, TenantId);
+
+        var prefix = $"ORD-{DateTime.UtcNow:yyyyMMdd}";
+        first.OrderNumber.Should().Be($"{prefix}-0001");
+        second.OrderNumber.Should().Be($"{prefix}-0002");
+    }
+
+    [Fact]
+    public async Task CreateOrderAsync_ShouldNotThrow_WhenLegacyOrderNumberPresent()
+    {
+        // F-110 — a malformed/legacy number sharing today's prefix must not break int parsing.
+        var prefix = $"ORD-{DateTime.UtcNow:yyyyMMdd}";
+        _dbContext.Orders.Add(new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = $"{prefix}-LEGACY",
+            Status = OrderStatus.New,
+            CreatedById = UserId,
+            DistributorId = DistributorId,
+            TenantId = TenantId,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var dto = new OrderCreateDto(
+            DistributorId, null, null, null, null, null, IsUnplanned: false);
+
+        var result = await _sut.CreateOrderAsync(dto, UserId, TenantId);
+
+        result.OrderNumber.Should().Be($"{prefix}-0001");
+    }
+
     // --- Admin order management ---
 
     [Fact]

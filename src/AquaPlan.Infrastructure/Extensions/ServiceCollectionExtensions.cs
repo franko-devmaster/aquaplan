@@ -27,6 +27,13 @@ public static class ServiceCollectionExtensions
             options.Password.RequiredLength = 8;
             options.Password.RequireNonAlphanumeric = false;
             options.User.RequireUniqueEmail = true;
+
+            // Sprint Robustesse F-111 — lock an account for 15 minutes after 5 failed
+            // password attempts to defeat brute-force/credential-stuffing on a public
+            // government instance. LoginAsync passes lockoutOnFailure: true.
+            options.Lockout.AllowedForNewUsers = true;
+            options.Lockout.MaxFailedAccessAttempts = 5;
+            options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
         })
         .AddEntityFrameworkStores<AquaPlanDbContext>()
         .AddDefaultTokenProviders();

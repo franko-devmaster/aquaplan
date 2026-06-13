@@ -220,8 +220,6 @@ internal class OrderService(
 
     public async Task<OrderDetailDto> CreateOrderAsync(OrderCreateDto dto, string createdById, Guid tenantId, CancellationToken cancellationToken = default)
     {
-        var orderNumber = await GenerateOrderNumberAsync(cancellationToken);
-
         // Validation: unplanned orders must have a reason
         if (dto.IsUnplanned && dto.UnplannedReason is null)
         {
@@ -240,7 +238,6 @@ internal class OrderService(
         var order = new Order
         {
             Id = Guid.NewGuid(),
-            OrderNumber = orderNumber,
             Status = initialStatus,
             IsUnplanned = dto.IsUnplanned,
             UnplannedReason = dto.IsUnplanned ? dto.UnplannedReason : null,
@@ -274,9 +271,29 @@ internal class OrderService(
             }
         }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        // Sprint Robustesse F-110 — two concurrent creations (e.g. GenerateOrdersFromPlan
+        // looping) can read the same max OrderNumber and collide on the unique index.
+        // Compute the candidate number then retry on a unique-constraint violation rather
+        // than surfacing a 500.
+        const int maxAttempts = 5;
+        for (var attempt = 1; ; attempt++)
+        {
+            order.OrderNumber = await GenerateOrderNumberAsync(cancellationToken);
+            try
+            {
+                await dbContext.SaveChangesAsync(cancellationToken);
+                break;
+            }
+            catch (DbUpdateException) when (attempt < maxAttempts)
+            {
+                // Roll back the rejected number so EF re-inserts with a fresh one on retry.
+                logger.LogWarning(
+                    "Order number {OrderNumber} collided on attempt {Attempt}; retrying",
+                    order.OrderNumber, attempt);
+            }
+        }
 
-        logger.LogInformation("Order {OrderNumber} created by {CreatedBy}", orderNumber, createdById);
+        logger.LogInformation("Order {OrderNumber} created by {CreatedBy}", order.OrderNumber, createdById);
 
         return (await GetOrderByIdAsync(order.Id, tenantId, cancellationToken))!;
     }
@@ -936,18 +953,29 @@ internal class OrderService(
     {
         var today = DateTime.UtcNow;
         var prefix = $"ORD-{today:yyyyMMdd}";
-        var maxNumber = await dbContext.Orders
+
+        // Sprint Robustesse F-110 — parse the highest trailing sequence among today's orders
+        // rather than int.Parse-ing the lexicographic max blindly: a legacy/malformed number
+        // (different shape) must not throw a FormatException.
+        var sameDayNumbers = await dbContext.Orders
             .Where(o => o.OrderNumber.StartsWith(prefix))
             .Select(o => o.OrderNumber)
-            .MaxAsync(cancellationToken) as string;
+            .ToListAsync(cancellationToken);
 
-        var nextSeq = 1;
-        if (maxNumber is not null)
+        var maxSeq = 0;
+        foreach (var number in sameDayNumbers)
         {
-            var lastPart = maxNumber[(prefix.Length + 1)..];
-            nextSeq = int.Parse(lastPart) + 1;
+            if (number.Length <= prefix.Length + 1)
+            {
+                continue;
+            }
+            var lastPart = number[(prefix.Length + 1)..];
+            if (int.TryParse(lastPart, out var seq) && seq > maxSeq)
+            {
+                maxSeq = seq;
+            }
         }
 
-        return $"{prefix}-{nextSeq:D4}";
+        return $"{prefix}-{maxSeq + 1:D4}";
     }
 }

@@ -2,9 +2,11 @@ using AquaPlan.Application.DTOs.Auth;
 using AquaPlan.Application.Services;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MockQueryable;
 
 namespace AquaPlan.Application.Tests.Services;
@@ -12,6 +14,7 @@ namespace AquaPlan.Application.Tests.Services;
 public class AuthServiceTest
 {
     private readonly Mock<UserManager<AppUser>> _userManagerMock;
+    private readonly Mock<SignInManager<AppUser>> _signInManagerMock;
     private readonly Mock<ITokenService> _tokenServiceMock = new();
     private readonly Mock<ILogger<AuthService>> _loggerMock = new();
     private readonly IConfiguration _configuration;
@@ -24,6 +27,15 @@ public class AuthServiceTest
         var store = new Mock<IUserStore<AppUser>>();
         _userManagerMock = new Mock<UserManager<AppUser>>(
             store.Object, null!, null!, null!, null!, null!, null!, null!, null!);
+
+        _signInManagerMock = new Mock<SignInManager<AppUser>>(
+            _userManagerMock.Object,
+            Mock.Of<IHttpContextAccessor>(),
+            Mock.Of<IUserClaimsPrincipalFactory<AppUser>>(),
+            Options.Create(new IdentityOptions()),
+            Mock.Of<ILogger<SignInManager<AppUser>>>(),
+            Mock.Of<Microsoft.AspNetCore.Authentication.IAuthenticationSchemeProvider>(),
+            Mock.Of<IUserConfirmation<AppUser>>());
 
         _configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -41,7 +53,7 @@ public class AuthServiceTest
         _userManagerMock.Setup(x => x.UpdateAsync(It.IsAny<AppUser>()))
             .ReturnsAsync(IdentityResult.Success);
 
-        _sut = new AuthService(_userManagerMock.Object, _tokenServiceMock.Object, _configuration, _loggerMock.Object);
+        _sut = new AuthService(_userManagerMock.Object, _signInManagerMock.Object, _tokenServiceMock.Object, _configuration, _loggerMock.Object);
     }
 
     [Fact]
@@ -50,7 +62,8 @@ public class AuthServiceTest
         var user = CreateTestUser();
         var loginDto = new LoginDto("admin@aquaplan.ch", "Password123");
         _userManagerMock.Setup(x => x.FindByEmailAsync(loginDto.Email)).ReturnsAsync(user);
-        _userManagerMock.Setup(x => x.CheckPasswordAsync(user, loginDto.Password)).ReturnsAsync(true);
+        _signInManagerMock.Setup(x => x.CheckPasswordSignInAsync(user, loginDto.Password, true))
+            .ReturnsAsync(SignInResult.Success);
         _userManagerMock.Setup(x => x.GetRolesAsync(user)).ReturnsAsync(new List<string> { "Admin" });
 
         var result = await _sut.LoginAsync(loginDto);
@@ -67,7 +80,8 @@ public class AuthServiceTest
         var user = CreateTestUser();
         var loginDto = new LoginDto("admin@aquaplan.ch", "Password123");
         _userManagerMock.Setup(x => x.FindByEmailAsync(loginDto.Email)).ReturnsAsync(user);
-        _userManagerMock.Setup(x => x.CheckPasswordAsync(user, loginDto.Password)).ReturnsAsync(true);
+        _signInManagerMock.Setup(x => x.CheckPasswordSignInAsync(user, loginDto.Password, true))
+            .ReturnsAsync(SignInResult.Success);
         _userManagerMock.Setup(x => x.GetRolesAsync(user)).ReturnsAsync(new List<string> { "Admin" });
 
         await _sut.LoginAsync(loginDto);
@@ -107,11 +121,29 @@ public class AuthServiceTest
         var user = CreateTestUser();
         var loginDto = new LoginDto("admin@aquaplan.ch", "WrongPassword");
         _userManagerMock.Setup(x => x.FindByEmailAsync(loginDto.Email)).ReturnsAsync(user);
-        _userManagerMock.Setup(x => x.CheckPasswordAsync(user, loginDto.Password)).ReturnsAsync(false);
+        _signInManagerMock.Setup(x => x.CheckPasswordSignInAsync(user, loginDto.Password, true))
+            .ReturnsAsync(SignInResult.Failed);
 
         var result = await _sut.LoginAsync(loginDto);
 
         result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task LoginAsync_ShouldReturnNull_WhenAccountIsLockedOut()
+    {
+        // F-111 — once the account is locked out, login is refused even before the
+        // password is (re)checked successfully.
+        var user = CreateTestUser();
+        var loginDto = new LoginDto("admin@aquaplan.ch", "Password123");
+        _userManagerMock.Setup(x => x.FindByEmailAsync(loginDto.Email)).ReturnsAsync(user);
+        _signInManagerMock.Setup(x => x.CheckPasswordSignInAsync(user, loginDto.Password, true))
+            .ReturnsAsync(SignInResult.LockedOut);
+
+        var result = await _sut.LoginAsync(loginDto);
+
+        result.Should().BeNull();
+        _tokenServiceMock.Verify(x => x.GenerateAccessToken(It.IsAny<AppUser>(), It.IsAny<IList<string>>()), Times.Never);
     }
 
     [Fact]
