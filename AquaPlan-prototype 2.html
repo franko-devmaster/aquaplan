@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DGAqua - Prototype</title>
+<style>
+  :root {
+    --primary: #1a5276;
+    --primary-light: #2980b9;
+    --primary-dark: #0e3651;
+    --accent: #27ae60;
+    --danger: #c0392b;
+    --warning: #f39c12;
+    --bg: #f4f6f8;
+    --card: #ffffff;
+    --text: #2c3e50;
+    --text-light: #7f8c8d;
+    --border: #dce1e6;
+    --sidebar-w: 240px;
+    --header-h: 56px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background:var(--bg); color:var(--text); font-size:14px; }
+
+  /* LOGIN */
+  .login-overlay { position:fixed; inset:0; background:linear-gradient(135deg, var(--primary-dark), var(--primary-light)); display:flex; align-items:center; justify-content:center; z-index:9999; }
+  .login-box { background:#fff; border-radius:8px; padding:40px; width:380px; text-align:center; box-shadow:0 8px 32px rgba(0,0,0,.25); }
+  .login-box h1 { font-size:24px; color:var(--primary); margin-bottom:4px; }
+  .login-box .subtitle { color:var(--text-light); margin-bottom:24px; font-size:13px; }
+  .login-box label { display:block; text-align:left; font-weight:600; margin-bottom:4px; margin-top:12px; font-size:13px; }
+  .login-box input { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:4px; font-size:14px; }
+  .login-box .role-select { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:4px; font-size:14px; background:#fff; }
+  .login-box button { margin-top:20px; width:100%; padding:12px; background:var(--primary); color:#fff; border:none; border-radius:4px; font-size:15px; cursor:pointer; font-weight:600; }
+  .login-box button:hover { background:var(--primary-light); }
+  .login-box .sso-info { margin-top:16px; font-size:11px; color:var(--text-light); }
+
+  /* HEADER */
+  header { position:fixed; top:0; left:0; right:0; height:var(--header-h); background:var(--primary); color:#fff; display:flex; align-items:center; padding:0 20px; z-index:100; justify-content:space-between; }
+  header .logo { font-size:18px; font-weight:700; letter-spacing:.5px; }
+  header .logo span { color:#85c1e9; font-weight:400; }
+  header .header-right { display:flex; align-items:center; gap:16px; }
+  .notif-btn { position:relative; background:none; border:none; color:#fff; cursor:pointer; font-size:18px; padding:4px 8px; }
+  .notif-btn .badge { position:absolute; top:-2px; right:0; background:var(--danger); color:#fff; border-radius:50%; width:18px; height:18px; font-size:10px; display:flex; align-items:center; justify-content:center; }
+  .offline-indicator { padding:4px 10px; border-radius:12px; font-size:11px; font-weight:600; }
+  .offline-indicator.online { background:#27ae60; color:#fff; }
+  .offline-indicator.offline { background:var(--warning); color:#fff; }
+  .user-info { font-size:13px; }
+  .user-info strong { display:block; font-size:13px; }
+  .user-info small { color:#aed6f1; font-size:11px; }
+  .logout-btn { background:rgba(255,255,255,.15); border:none; color:#fff; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:12px; }
+  .logout-btn:hover { background:rgba(255,255,255,.25); }
+
+  /* SIDEBAR */
+  nav.sidebar { position:fixed; top:var(--header-h); left:0; bottom:0; width:var(--sidebar-w); background:#fff; border-right:1px solid var(--border); overflow-y:auto; z-index:90; }
+  nav.sidebar a { display:flex; align-items:center; gap:10px; padding:12px 16px; color:var(--text); text-decoration:none; font-size:13px; border-left:3px solid transparent; transition:all .15s; }
+  nav.sidebar a:hover { background:#eaf2f8; }
+  nav.sidebar a.active { background:#eaf2f8; border-left-color:var(--primary); color:var(--primary); font-weight:600; }
+  nav.sidebar .nav-icon { width:20px; text-align:center; font-size:15px; flex-shrink:0; }
+  nav.sidebar .nav-section { padding:12px 16px 6px; font-size:11px; text-transform:uppercase; color:var(--text-light); font-weight:700; letter-spacing:.5px; }
+
+  /* MAIN */
+  main { margin-left:var(--sidebar-w); margin-top:var(--header-h); padding:24px; min-height:calc(100vh - var(--header-h)); }
+
+  /* CARDS */
+  .card { background:var(--card); border:1px solid var(--border); border-radius:6px; padding:20px; margin-bottom:16px; }
+  .card h2 { font-size:16px; margin-bottom:12px; color:var(--primary); }
+  .card h3 { font-size:14px; margin-bottom:8px; }
+
+  /* STATS */
+  .stats-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px; }
+  .stat-card { background:var(--card); border:1px solid var(--border); border-radius:6px; padding:16px 20px; }
+  .stat-card .stat-value { font-size:28px; font-weight:700; color:var(--primary); }
+  .stat-card .stat-label { font-size:12px; color:var(--text-light); margin-top:2px; }
+  .stat-card.warning .stat-value { color:var(--warning); }
+  .stat-card.danger .stat-value { color:var(--danger); }
+  .stat-card.success .stat-value { color:var(--accent); }
+
+  /* TABLES */
+  table.data-table { width:100%; border-collapse:collapse; font-size:13px; }
+  table.data-table th { background:#f7f9fb; padding:10px 12px; text-align:left; font-weight:600; border-bottom:2px solid var(--border); font-size:12px; color:var(--text-light); text-transform:uppercase; }
+  table.data-table td { padding:10px 12px; border-bottom:1px solid #eee; vertical-align:top; }
+  table.data-table tr:hover { background:#fafbfc; }
+  table.data-table tr.clickable { cursor:pointer; }
+
+  /* BADGES */
+  .badge-status { display:inline-block; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:600; }
+  .badge-status.brouillon { background:#eee; color:#666; }
+  .badge-status.planifie { background:#d4efdf; color:#1e8449; }
+  .badge-status.attribue { background:#d6eaf8; color:#2471a3; }
+  .badge-status.en-cours { background:#fdebd0; color:#ca6f1e; }
+  .badge-status.transmis { background:#d5d8dc; color:#2c3e50; }
+  .badge-status.en-analyse { background:#fadbd8; color:#c0392b; }
+  .badge-status.termine { background:#d5f5e3; color:#1e8449; }
+  .badge-status.non-conforme { background:#c0392b; color:#fff; }
+  .badge-conforme { color:#27ae60; font-weight:700; }
+  .badge-nc { color:#c0392b; font-weight:700; }
+
+  /* BUTTONS */
+  .btn { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border:none; border-radius:4px; font-size:13px; cursor:pointer; font-weight:500; text-decoration:none; }
+  .btn-primary { background:var(--primary); color:#fff; }
+  .btn-primary:hover { background:var(--primary-light); }
+  .btn-success { background:var(--accent); color:#fff; }
+  .btn-success:hover { background:#219a52; }
+  .btn-danger { background:var(--danger); color:#fff; }
+  .btn-danger:hover { background:#a93226; }
+  .btn-outline { background:#fff; color:var(--primary); border:1px solid var(--primary); }
+  .btn-outline:hover { background:#eaf2f8; }
+  .btn-sm { padding:5px 10px; font-size:12px; }
+  .btn-icon { background:none; border:none; cursor:pointer; color:var(--text-light); padding:4px; font-size:16px; }
+  .btn-icon:hover { color:var(--primary); }
+
+  /* TOOLBAR */
+  .toolbar { display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+  .toolbar .search-box { display:flex; align-items:center; border:1px solid var(--border); border-radius:4px; padding:0 10px; background:#fff; }
+  .toolbar .search-box input { border:none; padding:8px; font-size:13px; outline:none; width:220px; }
+  .toolbar select { padding:8px 12px; border:1px solid var(--border); border-radius:4px; font-size:13px; background:#fff; }
+  .toolbar .spacer { flex:1; }
+
+  /* FORMS */
+  .form-group { margin-bottom:16px; }
+  .form-group label { display:block; font-weight:600; margin-bottom:4px; font-size:13px; }
+  .form-group input, .form-group select, .form-group textarea { width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:4px; font-size:13px; font-family:inherit; }
+  .form-group textarea { resize:vertical; min-height:80px; }
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .form-row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+
+  /* MODAL */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:200; display:flex; align-items:flex-start; justify-content:center; padding-top:60px; }
+  .modal { background:#fff; border-radius:8px; width:640px; max-height:80vh; overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,.2); }
+  .modal-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); }
+  .modal-header h2 { font-size:16px; margin:0; }
+  .modal-body { padding:20px; }
+  .modal-footer { padding:12px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px; }
+
+  /* TOURNEE DRAG & DROP */
+  .tournee-list { list-style:none; }
+  .tournee-item { display:flex; align-items:center; gap:12px; padding:12px 16px; background:#fff; border:1px solid var(--border); border-radius:4px; margin-bottom:6px; cursor:grab; }
+  .tournee-item:active { cursor:grabbing; }
+  .tournee-item .drag-handle { color:var(--text-light); font-size:16px; cursor:grab; }
+  .tournee-item .tournee-order { width:24px; height:24px; background:var(--primary); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0; }
+  .tournee-item .tournee-info { flex:1; }
+  .tournee-item .tournee-info strong { display:block; font-size:13px; }
+  .tournee-item .tournee-info small { color:var(--text-light); font-size:12px; }
+  .tournee-item.dragging { opacity:.5; border-style:dashed; }
+
+  /* RESULTS TABLE */
+  .result-cell { text-align:center; }
+  .result-cell.conforme { background:#d5f5e3; }
+  .result-cell.non-conforme { background:#fadbd8; }
+
+  /* TABS */
+  .tabs { display:flex; border-bottom:2px solid var(--border); margin-bottom:16px; }
+  .tab { padding:10px 20px; cursor:pointer; font-size:13px; font-weight:500; border-bottom:2px solid transparent; margin-bottom:-2px; color:var(--text-light); }
+  .tab.active { border-bottom-color:var(--primary); color:var(--primary); font-weight:600; }
+  .tab:hover { color:var(--primary); }
+
+  /* NOTIFICATION PANEL */
+  .notif-panel { position:fixed; top:var(--header-h); right:0; width:360px; bottom:0; background:#fff; border-left:1px solid var(--border); z-index:150; box-shadow:-4px 0 16px rgba(0,0,0,.08); overflow-y:auto; transform:translateX(100%); transition:transform .3s; }
+  .notif-panel.open { transform:translateX(0); }
+  .notif-panel h3 { padding:16px 20px; border-bottom:1px solid var(--border); font-size:15px; display:flex; justify-content:space-between; align-items:center; }
+  .notif-item { padding:14px 20px; border-bottom:1px solid #f0f0f0; }
+  .notif-item.unread { background:#eaf2f8; }
+  .notif-item .notif-title { font-weight:600; font-size:13px; }
+  .notif-item .notif-text { font-size:12px; color:var(--text-light); margin-top:4px; }
+  .notif-item .notif-time { font-size:11px; color:#bbb; margin-top:4px; }
+
+  /* DETAIL VIEW */
+  .detail-header { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+  .detail-header .back-btn { font-size:20px; cursor:pointer; color:var(--text-light); background:none; border:none; }
+  .detail-header .back-btn:hover { color:var(--primary); }
+
+  /* GPS / MAPS placeholder */
+  .map-placeholder { background:#ecf0f1; border:2px dashed var(--border); border-radius:6px; height:200px; display:flex; align-items:center; justify-content:center; color:var(--text-light); font-size:13px; }
+
+  /* AUDIT LOG */
+  .audit-item { display:flex; gap:12px; padding:10px 0; border-bottom:1px solid #f0f0f0; }
+  .audit-dot { width:10px; height:10px; border-radius:50%; background:var(--primary-light); margin-top:4px; flex-shrink:0; }
+  .audit-content { flex:1; }
+  .audit-content .audit-action { font-size:13px; }
+  .audit-content .audit-meta { font-size:11px; color:var(--text-light); margin-top:2px; }
+
+  /* HIDDEN */
+  .hidden { display:none !important; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width:6px; }
+  ::-webkit-scrollbar-thumb { background:#ccc; border-radius:3px; }
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN ===== -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <h1>DGAqua</h1>
+    <p class="subtitle">Portail de gestion des controles qualite des eaux</p>
+    <label>Utilisateur</label>
+    <input type="text" id="loginUser" value="jean.dupont@fr.ch" />
+    <label>Role (simulation)</label>
+    <select class="role-select" id="loginRole">
+      <option value="preleveur">Preleveur (sourcier)</option>
+      <option value="mandataire">Mandataire (requerant)</option>
+      <option value="admin" selected>Administrateur SAAV</option>
+      <option value="requerant-preleveur">Requerant-Preleveur</option>
+    </select>
+    <button onclick="doLogin()">Se connecter via Azure AD (SSO)</button>
+    <p class="sso-info">Authentification via compte EFR / Azure AD OpenID Connect</p>
+  </div>
+</div>
+
+<!-- ===== HEADER ===== -->
+<header>
+  <div class="logo">DGAqua <span>| Eaux potables &amp; baignade</span></div>
+  <div class="header-right">
+    <div class="offline-indicator online" id="offlineIndicator" onclick="toggleOffline()">En ligne</div>
+    <button class="notif-btn" onclick="toggleNotifPanel()">
+      <span>&#x1F514;</span>
+      <span class="badge" id="notifBadge">3</span>
+    </button>
+    <div class="user-info">
+      <strong id="headerUserName">Jean Dupont</strong>
+      <small id="headerUserRole">Administrateur SAAV</small>
+    </div>
+    <button class="logout-btn" onclick="doLogout()">Deconnexion</button>
+  </div>
+</header>
+
+<!-- ===== SIDEBAR ===== -->
+<nav class="sidebar" id="sidebar">
+  <div class="nav-section">Principal</div>
+  <a href="#" class="active" data-view="dashboard"><span class="nav-icon">&#9634;</span> Tableau de bord</a>
+  <a href="#" data-view="mandats"><span class="nav-icon">&#9993;</span> Mandats</a>
+  <a href="#" data-view="tournees"><span class="nav-icon">&#9776;</span> Tournees</a>
+  <a href="#" data-view="plans"><span class="nav-icon">&#9638;</span> Plans de prelevement</a>
+  <a href="#" data-view="resultats"><span class="nav-icon">&#9745;</span> Resultats</a>
+  <div class="nav-section">Administration</div>
+  <a href="#" data-view="distributeurs"><span class="nav-icon">&#9881;</span> Distributeurs</a>
+  <a href="#" data-view="ldp"><span class="nav-icon">&#9873;</span> Lieux de prelevement</a>
+  <a href="#" data-view="utilisateurs"><span class="nav-icon">&#9879;</span> Utilisateurs</a>
+  <a href="#" data-view="programmes"><span class="nav-icon">&#9880;</span> Programmes d'analyse</a>
+  <a href="#" data-view="audit"><span class="nav-icon">&#9997;</span> Journal d'audit</a>
+</nav>
+
+<!-- ===== NOTIFICATION PANEL ===== -->
+<div class="notif-panel" id="notifPanel">
+  <h3>Notifications <button class="btn-icon" onclick="toggleNotifPanel()" style="font-size:20px;">&times;</button></h3>
+  <div class="notif-item unread">
+    <div class="notif-title">Mandat attribue</div>
+    <div class="notif-text">Le mandat MAN-2024-0042 vous a ete attribue par le SAAV pour le LDP Fontaine de la Liberte.</div>
+    <div class="notif-time">Il y a 12 minutes</div>
+  </div>
+  <div class="notif-item unread">
+    <div class="notif-title">Resultats disponibles</div>
+    <div class="notif-text">Les resultats d'analyse du mandat MAN-2024-0038 sont disponibles. 1 parametre non conforme detecte.</div>
+    <div class="notif-time">Il y a 2 heures</div>
+  </div>
+  <div class="notif-item unread">
+    <div class="notif-title">Mandat attribue</div>
+    <div class="notif-text">Le mandat MAN-2024-0044 vous a ete attribue pour le LDP Source des Neigles.</div>
+    <div class="notif-time">Il y a 1 jour</div>
+  </div>
+  <div class="notif-item">
+    <div class="notif-title">Synchronisation terminee</div>
+    <div class="notif-text">3 prelevements synchronises avec succes apres retour en ligne.</div>
+    <div class="notif-time">Il y a 3 jours</div>
+  </div>
+</div>
+
+<!-- ===== MAIN CONTENT ===== -->
+<main id="mainContent">
+
+  <!-- DASHBOARD -->
+  <div id="view-dashboard">
+    <h2 style="margin-bottom:16px;">Tableau de bord</h2>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-value">12</div><div class="stat-label">Mandats en cours</div></div>
+      <div class="stat-card warning"><div class="stat-value">3</div><div class="stat-label">Mandats a attribuer</div></div>
+      <div class="stat-card danger"><div class="stat-value">2</div><div class="stat-label">Non-conformites</div></div>
+      <div class="stat-card success"><div class="stat-value">47</div><div class="stat-label">Mandats termines (2024)</div></div>
+      <div class="stat-card"><div class="stat-value">5</div><div class="stat-label">Resultats en attente</div></div>
+    </div>
+    <div class="card">
+      <h2>Mandats recents</h2>
+      <table class="data-table">
+        <thead><tr><th>ID</th><th>LDP</th><th>Distributeur</th><th>Date execution</th><th>Statut</th></tr></thead>
+        <tbody id="dashboardMandats"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MANDATS -->
+  <div id="view-mandats" class="hidden">
+    <h2 style="margin-bottom:16px;">Gestion des mandats</h2>
+    <div class="toolbar">
+      <div class="search-box">
+        <span>&#128269;</span>
+        <input type="text" placeholder="Rechercher un mandat..." id="mandatSearch" oninput="filterMandats()" />
+      </div>
+      <select id="mandatStatusFilter" onchange="filterMandats()">
+        <option value="">Tous les statuts</option>
+        <option value="brouillon">Brouillon</option>
+        <option value="planifie">Planifie</option>
+        <option value="attribue">Attribue</option>
+        <option value="en-cours">En cours</option>
+        <option value="transmis">Transmis</option>
+        <option value="en-analyse">En analyse</option>
+        <option value="termine">Termine</option>
+      </select>
+      <select id="mandatTypeFilter" onchange="filterMandats()">
+        <option value="">Tous les types</option>
+        <option value="eau-potable">Eau potable</option>
+        <option value="baignade">Eau de baignade</option>
+      </select>
+      <span class="spacer"></span>
+      <button class="btn btn-primary" onclick="showCreateMandat()">+ Nouveau mandat</button>
+    </div>
+    <div class="card" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>ID</th><th>Lieu de prelevement</th><th>Distributeur</th><th>Type</th><th>Preleveur</th><th>Date prevue</th><th>Statut</th><th>Actions</th></tr></thead>
+        <tbody id="mandatsTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MANDAT DETAIL -->
+  <div id="view-mandat-detail" class="hidden">
+    <div class="detail-header">
+      <button class="back-btn" onclick="showView('mandats')">&larr;</button>
+      <h2 id="mandatDetailTitle">Mandat MAN-2024-0042</h2>
+      <span class="badge-status attribue" id="mandatDetailStatus">Attribue</span>
+    </div>
+    <div style="display:grid; grid-template-columns:2fr 1fr; gap:16px;">
+      <div>
+        <div class="card">
+          <h3>Informations du mandat</h3>
+          <div class="form-row" style="margin-top:12px;">
+            <div class="form-group"><label>Lieu de prelevement</label><input type="text" value="Fontaine de la Liberte" /></div>
+            <div class="form-group"><label>Distributeur</label><input type="text" value="Groupe E SA" /></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Programme d'analyse</label><select><option>2812 - Eau potable standard</option><option>2813 - Eau potable complet</option><option>2820 - Eau de baignade</option></select></div>
+            <div class="form-group"><label>Preleveur attribue</label><select><option>Jean Dupont</option><option>Pierre Martin</option><option>Marie Favre</option></select></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Date prevue</label><input type="date" value="2024-03-28" /></div>
+            <div class="form-group"><label>Code marchandise</label><input type="text" value="2812" /></div>
+          </div>
+          <div class="form-group"><label>Remarques</label><textarea placeholder="Remarques sur le LDP ou le mandat..."></textarea></div>
+        </div>
+
+        <div class="card">
+          <h3>Donnees de prelevement</h3>
+          <div class="form-row-3" style="margin-top:12px;">
+            <div class="form-group"><label>Date de prelevement</label><input type="datetime-local" /></div>
+            <div class="form-group"><label>Temperature eau (C)</label><input type="number" step="0.1" placeholder="ex: 12.5" /></div>
+            <div class="form-group"><label>Temperature air (C)</label><input type="number" step="0.1" placeholder="ex: 18.0" /></div>
+          </div>
+          <div class="form-row-3">
+            <div class="form-group"><label>Chlore residuel (mg/l)</label><input type="number" step="0.01" /></div>
+            <div class="form-group"><label>Eau chloree</label><select><option value="">--</option><option>Oui</option><option>Non</option></select></div>
+            <div class="form-group"><label>Adoucisseur</label><select><option value="">--</option><option>Oui</option><option>Non</option></select></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Nombre de bouteilles</label><input type="number" value="3" /></div>
+            <div class="form-group"><label>Code-barres bouteille</label>
+              <div style="display:flex;gap:8px;"><input type="text" placeholder="Scanner ou saisir..." /><button class="btn btn-outline btn-sm">Scanner</button></div>
+            </div>
+          </div>
+          <div class="form-group"><label>Identification point d'eau</label><input type="text" placeholder="Description du point de prelevement" /></div>
+          <div class="form-group"><label>Coordonnees GPS</label>
+            <div style="display:flex;gap:8px;"><input type="text" id="gpsCoords" placeholder="46.8065, 7.1620" /><button class="btn btn-outline btn-sm" onclick="getGPS()">Position actuelle</button></div>
+          </div>
+          <div class="map-placeholder">Carte - Position GPS du point de prelevement</div>
+          <div class="form-group" style="margin-top:12px;"><label>Remarque sur le LDP</label><textarea placeholder="Observations terrain (acces, etat, anomalies...)"></textarea></div>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:12px;">
+          <button class="btn btn-outline">Enregistrer brouillon</button>
+          <button class="btn btn-success">Valider et transmettre au SAAV</button>
+          <button class="btn btn-primary">Generer etiquette</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h3>Resultats d'analyse</h3>
+          <p style="color:var(--text-light); font-size:12px; margin-bottom:8px;">Limosophy - Ordre #LIM-84729</p>
+          <table class="data-table" style="font-size:12px;">
+            <thead><tr><th>Parametre</th><th>Valeur</th><th>Norme</th><th>Conf.</th></tr></thead>
+            <tbody>
+              <tr><td>E. coli</td><td>0 UFC/100ml</td><td>&lt;1</td><td class="result-cell conforme">OK</td></tr>
+              <tr><td>Enteroccoques</td><td>0 UFC/100ml</td><td>&lt;1</td><td class="result-cell conforme">OK</td></tr>
+              <tr><td>Germes aer. mes.</td><td>45 UFC/ml</td><td>&lt;300</td><td class="result-cell conforme">OK</td></tr>
+              <tr><td>Turbidite</td><td>1.8 NTU</td><td>&lt;1</td><td class="result-cell non-conforme">NC</td></tr>
+              <tr><td>pH</td><td>7.2</td><td>6.8-8.5</td><td class="result-cell conforme">OK</td></tr>
+            </tbody>
+          </table>
+          <div style="margin-top:8px;"><button class="btn btn-outline btn-sm" style="width:100%;">Telecharger rapport PDF (Limosophy)</button></div>
+        </div>
+
+        <div class="card">
+          <h3>Historique</h3>
+          <div class="audit-item"><div class="audit-dot"></div><div class="audit-content"><div class="audit-action">Mandat cree par SAAV</div><div class="audit-meta">15.03.2024 09:12 - M. Weber</div></div></div>
+          <div class="audit-item"><div class="audit-dot"></div><div class="audit-content"><div class="audit-action">Attribue a J. Dupont</div><div class="audit-meta">15.03.2024 09:15 - M. Weber</div></div></div>
+          <div class="audit-item"><div class="audit-dot"></div><div class="audit-content"><div class="audit-action">Prelevement effectue</div><div class="audit-meta">18.03.2024 14:30 - J. Dupont</div></div></div>
+          <div class="audit-item"><div class="audit-dot"></div><div class="audit-content"><div class="audit-action">Transmis au LIMS</div><div class="audit-meta">18.03.2024 14:32 - Systeme</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOURNEES -->
+  <div id="view-tournees" class="hidden">
+    <h2 style="margin-bottom:16px;">Tournees de prelevement</h2>
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="showCreateTournee()">+ Nouvelle tournee</button>
+      <span class="spacer"></span>
+      <select><option>Mars 2024</option><option>Avril 2024</option></select>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="card">
+        <h2>Tournee du 28.03.2024</h2>
+        <p style="font-size:12px; color:var(--text-light); margin-bottom:12px;">5 mandats - Secteur Sarine</p>
+        <ul class="tournee-list" id="tourneeList1">
+          <li class="tournee-item" draggable="true" data-id="1"><span class="drag-handle">&#9776;</span><span class="tournee-order">1</span><div class="tournee-info"><strong>Fontaine de la Liberte</strong><small>Groupe E SA - MAN-2024-0042 - 2812</small></div><span class="badge-status attribue">Attribue</span></li>
+          <li class="tournee-item" draggable="true" data-id="2"><span class="drag-handle">&#9776;</span><span class="tournee-order">2</span><div class="tournee-info"><strong>Source des Neigles</strong><small>SIG Fribourg - MAN-2024-0044 - 2812</small></div><span class="badge-status attribue">Attribue</span></li>
+          <li class="tournee-item" draggable="true" data-id="3"><span class="drag-handle">&#9776;</span><span class="tournee-order">3</span><div class="tournee-info"><strong>Reservoir Guintzet</strong><small>Groupe E SA - MAN-2024-0045 - 2813</small></div><span class="badge-status planifie">Planifie</span></li>
+          <li class="tournee-item" draggable="true" data-id="4"><span class="drag-handle">&#9776;</span><span class="tournee-order">4</span><div class="tournee-info"><strong>Puits de Moncor</strong><small>SIG Fribourg - MAN-2024-0046 - 2812</small></div><span class="badge-status planifie">Planifie</span></li>
+          <li class="tournee-item" draggable="true" data-id="5"><span class="drag-handle">&#9776;</span><span class="tournee-order">5</span><div class="tournee-info"><strong>Fontaine du Tilleul</strong><small>Commune de Marly - MAN-2024-0047 - 2812</small></div><span class="badge-status planifie">Planifie</span></li>
+        </ul>
+        <div style="margin-top:12px; display:flex; gap:8px;">
+          <button class="btn btn-success btn-sm">Demarrer la tournee</button>
+          <button class="btn btn-outline btn-sm">Exporter PDF</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Tournee du 02.04.2024</h2>
+        <p style="font-size:12px; color:var(--text-light); margin-bottom:12px;">3 mandats - Secteur Gruyere</p>
+        <ul class="tournee-list" id="tourneeList2">
+          <li class="tournee-item" draggable="true" data-id="6"><span class="drag-handle">&#9776;</span><span class="tournee-order">1</span><div class="tournee-info"><strong>Source de la Jogne</strong><small>SIG Bulle - MAN-2024-0050 - 2812</small></div><span class="badge-status planifie">Planifie</span></li>
+          <li class="tournee-item" draggable="true" data-id="7"><span class="drag-handle">&#9776;</span><span class="tournee-order">2</span><div class="tournee-info"><strong>Lac de la Gruyere (plage)</strong><small>Commune de Pont - MAN-2024-0051 - 2820</small></div><span class="badge-status planifie">Planifie</span></li>
+          <li class="tournee-item" draggable="true" data-id="8"><span class="drag-handle">&#9776;</span><span class="tournee-order">3</span><div class="tournee-info"><strong>Piscine de Bulle</strong><small>Commune de Bulle - MAN-2024-0052 - 2820</small></div><span class="badge-status planifie">Planifie</span></li>
+        </ul>
+        <div style="margin-top:12px; display:flex; gap:8px;">
+          <button class="btn btn-outline btn-sm">Demarrer la tournee</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLANS DE PRELEVEMENT -->
+  <div id="view-plans" class="hidden">
+    <h2 style="margin-bottom:16px;">Plans de prelevement annuels</h2>
+    <div class="toolbar">
+      <select id="planYear"><option>2024</option><option>2023</option></select>
+      <select id="planDistributeur"><option value="">Tous les distributeurs</option><option>Groupe E SA</option><option>SIG Fribourg</option><option>Commune de Bulle</option></select>
+      <span class="spacer"></span>
+      <button class="btn btn-primary">+ Nouveau plan</button>
+      <button class="btn btn-outline">Generer mandats</button>
+    </div>
+    <div class="card" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>LDP</th><th>Distributeur</th><th>Programme</th><th>Frequence</th><th>Jan</th><th>Fev</th><th>Mar</th><th>Avr</th><th>Mai</th><th>Jun</th><th>Jul</th><th>Aou</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th></tr></thead>
+        <tbody>
+          <tr><td>Fontaine de la Liberte</td><td>Groupe E SA</td><td>2812</td><td>Trimestriel</td><td class="result-cell conforme">OK</td><td></td><td style="background:#fdebd0;">Pr.</td><td></td><td></td><td style="background:#eee;">Pl.</td><td></td><td></td><td style="background:#eee;">Pl.</td><td></td><td></td><td style="background:#eee;">Pl.</td></tr>
+          <tr><td>Source des Neigles</td><td>SIG Fribourg</td><td>2812</td><td>Semestriel</td><td></td><td></td><td style="background:#fdebd0;">Pr.</td><td></td><td></td><td></td><td></td><td></td><td style="background:#eee;">Pl.</td><td></td><td></td><td></td></tr>
+          <tr><td>Reservoir Guintzet</td><td>Groupe E SA</td><td>2813</td><td>Trimestriel</td><td class="result-cell conforme">OK</td><td></td><td style="background:#eee;">Pl.</td><td></td><td></td><td style="background:#eee;">Pl.</td><td></td><td></td><td style="background:#eee;">Pl.</td><td></td><td></td><td style="background:#eee;">Pl.</td></tr>
+          <tr><td>Lac de la Gruyere (plage)</td><td>Commune de Pont</td><td>2820</td><td>Mensuel (ete)</td><td></td><td></td><td></td><td></td><td style="background:#eee;">Pl.</td><td style="background:#eee;">Pl.</td><td style="background:#eee;">Pl.</td><td style="background:#eee;">Pl.</td><td style="background:#eee;">Pl.</td><td></td><td></td><td></td></tr>
+          <tr><td>Puits de Moncor</td><td>SIG Fribourg</td><td>2812</td><td>Annuel</td><td></td><td></td><td></td><td></td><td></td><td style="background:#eee;">Pl.</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:8px; font-size:11px; color:var(--text-light);">Legende : <span style="background:#d5f5e3; padding:2px 8px;">OK</span> = Termine conforme &nbsp; <span style="background:#fadbd8; padding:2px 8px;">NC</span> = Non conforme &nbsp; <span style="background:#fdebd0; padding:2px 8px;">Pr.</span> = Prevu &nbsp; <span style="background:#eee; padding:2px 8px;">Pl.</span> = Planifie</p>
+  </div>
+
+  <!-- RESULTATS -->
+  <div id="view-resultats" class="hidden">
+    <h2 style="margin-bottom:16px;">Resultats d'analyses</h2>
+    <div class="toolbar">
+      <div class="search-box"><span>&#128269;</span><input type="text" placeholder="Rechercher..." /></div>
+      <select><option value="">Tous</option><option>Conformes</option><option>Non conformes</option></select>
+      <select><option>2024</option><option>2023</option></select>
+      <span class="spacer"></span>
+      <button class="btn btn-outline">Exporter</button>
+    </div>
+    <div class="card" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>Mandat</th><th>LDP</th><th>Date analyse</th><th>Ordre LIMS</th><th>E. coli</th><th>Entero.</th><th>Germes</th><th>Turbidite</th><th>pH</th><th>Verdict</th></tr></thead>
+        <tbody>
+          <tr><td>MAN-2024-0038</td><td>Fontaine de la Liberte</td><td>12.03.2024</td><td>LIM-84729</td><td class="result-cell conforme">0</td><td class="result-cell conforme">0</td><td class="result-cell conforme">45</td><td class="result-cell non-conforme">1.8</td><td class="result-cell conforme">7.2</td><td><span class="badge-nc">NON CONFORME</span></td></tr>
+          <tr><td>MAN-2024-0035</td><td>Reservoir Guintzet</td><td>08.03.2024</td><td>LIM-84701</td><td class="result-cell conforme">0</td><td class="result-cell conforme">0</td><td class="result-cell conforme">12</td><td class="result-cell conforme">0.3</td><td class="result-cell conforme">7.4</td><td><span class="badge-conforme">CONFORME</span></td></tr>
+          <tr><td>MAN-2024-0031</td><td>Source des Neigles</td><td>01.03.2024</td><td>LIM-84680</td><td class="result-cell conforme">0</td><td class="result-cell conforme">0</td><td class="result-cell conforme">8</td><td class="result-cell conforme">0.1</td><td class="result-cell conforme">7.0</td><td><span class="badge-conforme">CONFORME</span></td></tr>
+          <tr><td>MAN-2024-0028</td><td>Puits de Moncor</td><td>22.02.2024</td><td>LIM-84652</td><td class="result-cell conforme">0</td><td class="result-cell conforme">0</td><td class="result-cell conforme">22</td><td class="result-cell conforme">0.4</td><td class="result-cell conforme">7.5</td><td><span class="badge-conforme">CONFORME</span></td></tr>
+          <tr><td>MAN-2024-0025</td><td>Fontaine du Tilleul</td><td>15.02.2024</td><td>LIM-84620</td><td class="result-cell non-conforme">3</td><td class="result-cell conforme">0</td><td class="result-cell conforme">180</td><td class="result-cell conforme">0.6</td><td class="result-cell conforme">7.1</td><td><span class="badge-nc">NON CONFORME</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- DISTRIBUTEURS -->
+  <div id="view-distributeurs" class="hidden">
+    <h2 style="margin-bottom:16px;">Gestion des distributeurs</h2>
+    <div class="toolbar">
+      <div class="search-box"><span>&#128269;</span><input type="text" placeholder="Rechercher un distributeur..." /></div>
+      <span class="spacer"></span>
+      <button class="btn btn-primary">+ Nouveau distributeur</button>
+    </div>
+    <div class="card" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>Nom</th><th>Type</th><th>Commune(s)</th><th>Nb LDP</th><th>Contact</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Groupe E SA</strong></td><td>Societe de distribution</td><td>Fribourg, Marly, Villars-sur-Glane</td><td>28</td><td>info@groupe-e.ch</td><td><button class="btn-icon" title="Modifier">&#9998;</button> <button class="btn-icon" title="Supprimer">&#128465;</button></td></tr>
+          <tr><td><strong>SIG Fribourg</strong></td><td>Service industriel</td><td>Fribourg</td><td>15</td><td>sig@ville-fribourg.ch</td><td><button class="btn-icon" title="Modifier">&#9998;</button> <button class="btn-icon" title="Supprimer">&#128465;</button></td></tr>
+          <tr><td><strong>Commune de Bulle</strong></td><td>Commune</td><td>Bulle</td><td>9</td><td>eaux@bulle.ch</td><td><button class="btn-icon" title="Modifier">&#9998;</button> <button class="btn-icon" title="Supprimer">&#128465;</button></td></tr>
+          <tr><td><strong>Commune de Pont-en-Ogoz</strong></td><td>Commune</td><td>Pont-en-Ogoz</td><td>4</td><td>commune@pont-en-ogoz.ch</td><td><button class="btn-icon" title="Modifier">&#9998;</button> <button class="btn-icon" title="Supprimer">&#128465;</button></td></tr>
+          <tr><td><strong>Commune de Marly</strong></td><td>Commune</td><td>Marly</td><td>6</td><td>technique@marly.ch</td><td><button class="btn-icon" title="Modifier">&#9998;</button> <button class="btn-icon" title="Supprimer">&#128465;</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- LIEUX DE PRELEVEMENT -->
+  <div id="view-ldp" class="hidden">
+    <h2 style="margin-bottom:16px;">Lieux de prelevement (LDP)</h2>
+    <div class="toolbar">
+      <div class="search-box"><span>&#128269;</span><input type="text" placeholder="Rechercher un LDP..." /></div>
+      <select><option value="">Tous les distributeurs</option><option>Groupe E SA</option><option>SIG Fribourg</option></select>
+      <select><option value="">Tous les statuts</option><option value="valide">Valide SAAV</option><option value="en-attente">En attente validation</option><option value="inactif">Inactif</option></select>
+      <span class="spacer"></span>
+      <button class="btn btn-primary">+ Nouveau LDP</button>
+      <button class="btn btn-outline">Synchro Limosophy</button>
+    </div>
+    <div class="card" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>Code</th><th>Nom</th><th>Distributeur</th><th>Type</th><th>Commune</th><th>Coordonnees</th><th>Statut</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td>LDP-001</td><td><strong>Fontaine de la Liberte</strong></td><td>Groupe E SA</td><td>Fontaine</td><td>Fribourg</td><td>46.8065, 7.1620</td><td><span class="badge-status termine">Valide</span></td><td><button class="btn-icon" title="Modifier">&#9998;</button> <button class="btn-icon" title="Historique">&#9997;</button></td></tr>
+          <tr><td>LDP-002</td><td><strong>Source des Neigles</strong></td><td>SIG Fribourg</td><td>Source</td><td>Fribourg</td><td>46.7985, 7.1480</td><td><span class="badge-status termine">Valide</span></td><td><button class="btn-icon" title="Modifier">&#9998;</button> <button class="btn-icon" title="Historique">&#9997;</button></td></tr>
+          <tr><td>LDP-003</td><td><strong>Reservoir Guintzet</strong></td><td>Groupe E SA</td><td>Reservoir</td><td>Fribourg</td><td>46.7921, 7.1702</td><td><span class="badge-status termine">Valide</span></td><td><button class="btn-icon" title="Modifier">&#9998;</button> <button class="btn-icon" title="Historique">&#9997;</button></td></tr>
+          <tr><td>LDP-004</td><td><strong>Puits de Moncor</strong></td><td>SIG Fribourg</td><td>Puits</td><td>Villars-sur-Glane</td><td>46.7893, 7.1345</td><td><span class="badge-status termine">Valide</span></td><td><button class="btn-icon" title="Modifier">&#9998;</button> <button class="btn-icon" title="Historique">&#9997;</button></td></tr>
+          <tr><td>LDP-005</td><td><strong>Fontaine du Tilleul</strong></td><td>Commune de Marly</td><td>Fontaine</td><td>Marly</td><td>46.7783, 7.1560</td><td><span class="badge-status en-cours">En attente</span></td><td><button class="btn-icon" title="Modifier">&#9998;</button> <button class="btn-icon" title="Valider">&#9745;</button></td></tr>
+          <tr><td>LDP-006</td><td><strong>Lac de la Gruyere (plage)</strong></td><td>Commune de Pont</td><td>Baignade</td><td>Pont-en-Ogoz</td><td>46.6550, 7.0780</td><td><span class="badge-status termine">Valide</span></td><td><button class="btn-icon" title="Modifier">&#9998;</button> <button class="btn-icon" title="Historique">&#9997;</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- UTILISATEURS -->
+  <div id="view-utilisateurs" class="hidden">
+    <h2 style="margin-bottom:16px;">Gestion des utilisateurs</h2>
+    <div class="toolbar">
+      <div class="search-box"><span>&#128269;</span><input type="text" placeholder="Rechercher un utilisateur..." /></div>
+      <select><option value="">Tous les roles</option><option>Administrateur</option><option>Mandataire</option><option>Preleveur</option><option>Requerant-Preleveur</option></select>
+      <span class="spacer"></span>
+      <button class="btn btn-primary">+ Nouvel utilisateur</button>
+    </div>
+    <div class="card" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>Nom</th><th>Email (EFR)</th><th>Role</th><th>Distributeur(s)</th><th>Statut</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Jean Dupont</strong></td><td>jean.dupont@fr.ch</td><td>Administrateur</td><td>SAAV (tous)</td><td><span class="badge-status termine">Actif</span></td><td><button class="btn-icon" title="Modifier">&#9998;</button></td></tr>
+          <tr><td><strong>Pierre Martin</strong></td><td>pierre.martin@fr.ch</td><td>Preleveur</td><td>Groupe E SA, SIG Fribourg</td><td><span class="badge-status termine">Actif</span></td><td><button class="btn-icon" title="Modifier">&#9998;</button></td></tr>
+          <tr><td><strong>Marie Favre</strong></td><td>marie.favre@fr.ch</td><td>Requerant-Preleveur</td><td>Commune de Bulle</td><td><span class="badge-status termine">Actif</span></td><td><button class="btn-icon" title="Modifier">&#9998;</button></td></tr>
+          <tr><td><strong>Marc Weber</strong></td><td>marc.weber@fr.ch</td><td>Mandataire</td><td>Groupe E SA</td><td><span class="badge-status termine">Actif</span></td><td><button class="btn-icon" title="Modifier">&#9998;</button></td></tr>
+          <tr><td><strong>Sophie Blanc</strong></td><td>sophie.blanc@fr.ch</td><td>Preleveur</td><td>Commune de Marly</td><td><span class="badge-status brouillon">Desactive</span></td><td><button class="btn-icon" title="Modifier">&#9998;</button> <button class="btn-icon" title="Reactiver">&#9745;</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PROGRAMMES D'ANALYSE -->
+  <div id="view-programmes" class="hidden">
+    <h2 style="margin-bottom:16px;">Programmes d'analyse</h2>
+    <div class="toolbar">
+      <span class="spacer"></span>
+      <button class="btn btn-outline">Synchroniser depuis Limosophy</button>
+      <button class="btn btn-primary">+ Nouveau programme</button>
+    </div>
+    <div class="card" style="padding:0;">
+      <table class="data-table">
+        <thead><tr><th>Code</th><th>Nom</th><th>Type eau</th><th>Parametres</th><th>Nb bouteilles</th><th>Statut</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td><strong>2812</strong></td><td>Eau potable - Controle standard</td><td>Eau potable</td><td>E. coli, Enteroccoques, Germes aer., Turbidite, pH, Conductivite</td><td>3</td><td><span class="badge-status termine">Actif</span></td><td><button class="btn-icon" title="Voir">&#9998;</button></td></tr>
+          <tr><td><strong>2813</strong></td><td>Eau potable - Controle complet</td><td>Eau potable</td><td>E. coli, Enteroccoques, Germes aer., Turbidite, pH, Nitrates, Pesticides, Metaux lourds</td><td>5</td><td><span class="badge-status termine">Actif</span></td><td><button class="btn-icon" title="Voir">&#9998;</button></td></tr>
+          <tr><td><strong>2820</strong></td><td>Eau de baignade - Standard</td><td>Baignade</td><td>E. coli, Enteroccoques, Cyanobacteries, Turbidite, pH, Temperature</td><td>2</td><td><span class="badge-status termine">Actif</span></td><td><button class="btn-icon" title="Voir">&#9998;</button></td></tr>
+          <tr><td><strong>2825</strong></td><td>Eau de baignade - Pollution</td><td>Baignade</td><td>E. coli, Enteroccoques, Cyanobacteries, Hydrocarbures, Turbidite</td><td>4</td><td><span class="badge-status termine">Actif</span></td><td><button class="btn-icon" title="Voir">&#9998;</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:8px; font-size:11px; color:var(--text-light);">Les programmes d'analyse et leurs parametres sont synchronises depuis Limosophy (LIMS). Le code marchandise par defaut est 2812.</p>
+  </div>
+
+  <!-- JOURNAL D'AUDIT -->
+  <div id="view-audit" class="hidden">
+    <h2 style="margin-bottom:16px;">Journal d'audit</h2>
+    <div class="toolbar">
+      <div class="search-box"><span>&#128269;</span><input type="text" placeholder="Rechercher dans le journal..." /></div>
+      <select><option value="">Toutes les actions</option><option>Creation</option><option>Modification</option><option>Suppression</option><option>Connexion</option><option>Validation</option></select>
+      <select><option value="">Tous les utilisateurs</option><option>Jean Dupont</option><option>Pierre Martin</option><option>Marie Favre</option><option>Systeme</option></select>
+      <input type="date" style="padding:7px 10px; border:1px solid var(--border); border-radius:4px;" />
+      <span class="spacer"></span>
+      <button class="btn btn-outline">Exporter CSV</button>
+    </div>
+    <div class="card">
+      <div class="audit-item"><div class="audit-dot"></div><div class="audit-content"><div class="audit-action"><strong>Connexion</strong> - Jean Dupont s'est connecte via Azure AD SSO</div><div class="audit-meta">27.03.2024 08:15 - IP: 10.20.30.45</div></div></div>
+      <div class="audit-item"><div class="audit-dot"></div><div class="audit-content"><div class="audit-action"><strong>Creation mandat</strong> - MAN-2024-0047 cree pour LDP Fontaine du Tilleul</div><div class="audit-meta">27.03.2024 08:22 - Jean Dupont</div></div></div>
+      <div class="audit-item"><div class="audit-dot"></div><div class="audit-content"><div class="audit-action"><strong>Attribution</strong> - MAN-2024-0047 attribue a Pierre Martin</div><div class="audit-meta">27.03.2024 08:23 - Jean Dupont</div></div></div>
+      <div class="audit-item"><div class="audit-dot" style="background:var(--accent);"></div><div class="audit-content"><div class="audit-action"><strong>Transmission LIMS</strong> - Ordre LIM-84750 cree pour MAN-2024-0044</div><div class="audit-meta">26.03.2024 15:40 - Systeme (API Limosophy)</div></div></div>
+      <div class="audit-item"><div class="audit-dot" style="background:var(--accent);"></div><div class="audit-content"><div class="audit-action"><strong>Reception resultats</strong> - Resultats LIM-84729 recus pour MAN-2024-0038</div><div class="audit-meta">26.03.2024 14:10 - Systeme (Webhook Limosophy)</div></div></div>
+      <div class="audit-item"><div class="audit-dot"></div><div class="audit-content"><div class="audit-action"><strong>Validation prelevement</strong> - MAN-2024-0042 valide et transmis au SAAV</div><div class="audit-meta">25.03.2024 16:30 - Pierre Martin</div></div></div>
+      <div class="audit-item"><div class="audit-dot" style="background:var(--warning);"></div><div class="audit-content"><div class="audit-action"><strong>Synchronisation offline</strong> - 3 prelevements synchronises (retour en ligne)</div><div class="audit-meta">25.03.2024 16:28 - Pierre Martin - Duree hors ligne: 2h15</div></div></div>
+      <div class="audit-item"><div class="audit-dot" style="background:var(--danger);"></div><div class="audit-content"><div class="audit-action"><strong>Non-conformite</strong> - Turbidite hors norme pour MAN-2024-0038 (1.8 NTU > 1 NTU)</div><div class="audit-meta">26.03.2024 14:10 - Systeme</div></div></div>
+      <div class="audit-item"><div class="audit-dot"></div><div class="audit-content"><div class="audit-action"><strong>Modification LDP</strong> - LDP-005 Fontaine du Tilleul: coordonnees GPS mises a jour</div><div class="audit-meta">24.03.2024 11:00 - Marie Favre</div></div></div>
+      <div class="audit-item"><div class="audit-dot"></div><div class="audit-content"><div class="audit-action"><strong>Desactivation</strong> - Compte Sophie Blanc desactive</div><div class="audit-meta">20.03.2024 09:00 - Jean Dupont</div></div></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ===== CREATE MANDAT MODAL ===== -->
+<div class="modal-overlay hidden" id="createMandatModal">
+  <div class="modal">
+    <div class="modal-header"><h2>Nouveau mandat</h2><button class="btn-icon" onclick="closeModal('createMandatModal')" style="font-size:22px;">&times;</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Type</label><select><option>Eau potable</option><option>Eau de baignade</option></select></div>
+        <div class="form-group"><label>Origine</label><select><option>Plan annuel</option><option>Mandat imprevu (pollution)</option><option>Delegation (source privee)</option></select></div>
+      </div>
+      <div class="form-group"><label>Lieu de prelevement</label><select><option>-- Selectionner --</option><option>LDP-001 - Fontaine de la Liberte (Groupe E SA)</option><option>LDP-002 - Source des Neigles (SIG Fribourg)</option><option>LDP-003 - Reservoir Guintzet (Groupe E SA)</option><option>LDP-004 - Puits de Moncor (SIG Fribourg)</option><option>LDP-005 - Fontaine du Tilleul (Commune de Marly)</option><option>LDP-006 - Lac de la Gruyere (Commune de Pont)</option></select></div>
+      <div class="form-row">
+        <div class="form-group"><label>Programme d'analyse</label><select><option>2812 - Eau potable standard</option><option>2813 - Eau potable complet</option><option>2820 - Eau de baignade</option><option>2825 - Baignade pollution</option></select></div>
+        <div class="form-group"><label>Code marchandise</label><input type="text" value="2812" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Preleveur</label><select><option>-- Non attribue --</option><option>Pierre Martin</option><option>Marie Favre</option><option>Jean Dupont</option></select></div>
+        <div class="form-group"><label>Date prevue</label><input type="date" /></div>
+      </div>
+      <div class="form-group"><label>Remarques</label><textarea rows="3" placeholder="Instructions particulieres, contexte..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('createMandatModal')">Annuler</button>
+      <button class="btn btn-primary" onclick="closeModal('createMandatModal')">Creer le mandat</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CREATE TOURNEE MODAL ===== -->
+<div class="modal-overlay hidden" id="createTourneeModal">
+  <div class="modal">
+    <div class="modal-header"><h2>Nouvelle tournee</h2><button class="btn-icon" onclick="closeModal('createTourneeModal')" style="font-size:22px;">&times;</button></div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group"><label>Nom de la tournee</label><input type="text" placeholder="ex: Secteur Sarine - Mars" /></div>
+        <div class="form-group"><label>Date prevue</label><input type="date" /></div>
+      </div>
+      <div class="form-group"><label>Preleveur</label><select><option>Pierre Martin</option><option>Marie Favre</option><option>Jean Dupont</option></select></div>
+      <div class="form-group">
+        <label>Mandats a inclure</label>
+        <div style="border:1px solid var(--border); border-radius:4px; padding:8px; max-height:200px; overflow-y:auto;">
+          <label style="display:flex; align-items:center; gap:8px; padding:6px 0; font-weight:normal; cursor:pointer;"><input type="checkbox" /> MAN-2024-0042 - Fontaine de la Liberte</label>
+          <label style="display:flex; align-items:center; gap:8px; padding:6px 0; font-weight:normal; cursor:pointer;"><input type="checkbox" /> MAN-2024-0044 - Source des Neigles</label>
+          <label style="display:flex; align-items:center; gap:8px; padding:6px 0; font-weight:normal; cursor:pointer;"><input type="checkbox" /> MAN-2024-0045 - Reservoir Guintzet</label>
+          <label style="display:flex; align-items:center; gap:8px; padding:6px 0; font-weight:normal; cursor:pointer;"><input type="checkbox" /> MAN-2024-0046 - Puits de Moncor</label>
+          <label style="display:flex; align-items:center; gap:8px; padding:6px 0; font-weight:normal; cursor:pointer;"><input type="checkbox" /> MAN-2024-0047 - Fontaine du Tilleul</label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('createTourneeModal')">Annuler</button>
+      <button class="btn btn-primary" onclick="closeModal('createTourneeModal')">Creer la tournee</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== DATA =====
+const mandats = [
+  { id:'MAN-2024-0042', ldp:'Fontaine de la Liberte', distributeur:'Groupe E SA', type:'eau-potable', preleveur:'Jean Dupont', date:'28.03.2024', statut:'attribue' },
+  { id:'MAN-2024-0044', ldp:'Source des Neigles', distributeur:'SIG Fribourg', type:'eau-potable', preleveur:'Pierre Martin', date:'28.03.2024', statut:'attribue' },
+  { id:'MAN-2024-0045', ldp:'Reservoir Guintzet', distributeur:'Groupe E SA', type:'eau-potable', preleveur:'', date:'29.03.2024', statut:'planifie' },
+  { id:'MAN-2024-0046', ldp:'Puits de Moncor', distributeur:'SIG Fribourg', type:'eau-potable', preleveur:'', date:'30.03.2024', statut:'planifie' },
+  { id:'MAN-2024-0047', ldp:'Fontaine du Tilleul', distributeur:'Commune de Marly', type:'eau-potable', preleveur:'Pierre Martin', date:'01.04.2024', statut:'planifie' },
+  { id:'MAN-2024-0038', ldp:'Fontaine de la Liberte', distributeur:'Groupe E SA', type:'eau-potable', preleveur:'Pierre Martin', date:'12.03.2024', statut:'termine' },
+  { id:'MAN-2024-0035', ldp:'Reservoir Guintzet', distributeur:'Groupe E SA', type:'eau-potable', preleveur:'Jean Dupont', date:'08.03.2024', statut:'termine' },
+  { id:'MAN-2024-0040', ldp:'Lac de la Gruyere (plage)', distributeur:'Commune de Pont', type:'baignade', preleveur:'Marie Favre', date:'15.03.2024', statut:'en-analyse' },
+  { id:'MAN-2024-0039', ldp:'Piscine de Bulle', distributeur:'Commune de Bulle', type:'baignade', preleveur:'Marie Favre', date:'14.03.2024', statut:'transmis' },
+  { id:'MAN-2024-0048', ldp:'Source privee Charriere', distributeur:'Prive', type:'eau-potable', preleveur:'', date:'', statut:'brouillon' },
+  { id:'MAN-2024-0049', ldp:'Fontaine Bourg (urgence pollution)', distributeur:'Groupe E SA', type:'eau-potable', preleveur:'Pierre Martin', date:'27.03.2024', statut:'en-cours' },
+];
+
+const statusLabels = {
+  'brouillon':'Brouillon','planifie':'Planifie','attribue':'Attribue',
+  'en-cours':'En cours','transmis':'Transmis','en-analyse':'En analyse','termine':'Termine'
+};
+
+// ===== AUTH =====
+let currentUser = { name:'', role:'', email:'' };
+let isOffline = false;
+
+function doLogin() {
+  const email = document.getElementById('loginUser').value;
+  const role = document.getElementById('loginRole').value;
+  const roleLabels = { preleveur:'Preleveur', mandataire:'Mandataire', admin:'Administrateur SAAV', 'requerant-preleveur':'Requerant-Preleveur' };
+  const name = email.split('@')[0].split('.').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+  currentUser = { name, role, email };
+  document.getElementById('headerUserName').textContent = name;
+  document.getElementById('headerUserRole').textContent = roleLabels[role];
+  document.getElementById('loginOverlay').classList.add('hidden');
+
+  // Adjust sidebar visibility based on role
+  const adminLinks = document.querySelectorAll('[data-view="distributeurs"], [data-view="ldp"], [data-view="utilisateurs"], [data-view="programmes"], [data-view="audit"]');
+  const adminSection = document.querySelectorAll('.nav-section')[1];
+  if (role === 'preleveur') {
+    adminLinks.forEach(l => l.style.display = 'none');
+    if (adminSection) adminSection.style.display = 'none';
+  } else {
+    adminLinks.forEach(l => l.style.display = '');
+    if (adminSection) adminSection.style.display = '';
+  }
+
+  renderMandatsTable();
+  renderDashboardMandats();
+}
+
+function doLogout() {
+  document.getElementById('loginOverlay').classList.remove('hidden');
+}
+
+// ===== NAVIGATION =====
+document.querySelectorAll('nav.sidebar a').forEach(link => {
+  link.addEventListener('click', e => {
+    e.preventDefault();
+    const view = link.dataset.view;
+    showView(view);
+  });
+});
+
+function showView(viewName) {
+  document.querySelectorAll('[id^="view-"]').forEach(v => v.classList.add('hidden'));
+  const target = document.getElementById('view-' + viewName);
+  if (target) target.classList.remove('hidden');
+  document.querySelectorAll('nav.sidebar a').forEach(a => a.classList.remove('active'));
+  const navLink = document.querySelector(`[data-view="${viewName}"]`);
+  if (navLink) navLink.classList.add('active');
+}
+
+// ===== MANDATS TABLE =====
+function renderMandatsTable(filter) {
+  const tbody = document.getElementById('mandatsTableBody');
+  let filtered = mandats;
+
+  const search = document.getElementById('mandatSearch')?.value?.toLowerCase() || '';
+  const statusF = document.getElementById('mandatStatusFilter')?.value || '';
+  const typeF = document.getElementById('mandatTypeFilter')?.value || '';
+
+  if (search) filtered = filtered.filter(m => m.id.toLowerCase().includes(search) || m.ldp.toLowerCase().includes(search) || m.distributeur.toLowerCase().includes(search));
+  if (statusF) filtered = filtered.filter(m => m.statut === statusF);
+  if (typeF) filtered = filtered.filter(m => m.type === typeF);
+
+  tbody.innerHTML = filtered.map(m => `
+    <tr class="clickable" onclick="showMandatDetail('${m.id}')">
+      <td><strong>${m.id}</strong></td>
+      <td>${m.ldp}</td>
+      <td>${m.distributeur}</td>
+      <td>${m.type === 'eau-potable' ? 'Eau potable' : 'Baignade'}</td>
+      <td>${m.preleveur || '<em style="color:#aaa;">Non attribue</em>'}</td>
+      <td>${m.date || '-'}</td>
+      <td><span class="badge-status ${m.statut}">${statusLabels[m.statut]}</span></td>
+      <td>
+        <button class="btn-icon" title="Modifier" onclick="event.stopPropagation()">&#9998;</button>
+        <button class="btn-icon" title="Supprimer" onclick="event.stopPropagation()">&#128465;</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function filterMandats() { renderMandatsTable(); }
+
+function renderDashboardMandats() {
+  const tbody = document.getElementById('dashboardMandats');
+  const recent = mandats.slice(0, 6);
+  tbody.innerHTML = recent.map(m => `
+    <tr class="clickable" onclick="showView('mandats'); setTimeout(() => showMandatDetail('${m.id}'), 100);">
+      <td><strong>${m.id}</strong></td>
+      <td>${m.ldp}</td>
+      <td>${m.distributeur}</td>
+      <td>${m.date || '-'}</td>
+      <td><span class="badge-status ${m.statut}">${statusLabels[m.statut]}</span></td>
+    </tr>
+  `).join('');
+}
+
+function showMandatDetail(id) {
+  const m = mandats.find(x => x.id === id);
+  if (!m) return;
+  document.getElementById('mandatDetailTitle').textContent = 'Mandat ' + m.id;
+  document.getElementById('mandatDetailStatus').textContent = statusLabels[m.statut];
+  document.getElementById('mandatDetailStatus').className = 'badge-status ' + m.statut;
+  showView('mandat-detail');
+}
+
+function showCreateMandat() { document.getElementById('createMandatModal').classList.remove('hidden'); }
+function showCreateTournee() { document.getElementById('createTourneeModal').classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.add('hidden');
+  });
+});
+
+// ===== NOTIFICATIONS =====
+function toggleNotifPanel() {
+  document.getElementById('notifPanel').classList.toggle('open');
+}
+
+// ===== OFFLINE MODE =====
+function toggleOffline() {
+  isOffline = !isOffline;
+  const ind = document.getElementById('offlineIndicator');
+  if (isOffline) {
+    ind.textContent = 'Hors ligne';
+    ind.className = 'offline-indicator offline';
+  } else {
+    ind.textContent = 'En ligne';
+    ind.className = 'offline-indicator online';
+  }
+}
+
+// ===== GPS =====
+function getGPS() {
+  document.getElementById('gpsCoords').value = '46.8065, 7.1620';
+}
+
+// ===== DRAG & DROP TOURNEES =====
+function initDragDrop(listId) {
+  const list = document.getElementById(listId);
+  if (!list) return;
+  let dragItem = null;
+
+  list.querySelectorAll('.tournee-item').forEach(item => {
+    item.addEventListener('dragstart', e => {
+      dragItem = item;
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      dragItem = null;
+      // Re-number
+      list.querySelectorAll('.tournee-order').forEach((badge, i) => {
+        badge.textContent = i + 1;
+      });
+    });
+    item.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (dragItem && dragItem !== item) {
+        const rect = item.getBoundingClientRect();
+        const mid = rect.top + rect.height / 2;
+        if (e.clientY < mid) {
+          list.insertBefore(dragItem, item);
+        } else {
+          list.insertBefore(dragItem, item.nextSibling);
+        }
+      }
+    });
+  });
+}
+
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded', () => {
+  initDragDrop('tourneeList1');
+  initDragDrop('tourneeList2');
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Cards</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+<style>
+html,body{margin:0;background:#fafaf9;font-family:var(--font-family-base);color:var(--color-fg-default);}
+.wrap{padding:18px 20px;box-sizing:border-box;width:700px;display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.card{background:#fff;border:1px solid var(--color-border-default);border-radius:8px;padding:12px 14px;}
+.card.clickable{box-shadow:var(--elevation-1);}
+.cap{font-size:11px;color:var(--color-fg-muted);letter-spacing:0.04em;text-transform:uppercase;font-weight:600;margin-bottom:6px;}
+.title{font-size:15px;font-weight:500;margin-bottom:4px;}
+.meta{font-size:13px;color:var(--color-fg-muted);}
+.chip{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:6px;font-size:11px;font-weight:500;}
+.row-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+</style><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+</head><body>
+<div class="wrap">
+<div class="card">
+  <div class="cap">Ordre</div>
+  <div class="row-head"><div class="title">A-2041 · Source La Sarine</div><span class="chip" style="background:#fdf4e2;color:#7a510a">En cours</span></div>
+  <div class="meta">Programme P-12 · 8 paramètres · 18.04.2026</div>
+</div>
+<div class="card clickable">
+  <div class="cap">Tournée · mobile</div>
+  <div class="row-head"><div class="title">Tournée 24.04 — secteur Nord</div><span class="chip" style="background:#eaf0f4;color:#1f6299">Assigned</span></div>
+  <div class="meta">7 lieux · Louis Morel</div>
+</div>
+<div class="card" style="grid-column:1/-1;padding:16px 18px">
+  <div class="cap">Round-section — pattern cadre conditionnel</div>
+  <div style="border:1px solid var(--color-border-default);border-radius:8px;padding:12px 14px;margin-top:6px;">
+    <div class="cap" style="margin-bottom:8px;">Planification</div>
+    <div class="meta">Date prévue : <b style="color:var(--color-fg-default);font-weight:500">24.04.2026</b> · Créneau : <b style="color:var(--color-fg-default);font-weight:500">08:00–12:00</b></div>
+  </div>
+</div>
+</div></body></html>

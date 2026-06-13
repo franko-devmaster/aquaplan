@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Table</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+<style>
+html,body{margin:0;background:#fff;font-family:var(--font-family-base);color:var(--color-fg-default);}
+.wrap{padding:16px 20px;box-sizing:border-box;width:700px;}
+.label{font-size:11px;color:var(--color-fg-muted);letter-spacing:0.06em;text-transform:uppercase;margin:0 0 10px;font-weight:600;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;font-weight:500;color:var(--color-fg-muted);font-size:12px;letter-spacing:0.02em;padding:8px 10px;border-bottom:1px solid var(--color-border-default);background:#fafaf9;}
+td{padding:10px 10px;border-bottom:1px solid var(--color-border-subtle);}
+tr.clickable:hover{background:rgba(17,79,110,0.05);cursor:pointer;}
+tr.selected{background:rgba(31,122,166,0.12);}
+.chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:11px;font-weight:500;}
+.mono{font-family:var(--font-family-mono);}
+</style><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+</head><body>
+<div class="wrap">
+<div class="label">Table — liste paginée filtrable</div>
+<table>
+  <thead><tr><th>Code</th><th>Lieu</th><th>Programme</th><th>Statut</th><th>Date</th></tr></thead>
+  <tbody>
+    <tr class="clickable"><td class="mono">A-2041</td><td>Source La Sarine</td><td>P-12</td><td><span class="chip" style="background:#fdf4e2;color:#7a510a">En cours</span></td><td>18.04.2026</td></tr>
+    <tr class="clickable selected"><td class="mono">A-2042</td><td>Réservoir Bulle</td><td>P-08</td><td><span class="chip" style="background:#e6f2ee;color:#175c3a">Prélevé</span></td><td>19.04.2026</td></tr>
+    <tr class="clickable"><td class="mono">A-2043</td><td>Piscine Marly</td><td>P-04</td><td><span class="chip" style="background:#eef1f4;color:#4f5d6c">À planifier</span></td><td>—</td></tr>
+    <tr class="clickable"><td class="mono">A-2044</td><td>Lac Noir</td><td>P-15</td><td><span class="chip" style="background:#e3f1ec;color:#1a5836">Résultats</span></td><td>21.04.2026</td></tr>
+  </tbody>
+</table>
+</div></body></html>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Status chips</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+html,body{margin:0;background:#fff;font-family:var(--font-family-base);}
+.wrap{padding:18px 20px;box-sizing:border-box;width:700px;}
+.sec{font-size:11px;color:var(--color-fg-muted);letter-spacing:0.06em;text-transform:uppercase;margin:0 0 8px;font-weight:600;}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:6px;font-size:12px;font-weight:500;}
+.chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:0.75;}
+.note{font-size:11px;color:var(--color-fg-muted);font-style:italic;margin-top:6px;}
+</style><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+</head><body>
+<div class="wrap">
+<div class="sec">Orders — workflow statuses</div>
+<div class="chips">
+  <!-- gris -->
+  <span class="chip" style="background:#ececea;color:#4f4f4c">À planifier</span>
+  <!-- cyan base #25fde9 -->
+  <span class="chip" style="background:#c9fbf6;color:#065f56">Planifié</span>
+  <!-- orange (bloqué par préleveur) -->
+  <span class="chip" style="background:#fde4cf;color:#8a4a0b">En cours</span>
+  <!-- pink (base #ff69b4) -->
+  <span class="chip" style="background:#ffe0ef;color:#b3306e">Prélevé</span>
+  <!-- violet -->
+  <span class="chip" style="background:#ebe3f6;color:#5b3da0">En analyse</span>
+  <!-- bleu (proposé pour "résultat") -->
+  <span class="chip" style="background:#dce8f4;color:#0f4a87">Résultats</span>
+  <!-- vert -->
+  <span class="chip" style="background:#dfeee1;color:#1e5c32">Clôturé</span>
+  <!-- noir -->
+  <span class="chip" style="background:#2a2a2a;color:#ffffff">Annulé</span>
+</div>
+<div class="note">Prélevé dérivé de #ff69b4 : fond rose clair #ffe0ef, texte #b3306e (AA sur le fond).</div>
+
+<div class="sec">Rounds &nbsp;·&nbsp; Results</div>
+<div class="chips">
+  <span class="chip" style="background:#f3f3f1;color:#4f4f4c">Draft</span>
+  <span class="chip" style="background:#e0edf8;color:#134a78">Assigned</span>
+  <span class="chip" style="background:#dfeee1;color:#1e5c32">Conforme</span>
+  <span class="chip" style="background:#ffe0ef;color:#b3306e">Non conforme</span>
+  <span class="chip" style="background:#fde4cf;color:#8a4a0b">En attente</span>
+</div>
+</div></body></html>

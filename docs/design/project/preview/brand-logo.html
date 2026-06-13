@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Logo</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+html,body{margin:0;background:#fff;font-family:var(--font-family-base);}
+.wrap{padding:16px 20px;box-sizing:border-box;width:700px;display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.label{font-size:11px;color:var(--color-fg-muted);letter-spacing:0.06em;text-transform:uppercase;margin:0 0 8px;font-weight:600;grid-column:1/-1;}
+.tile{border:1px solid var(--color-border-default);border-radius:8px;padding:20px;display:flex;align-items:center;justify-content:center;height:86px;}
+.tile.dark{background:#0d3e56;border:none;}
+.tile img{height:44px;}
+.cap{font-size:11px;color:var(--color-fg-muted);margin-top:6px;font-family:var(--font-family-mono);}
+</style><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+</head><body>
+<div class="wrap">
+<div class="label">Logo — placeholders to replace</div>
+<div><div class="tile"><img src="../assets/logo.svg"></div><div class="cap">logo.svg — on light</div></div>
+<div><div class="tile dark"><img src="../assets/logo-on-dark.svg"></div><div class="cap">logo-on-dark.svg</div></div>
+<div><div class="tile"><img src="../assets/mark.svg" style="height:40px;"></div><div class="cap">mark.svg — 1:1 favicon</div></div>
+<div><div class="tile" style="background:#f5f5f4"><img src="../assets/logo.svg"></div><div class="cap">on page bg</div></div>
+</div></body></html>

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Sidebar</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+<style>
+html,body{margin:0;background:#fff;font-family:var(--font-family-base);color:var(--color-fg-default);}
+.wrap{padding:12px 20px;box-sizing:border-box;width:700px;}
+.label{font-size:11px;color:var(--color-fg-muted);letter-spacing:0.06em;text-transform:uppercase;margin:0 0 10px;font-weight:600;}
+.frame{display:flex;border:1px solid var(--color-border-default);border-radius:8px;overflow:hidden;height:240px;}
+.side{background:#0d3e56;color:#fff;width:200px;padding:14px 10px;display:flex;flex-direction:column;gap:2px;}
+.brand{display:flex;align-items:center;gap:8px;padding:4px 6px 14px;}
+.brand svg{width:22px;height:22px;}
+.brand b{font-weight:600;font-size:15px;}
+.nav{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13px;color:rgba(255,255,255,0.75);}
+.nav .material-icons-outlined{font-size:18px;}
+.nav.active{background:rgba(255,255,255,0.10);color:#fff;}
+.nav:hover{background:rgba(255,255,255,0.06);color:#fff;}
+.main{flex:1;padding:14px 16px;background:#fafaf9;}
+.header{display:flex;justify-content:space-between;align-items:center;padding-bottom:10px;border-bottom:1px solid var(--color-border-default);}
+.header h3{margin:0;font-size:16px;font-weight:500;}
+.chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:11px;font-weight:500;background:#e9f2fa;color:#14476f;}
+</style><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+</head><body>
+<div class="wrap">
+<div class="label">Sidebar navigation (on dark primary-800)</div>
+<div class="frame">
+  <div class="side">
+    <div class="brand">
+      <svg viewBox="0 0 48 48"><path d="M24 3 C12 19, 5 28, 5 37 a19 19 0 0 0 38 0 C43 28, 36 19, 24 3 Z" fill="#fff"/><rect x="1" y="35.25" width="46" height="2.75" fill="#1f7aa6"/></svg>
+      <b>Aquaplan</b>
+    </div>
+    <div class="nav active"><span class="material-icons-outlined">assignment</span>Ordres</div>
+    <div class="nav"><span class="material-icons-outlined">route</span>Tournées</div>
+    <div class="nav"><span class="material-icons-outlined">place</span>Lieux</div>
+    <div class="nav"><span class="material-icons-outlined">science</span>Programmes</div>
+    <div class="nav"><span class="material-icons-outlined">analytics</span>Résultats</div>
+    <div class="nav"><span class="material-icons-outlined">settings</span>Admin</div>
+  </div>
+  <div class="main">
+    <div class="header"><h3>Ordres · 128</h3><span class="chip">Sync à jour</span></div>
+  </div>
+</div>
+</div></body></html>

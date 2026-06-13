@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<title>Aquaplan — UI kit</title>
+<link rel="stylesheet" href="../../colors_and_type.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<style>
+  html, body, #root { height: 100%; margin: 0; }
+  body { font-family: var(--font-family-base); color: var(--color-fg-default); background: #f5f5f4; }
+  * { box-sizing: border-box; }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="Primitives.jsx"></script>
+<script type="text/babel" src="Layout.jsx"></script>
+<script type="text/babel" src="LoginScreen.jsx"></script>
+<script type="text/babel" src="OrderListPage.jsx"></script>
+<script type="text/babel" src="OrderCreateDialog.jsx"></script>
+<script type="text/babel" src="RoundDetailPage.jsx"></script>
+<script type="text/babel" src="ResultsPage.jsx"></script>
+
+<script type="text/babel" data-presets="react">
+function App() {
+  const [user, setUser] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("ap_user")) || null; } catch { return null; }
+  });
+  const [nav, setNav] = React.useState(() => localStorage.getItem("ap_nav") || "orders");
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [selectedOrder, setSelectedOrder] = React.useState(null);
+
+  React.useEffect(() => { localStorage.setItem("ap_nav", nav); }, [nav]);
+  React.useEffect(() => { localStorage.setItem("ap_user", JSON.stringify(user)); }, [user]);
+
+  if (!user) return <LoginScreen onLogin={setUser}/>;
+
+  let content = null;
+  if (nav === "orders") {
+    content = selectedOrder
+      ? <ResultsPage/>
+      : <OrderListPage onOpenOrder={setSelectedOrder} onCreateOrder={() => setDialogOpen(true)}/>;
+  } else if (nav === "rounds") {
+    content = <RoundDetailPage onBack={() => setNav("orders")}/>;
+  } else if (nav === "results") {
+    content = <ResultsPage/>;
+  } else {
+    content = (
+      <div>
+        <PageHeader title={nav.charAt(0).toUpperCase() + nav.slice(1)}/>
+        <Card>
+          <div style={{ color: "#6b6b67", padding: 20, textAlign: "center" }}>
+            Section non mockée dans ce UI kit.
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <React.Fragment>
+      <Shell active={nav}
+             onNav={(id) => { setSelectedOrder(null); setNav(id); }}
+             user={user}
+             onLogout={() => setUser(null)}>
+        {content}
+        {selectedOrder && (
+          <div style={{ position: "fixed", top: 76, left: 252, fontSize: 12, color: "#6b6b67" }}>
+            <button onClick={() => setSelectedOrder(null)} style={{
+              background: "transparent", border: "none", color: "#166389", cursor: "pointer",
+              display: "inline-flex", alignItems: "center", gap: 4, padding: 0,
+            }}>
+              <span className="material-icons-outlined" style={{ fontSize: 16 }}>arrow_back</span>
+              retour à la liste
+            </button>
+          </div>
+        )}
+      </Shell>
+      <OrderCreateDialog open={dialogOpen}
+                         onClose={() => setDialogOpen(false)}
+                         onSubmit={(o) => console.log("created", o)}/>
+    </React.Fragment>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

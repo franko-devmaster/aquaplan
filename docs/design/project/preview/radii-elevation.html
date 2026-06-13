@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Radii &amp; Elevation</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+html,body{margin:0;background:#fafaf9;font-family:var(--font-family-base);}
+.wrap{padding:18px 20px;box-sizing:border-box;width:700px;background:#fff;}
+.label{font-size:11px;color:var(--color-fg-muted);letter-spacing:0.06em;text-transform:uppercase;margin:0 0 10px;font-weight:600;}
+.row{display:flex;gap:14px;align-items:flex-end;margin-bottom:16px;}
+.box{background:#fff;border:1px solid var(--color-border-default);width:88px;height:64px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:2px;font-size:10px;font-family:var(--font-family-mono);color:var(--color-fg-muted);}
+.box b{color:var(--color-fg-default);font-family:var(--font-family-base);font-size:11px;font-weight:600;}
+.elev{background:#fff;border:none;}
+</style><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+</head><body>
+<div class="wrap">
+<div class="label">Radii</div>
+<div class="row">
+  <div class="box" style="border-radius:0"><b>none</b>0</div>
+  <div class="box" style="border-radius:4px"><b>sm</b>4</div>
+  <div class="box" style="border-radius:8px"><b>md</b>8</div>
+  <div class="box" style="border-radius:12px"><b>lg</b>12</div>
+  <div class="box" style="border-radius:999px"><b>pill</b>∞</div>
+</div>
+<div class="label">Elevation</div>
+<div class="row">
+  <div class="box elev" style="box-shadow:none;border:1px solid var(--color-border-default)"><b>0</b>flat</div>
+  <div class="box elev" style="box-shadow:var(--elevation-1)"><b>1</b>cards</div>
+  <div class="box elev" style="box-shadow:var(--elevation-2)"><b>2</b>menus</div>
+  <div class="box elev" style="box-shadow:var(--elevation-3)"><b>3</b>dialogs</div>
+  <div class="box elev" style="box-shadow:var(--elevation-4)"><b>4</b>overlay</div>
+</div>
+</div></body></html>

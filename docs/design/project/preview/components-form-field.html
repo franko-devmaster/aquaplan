@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Form field</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+<style>
+html,body{margin:0;background:#fff;font-family:var(--font-family-base);color:var(--color-fg-default);}
+.wrap{padding:18px 20px;box-sizing:border-box;width:700px;display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.label{font-size:11px;color:var(--color-fg-muted);letter-spacing:0.06em;text-transform:uppercase;margin:0 0 8px;font-weight:600;grid-column:1/-1;}
+.ff{display:flex;flex-direction:column;gap:4px;}
+.ff .lab{font-size:12px;color:var(--color-fg-muted);}
+.ff .ctl{display:flex;align-items:center;gap:8px;height:44px;border:1px solid var(--color-border-default);border-radius:4px;padding:0 10px;background:#fff;}
+.ff .ctl.focus{border-color:#1f7aa6;box-shadow:0 0 0 3px rgba(31,122,166,0.25);}
+.ff .ctl.error{border-color:#d94b3d;}
+.ff .ctl input{border:none;outline:none;flex:1;font:400 14px var(--font-family-base);background:transparent;}
+.ff .ctl .material-icons-outlined{color:var(--color-fg-muted);font-size:18px;}
+.ff .hint{font-size:12px;color:var(--color-fg-muted);}
+.ff .err{font-size:12px;color:#b33427;}
+</style><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+</head><body>
+<div class="wrap">
+<div class="label">Form field — outlined (Material)</div>
+<div class="ff">
+  <span class="lab">E-mail</span>
+  <div class="ctl"><span class="material-icons-outlined">mail_outline</span><input value="louis.morel@fr.ch"></div>
+  <span class="hint">Identifiant cantonal.</span>
+</div>
+<div class="ff">
+  <span class="lab">Mot de passe</span>
+  <div class="ctl focus"><span class="material-icons-outlined">lock_outline</span><input type="password" value="••••••••"></div>
+  <span class="hint">Focus — bord primaire + ring.</span>
+</div>
+<div class="ff">
+  <span class="lab">Code échantillon</span>
+  <div class="ctl error"><span class="material-icons-outlined" style="color:#b33427">error_outline</span><input value="A-20"></div>
+  <span class="err">Format attendu : A-NNNN-FR</span>
+</div>
+<div class="ff">
+  <span class="lab">Lieu de prélèvement</span>
+  <div class="ctl" style="background:#f5f5f4;color:var(--color-fg-muted)"><span class="material-icons-outlined">place</span><input value="Source de la Sarine" disabled></div>
+  <span class="hint">Disabled.</span>
+</div>
+</div></body></html>

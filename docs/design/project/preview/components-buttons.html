@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Buttons</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+<style>
+html,body{margin:0;background:#fff;font-family:var(--font-family-base);color:var(--color-fg-default);}
+.wrap{padding:18px 20px;box-sizing:border-box;width:700px;}
+.label{font-size:11px;color:var(--color-fg-muted);letter-spacing:0.06em;text-transform:uppercase;margin:0 0 10px;font-weight:600;}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
+.b{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 16px;border-radius:4px;font:500 14px var(--font-family-base);cursor:pointer;border:none;}
+.b.primary{background:#1f7aa6;color:#fff;}
+.b.primary.hover{background:#166389;}
+.b.primary.press{background:#114f6e;}
+.b.stroked{background:#fff;color:#166389;border:1px solid #166389;}
+.b.text{background:transparent;color:#166389;}
+.b.danger{background:#d94b3d;color:#fff;}
+.b.disabled{background:#1f7aa6;color:#fff;opacity:0.5;cursor:not-allowed;}
+.b .material-icons-outlined{font-size:18px;}
+</style><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<meta name="ext-resource-dependency" content="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+</head><body>
+<div class="wrap">
+<div class="label">Buttons</div>
+<div class="row">
+  <button class="b primary">Enregistrer</button>
+  <button class="b primary hover">Hover</button>
+  <button class="b primary press">Press</button>
+  <button class="b disabled">Disabled</button>
+</div>
+<div class="row">
+  <button class="b stroked">Annuler</button>
+  <button class="b text">Voir détails</button>
+  <button class="b danger"><span class="material-icons-outlined">delete_outline</span>Supprimer</button>
+  <button class="b primary"><span class="material-icons-outlined">add</span>Nouvel ordre</button>
+</div>
+</div></body></html>
