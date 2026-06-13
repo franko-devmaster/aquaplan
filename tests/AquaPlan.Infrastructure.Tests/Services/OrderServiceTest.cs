@@ -1256,6 +1256,18 @@ public class OrderServiceTest : IDisposable
     }
 
     [Fact]
+    public async Task AssignPreleveurAsync_WhenPreleveurNotValid_ShouldThrow()
+    {
+        // F-104 — assigning an unknown/non-préleveur id is rejected.
+        var order = await CreateSeedOrder(OrderStatus.New);
+        var dto = new OrderAssignDto(PreleveurId: "not-a-preleveur");
+
+        await _sut.Awaiting(s => s.AssignPreleveurAsync(order.Id, dto, UserId, TenantId))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*préleveur*");
+    }
+
+    [Fact]
     public async Task AssignPreleveurAsync_WhenPreleveurUnchanged_ShouldNotCreateNotification()
     {
         var order = await CreateSeedOrder(OrderStatus.New);
@@ -1307,6 +1319,25 @@ public class OrderServiceTest : IDisposable
         {
             UserId = UserId,
             DistributorId = DistributorId,
+        });
+
+        // F-104 — a valid préleveur target: active user of the tenant holding the Préleveur role.
+        _dbContext.Users.Add(new AppUser
+        {
+            Id = "preleveur-X",
+            UserName = "preleveur-x@test.com",
+            Email = "preleveur-x@test.com",
+            FirstName = "Paul",
+            LastName = "Eleveur",
+            TenantId = TenantId,
+            IsActive = true,
+        });
+        var preleveurRole = new ApplicationRole { Id = "role-preleveur", Name = RoleName.Preleveur, NormalizedName = RoleName.Preleveur.ToUpperInvariant() };
+        _dbContext.Roles.Add(preleveurRole);
+        _dbContext.UserRoles.Add(new Microsoft.AspNetCore.Identity.IdentityUserRole<string>
+        {
+            UserId = "preleveur-X",
+            RoleId = preleveurRole.Id,
         });
 
         await _dbContext.SaveChangesAsync();

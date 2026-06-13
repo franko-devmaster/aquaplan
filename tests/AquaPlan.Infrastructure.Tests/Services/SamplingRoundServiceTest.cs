@@ -377,28 +377,56 @@ public class SamplingRoundServiceTest : IDisposable
             .WithMessage("*Cannot update*");
     }
 
-    // --- DeleteAsync ---
+    // --- DeleteAsync (F-107 soft-cancel) ---
 
     [Fact]
-    public async Task DeleteAsync_ShouldDeleteDraftRound()
+    public async Task DeleteAsync_ShouldSoftCancelRound_AndDetachOrdersWithoutDeleting()
     {
-        var round = await CreateDraftRound("To delete");
+        // F-107 — the round is marked Cancelled (not removed) and its orders are detached
+        // (SamplingRoundId = null) but preserved, instead of being hard-deleted.
+        var round = await CreateDraftRoundWithOrders(orderCount: 2);
+        var orderIds = (await _dbContext.Orders
+            .Where(o => o.SamplingRoundId == round.Id)
+            .Select(o => o.Id)
+            .ToListAsync());
 
-        var result = await _sut.DeleteAsync(round.Id, TenantId);
+        var result = await _sut.DeleteAsync(round.Id, UserId, TenantId);
 
         result.Should().BeTrue();
-        var deleted = await _sut.GetByIdAsync(round.Id, TenantId);
-        deleted.Should().BeNull();
+
+        var cancelled = await _dbContext.SamplingRounds.FindAsync(round.Id);
+        cancelled.Should().NotBeNull();
+        cancelled!.Status.Should().Be(SamplingRoundStatus.Cancelled);
+
+        // Orders are kept and detached — never deleted.
+        var orders = await _dbContext.Orders.Where(o => orderIds.Contains(o.Id)).ToListAsync();
+        orders.Should().HaveCount(2);
+        orders.Should().AllSatisfy(o => o.SamplingRoundId.Should().BeNull());
     }
 
     [Fact]
-    public async Task DeleteAsync_WhenNotDraft_ShouldThrow()
+    public async Task DeleteAsync_WhenRoundLocked_ShouldThrowRoundLocked()
     {
-        var round = await CreateRoundInStatus(SamplingRoundStatus.Assigned);
+        // F-107 — a locked (active préleveur session) round cannot be deleted.
+        var round = await CreateRoundInStatus(SamplingRoundStatus.InProgress);
+        var entity = await _dbContext.SamplingRounds.FindAsync(round.Id);
+        entity!.IsLocked = true;
+        entity.LockedById = PreleveurId;
+        entity.LockedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync();
 
-        await _sut.Awaiting(s => s.DeleteAsync(round.Id, TenantId))
-            .Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Draft*");
+        await _sut.Awaiting(s => s.DeleteAsync(round.Id, UserId, TenantId))
+            .Should().ThrowAsync<RoundLockedException>();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WhenInProgressUnlocked_ShouldThrowConflict()
+    {
+        // F-107 — an InProgress round (even if not locked) is a conflict, not deletable.
+        var round = await CreateRoundInStatus(SamplingRoundStatus.InProgress);
+
+        await _sut.Awaiting(s => s.DeleteAsync(round.Id, UserId, TenantId))
+            .Should().ThrowAsync<ConflictOperationException>();
     }
 
     // --- AssignPreleveurAsync ---

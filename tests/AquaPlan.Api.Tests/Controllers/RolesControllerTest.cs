@@ -1,7 +1,9 @@
+using System.Security.Claims;
 using AquaPlan.Api.Controllers.Api;
 using AquaPlan.Application.DTOs.Roles;
 using AquaPlan.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
@@ -13,9 +15,24 @@ public class RolesControllerTest
     private readonly Mock<ILogger<RolesController>> _loggerMock = new();
     private readonly RolesController _sut;
 
+    private static readonly Guid TenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+
     public RolesControllerTest()
     {
         _sut = new RolesController(_permissionServiceMock.Object, _loggerMock.Object);
+        _sut.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = CreateUser() }
+        };
+    }
+
+    private static ClaimsPrincipal CreateUser()
+    {
+        return new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(ClaimTypes.NameIdentifier, "admin-1"),
+            new Claim("tenant_id", TenantId.ToString()),
+        ], "test"));
     }
 
     [Fact]
@@ -86,7 +103,7 @@ public class RolesControllerTest
     {
         var dto = new RoleAssignDto("Administrator");
         _permissionServiceMock
-            .Setup(x => x.AssignRoleToUserAsync("user-1", "Administrator", It.IsAny<CancellationToken>()))
+            .Setup(x => x.AssignRoleToUserAsync("user-1", "Administrator", TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
         var result = await _sut.AssignRole("user-1", dto, CancellationToken.None);
@@ -99,7 +116,7 @@ public class RolesControllerTest
     {
         var dto = new RoleAssignDto("Administrator");
         _permissionServiceMock
-            .Setup(x => x.AssignRoleToUserAsync("unknown", "Administrator", It.IsAny<CancellationToken>()))
+            .Setup(x => x.AssignRoleToUserAsync("unknown", "Administrator", TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         var result = await _sut.AssignRole("unknown", dto, CancellationToken.None);

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using AquaPlan.Application.DTOs.Orders;
 using AquaPlan.Application.DTOs.Samplings;
 using AquaPlan.Application.Services.Interfaces;
+using AquaPlan.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,6 +13,8 @@ namespace AquaPlan.Api.Controllers.Api;
 [Authorize]
 public class SamplingsController(
     ISamplingService samplingService,
+    IOrderService orderService,
+    IPermissionService permissionService,
     ILogger<SamplingsController> logger) : ControllerBase
 {
     [HttpGet]
@@ -57,11 +60,27 @@ public class SamplingsController(
         return Ok();
     }
 
+    // Sprint Robustesse F-115 — validation is a quality-control step reserved to mandataires and
+    // admins (not the field préleveur), and the caller must have access to the order. Previously
+    // any authenticated tenant user could validate any order's sampling.
     [HttpPost("validate")]
+    [Authorize(Roles = $"{RoleName.Administrator},{RoleName.Requerant},{RoleName.RequerantPreleveur}")]
     public async Task<ActionResult> ValidateSampling(Guid orderId, CancellationToken cancellationToken)
     {
         var userId = GetUserId();
         var tenantId = GetTenantId();
+
+        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
+        if (!hasViewAll)
+        {
+            var canAccess = await orderService.UserCanAccessOrderAsync(userId, orderId, tenantId, cancellationToken);
+            if (!canAccess)
+            {
+                var exists = await orderService.GetOrderByIdAsync(orderId, tenantId, cancellationToken);
+                return exists is null ? NotFound() : Forbid();
+            }
+        }
+
         var result = await samplingService.ValidateAsync(orderId, userId, tenantId, cancellationToken);
         if (!result) return NotFound();
         return Ok();

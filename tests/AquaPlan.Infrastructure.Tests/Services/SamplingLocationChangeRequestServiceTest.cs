@@ -28,7 +28,11 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
             .Options;
 
         _dbContext = new AquaPlanDbContext(options);
-        _sut = new SamplingLocationChangeRequestService(_dbContext, _loggerMock.Object);
+        // F-113 — the service now authorizes via IDelegationService (primary distributor +
+        // UserDistributors + active delegations). A real DelegationService over the same
+        // InMemory context keeps the seed-based authorization tests meaningful.
+        var delegationService = new DelegationService(_dbContext, Mock.Of<ILogger<DelegationService>>());
+        _sut = new SamplingLocationChangeRequestService(_dbContext, delegationService, _loggerMock.Object);
     }
 
     public void Dispose()
@@ -78,9 +82,27 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
 
         var dto = new ChangeRequestCreateDto("Source Neuve", "SN-001", null, DistributorId);
 
+        // F-113/F-203 — the message is now generic (no internal ids leaked to the client).
         await _sut.Invoking(x => x.SubmitCreateRequestAsync(dto, UserId, TenantId))
-            .Should().ThrowAsync<UnauthorizedAccessException>()
-            .WithMessage($"*{UserId}*{DistributorId}*");
+            .Should().ThrowAsync<UnauthorizedAccessException>();
+    }
+
+    [Fact]
+    public async Task SubmitCreateRequestAsync_WhenAccessViaPrimaryDistributor_ShouldSucceed()
+    {
+        // F-113 — a user whose only link to the distributor is the primary AppUser.DistributorId
+        // (no UserDistributors row) must be authorized, which the old UserDistributors-only check
+        // wrongly rejected.
+        await SeedDistributor();
+        var user = await _dbContext.Users.FirstAsync(u => u.Id == UserId);
+        user.DistributorId = DistributorId;
+        await _dbContext.SaveChangesAsync();
+        var dto = new ChangeRequestCreateDto("Source Primaire", "SP-001", null, DistributorId);
+
+        var result = await _sut.SubmitCreateRequestAsync(dto, UserId, TenantId);
+
+        result.Should().NotBeNull();
+        result.Status.Should().Be(ChangeRequestStatus.Pending);
     }
 
     #endregion

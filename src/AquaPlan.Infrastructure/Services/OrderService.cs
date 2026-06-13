@@ -403,6 +403,19 @@ internal class OrderService(
             return null;
         }
 
+        // Sprint Robustesse F-104 — validate the target préleveur: it must be an active user of
+        // the same tenant holding a préleveur-capable role (Préleveur / Requérant-Préleveur).
+        // Without this an arbitrary (or cross-tenant) id could be assigned.
+        if (!string.IsNullOrWhiteSpace(dto.PreleveurId))
+        {
+            var isValidPreleveur = await IsValidPreleveurForTenantAsync(dto.PreleveurId, tenantId, cancellationToken);
+            if (!isValidPreleveur)
+            {
+                throw new InvalidOperationException(
+                    "The assigned préleveur must be an active user of the tenant with a préleveur role.");
+            }
+        }
+
         var previousPreleveurId = order.PreleveurId;
         order.PreleveurId = dto.PreleveurId;
         order.UpdatedAt = DateTime.UtcNow;
@@ -517,6 +530,28 @@ internal class OrderService(
     {
         return await dbContext.UserDistributors
             .AnyAsync(ud => ud.UserId == userId && ud.DistributorId == distributorId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Sprint Robustesse F-104 — true when the given user is active, belongs to the tenant, and
+    /// holds a préleveur-capable role (Préleveur or Requérant-Préleveur).
+    /// </summary>
+    private async Task<bool> IsValidPreleveurForTenantAsync(string preleveurId, Guid tenantId, CancellationToken cancellationToken)
+    {
+        var user = await dbContext.Users
+            .FirstOrDefaultAsync(u => u.Id == preleveurId && u.TenantId == tenantId && u.IsActive, cancellationToken);
+        if (user is null)
+        {
+            return false;
+        }
+
+        var preleveurRoleIds = await dbContext.Roles
+            .Where(r => r.Name == RoleName.Preleveur || r.Name == RoleName.RequerantPreleveur)
+            .Select(r => r.Id)
+            .ToListAsync(cancellationToken);
+
+        return await dbContext.UserRoles
+            .AnyAsync(ur => ur.UserId == preleveurId && preleveurRoleIds.Contains(ur.RoleId), cancellationToken);
     }
 
     public async Task<IList<RequiredContainerDto>?> GetRequiredContainersAsync(

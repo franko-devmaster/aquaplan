@@ -1,6 +1,7 @@
 using AquaPlan.Application.DTOs.Roles;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
+using AquaPlan.Domain.Enums;
 using AquaPlan.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -48,10 +49,18 @@ internal class PermissionService(
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<bool> AssignRoleToUserAsync(string userId, string roleName, CancellationToken cancellationToken = default)
+    public async Task<bool> AssignRoleToUserAsync(string userId, string roleName, Guid callerTenantId, CancellationToken cancellationToken = default)
     {
+        // F-103 — reject unknown role names so a caller cannot create an arbitrary role
+        // membership or probe role existence.
+        if (!RoleName.All.Contains(roleName))
+        {
+            return false;
+        }
+
         var user = await userManager.FindByIdAsync(userId);
-        if (user is null)
+        // F-103 — tenant isolation: the target user must belong to the caller's tenant.
+        if (user is null || user.TenantId != callerTenantId)
         {
             return false;
         }
@@ -69,10 +78,16 @@ internal class PermissionService(
         return result.Succeeded;
     }
 
-    public async Task<bool> RemoveRoleFromUserAsync(string userId, string roleName, CancellationToken cancellationToken = default)
+    public async Task<bool> RemoveRoleFromUserAsync(string userId, string roleName, Guid callerTenantId, CancellationToken cancellationToken = default)
     {
+        if (!RoleName.All.Contains(roleName))
+        {
+            return false;
+        }
+
         var user = await userManager.FindByIdAsync(userId);
-        if (user is null)
+        // F-103 — tenant isolation: the target user must belong to the caller's tenant.
+        if (user is null || user.TenantId != callerTenantId)
         {
             return false;
         }
