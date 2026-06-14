@@ -17,13 +17,10 @@ internal class UserManagementService(
 {
     public async Task<IList<UserListDto>> GetUsersAsync(Guid tenantId, string? role, Guid? distributorId, bool? isActive, CancellationToken cancellationToken)
     {
-        return await BuildUserListQuery(tenantId, distributorId, isActive)
-            // Polish F-209 — filter by role name in SQL instead of loading every user and calling
-            // GetRolesAsync per row (N+1) followed by an in-memory filter.
+        var users = await BuildUserListAsync(tenantId, distributorId, isActive, cancellationToken);
+        return users
             .Where(u => role == null || u.Role == role)
-            .OrderBy(u => u.LastName)
-            .ThenBy(u => u.FirstName)
-            .ToListAsync(cancellationToken);
+            .ToList();
     }
 
     /// <summary>
@@ -33,18 +30,20 @@ internal class UserManagementService(
     /// </summary>
     public async Task<IList<UserListDto>> GetPreleveursAsync(Guid tenantId, Guid? distributorId, CancellationToken cancellationToken)
     {
-        return await BuildUserListQuery(tenantId, distributorId, isActive: true)
+        var users = await BuildUserListAsync(tenantId, distributorId, isActive: true, cancellationToken);
+        return users
             .Where(u => u.Role == RoleName.Preleveur || u.Role == RoleName.RequerantPreleveur)
-            .OrderBy(u => u.LastName)
-            .ThenBy(u => u.FirstName)
-            .ToListAsync(cancellationToken);
+            .ToList();
     }
 
     /// <summary>
-    /// Polish F-209 — single projected query joining each user to (at most) one role via the
-    /// Identity UserRoles/Roles tables; eliminates the per-user GetRolesAsync round-trip.
+    /// AQ-429 — materialise the user rows first (a query Npgsql can translate), then resolve each
+    /// user's role with a single set-based query over the Identity UserRoles/Roles tables and map
+    /// in memory. This replaces the correlated subquery inside the projection (Polish F-209), which
+    /// Npgsql could not translate once combined with the downstream OrderBy/Where and made
+    /// GET /api/users return 500. Role resolution stays a single extra round-trip (no N+1).
     /// </summary>
-    private IQueryable<UserListDto> BuildUserListQuery(Guid tenantId, Guid? distributorId, bool? isActive)
+    private async Task<List<UserListDto>> BuildUserListAsync(Guid tenantId, Guid? distributorId, bool? isActive, CancellationToken cancellationToken)
     {
         var query = dbContext.Users.Where(u => u.TenantId == tenantId);
 
@@ -58,21 +57,48 @@ internal class UserManagementService(
             query = query.Where(u => u.DistributorId == distributorId.Value);
         }
 
-        return query.Select(u => new UserListDto(
-            u.Id,
-            u.UserNumber,
-            u.Email ?? string.Empty,
-            u.FirstName,
-            u.LastName,
-            (from ur in dbContext.UserRoles
-             join r in dbContext.Roles on ur.RoleId equals r.Id
-             where ur.UserId == u.Id
-             select r.Name).FirstOrDefault(),
-            u.DistributorId,
-            u.Distributor != null ? u.Distributor.Name : null,
-            u.IsActive,
-            u.TenantId,
-            u.CreatedAt));
+        var users = await query
+            .OrderBy(u => u.LastName)
+            .ThenBy(u => u.FirstName)
+            .Select(u => new
+            {
+                u.Id,
+                u.UserNumber,
+                u.Email,
+                u.FirstName,
+                u.LastName,
+                u.DistributorId,
+                DistributorName = u.Distributor != null ? u.Distributor.Name : null,
+                u.IsActive,
+                u.TenantId,
+                u.CreatedAt,
+            })
+            .ToListAsync(cancellationToken);
+
+        var userIds = users.Select(u => u.Id).ToList();
+        var roleByUserId = (await (
+                from ur in dbContext.UserRoles
+                join r in dbContext.Roles on ur.RoleId equals r.Id
+                where userIds.Contains(ur.UserId)
+                select new { ur.UserId, r.Name })
+                .ToListAsync(cancellationToken))
+            .GroupBy(x => x.UserId)
+            .ToDictionary(g => g.Key, g => g.First().Name);
+
+        return users
+            .Select(u => new UserListDto(
+                u.Id,
+                u.UserNumber,
+                u.Email ?? string.Empty,
+                u.FirstName,
+                u.LastName,
+                roleByUserId.GetValueOrDefault(u.Id),
+                u.DistributorId,
+                u.DistributorName,
+                u.IsActive,
+                u.TenantId,
+                u.CreatedAt))
+            .ToList();
     }
 
     public async Task<UserDetailDto?> GetUserByIdAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default)

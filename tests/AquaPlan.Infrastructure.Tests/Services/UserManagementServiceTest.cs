@@ -174,6 +174,57 @@ public class UserManagementServiceTest : IDisposable
             .WithMessage("*assign role*");
     }
 
+    // --- AQ-429 — GetUsersAsync must resolve the role via the Identity UserRoles/Roles tables
+    // (no correlated subquery in the projection), stay tenant-scoped, and order by LastName
+    // then FirstName. ---
+
+    private void SeedUserWithRole(string id, string firstName, string lastName, string roleName, Guid tenantId)
+    {
+        var roleId = $"role-{roleName}";
+        if (!_dbContext.Roles.Any(r => r.Id == roleId))
+        {
+            _dbContext.Roles.Add(new ApplicationRole { Id = roleId, Name = roleName });
+        }
+        _dbContext.Users.Add(new AppUser
+        {
+            Id = id,
+            UserName = $"{id}@test.ch",
+            Email = $"{id}@test.ch",
+            FirstName = firstName,
+            LastName = lastName,
+            TenantId = tenantId,
+            IsActive = true,
+        });
+        _dbContext.UserRoles.Add(new IdentityUserRole<string> { UserId = id, RoleId = roleId });
+        _dbContext.SaveChanges();
+    }
+
+    [Fact]
+    public async Task GetUsersAsync_ShouldReturnTenantUsersWithRoleOrderedByLastName()
+    {
+        SeedUserWithRole("u-zulu", "Anna", "Zulu", RoleName.Preleveur, TenantId);
+        SeedUserWithRole("u-alpha", "Bob", "Alpha", RoleName.Administrator, TenantId);
+        SeedUserWithRole("u-foreign", "Carl", "Other", RoleName.Requerant, OtherTenantId);
+
+        var result = await _sut.GetUsersAsync(TenantId, role: null, distributorId: null, isActive: null, CancellationToken.None);
+
+        result.Select(u => u.LastName).Should().Equal("Alpha", "Zulu");
+        result.Single(u => u.LastName == "Alpha").Role.Should().Be(RoleName.Administrator);
+        result.Single(u => u.LastName == "Zulu").Role.Should().Be(RoleName.Preleveur);
+    }
+
+    [Fact]
+    public async Task GetUsersAsync_WhenFilteredByRole_ShouldReturnOnlyMatchingUsers()
+    {
+        SeedUserWithRole("u-a", "A", "AA", RoleName.Administrator, TenantId);
+        SeedUserWithRole("u-p", "P", "PP", RoleName.Preleveur, TenantId);
+
+        var result = await _sut.GetUsersAsync(TenantId, role: RoleName.Preleveur, distributorId: null, isActive: null, CancellationToken.None);
+
+        result.Should().ContainSingle();
+        result[0].Role.Should().Be(RoleName.Preleveur);
+    }
+
     private async Task<string> SeedExistingUser()
     {
         var userId = Guid.NewGuid().ToString();
