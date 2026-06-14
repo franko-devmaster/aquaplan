@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace AquaPlan.Application.DTOs.Delegations;
 
 public record DistributorDelegationDto(
@@ -11,8 +13,10 @@ public record DistributorDelegationDto(
     bool IsActive,
     DateTime CreatedAt);
 
+// Polish F-220 — the two distributor IDs and the start date are mandatory. Cross-field rules
+// (distinct distributors, ValidFrom <= ValidTo) are enforced in DelegationService (F-219).
 public record DistributorDelegationCreateDto(
-    Guid DelegatingDistributorId,
-    Guid DelegatedToDistributorId,
-    DateTime ValidFrom,
+    [property: Required] Guid DelegatingDistributorId,
+    [property: Required] Guid DelegatedToDistributorId,
+    [property: Required] DateTime ValidFrom,
     DateTime? ValidTo);

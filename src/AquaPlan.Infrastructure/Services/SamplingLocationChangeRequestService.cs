@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.ChangeRequests;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Domain.Enums;
@@ -145,6 +146,9 @@ internal class SamplingLocationChangeRequestService(
         switch (request.RequestType)
         {
             case ChangeRequestType.Create:
+                // Polish F-218 — enforce LocationCode uniqueness on the approval path too (the
+                // direct creation path checks it; bypassing it here would create duplicates).
+                await EnsureLocationCodeUniqueAsync(request.ProposedLocationCode!, request.DistributorId, null, tenantId, cancellationToken);
                 var newLocation = new SamplingLocation
                 {
                     Id = Guid.NewGuid(),
@@ -153,6 +157,10 @@ internal class SamplingLocationChangeRequestService(
                     Description = request.ProposedDescription,
                     DistributorId = request.DistributorId,
                     IsActive = true,
+                    // Polish F-218 — the admin review IS the validation, so the approved LDP must be
+                    // marked validated; otherwise it was IsActive=true but IsValidated=false (entity
+                    // default) and never appeared in offline snapshots (filtered on IsValidated).
+                    IsValidated = true,
                 };
                 dbContext.SamplingLocations.Add(newLocation);
                 request.SamplingLocationId = newLocation.Id;
@@ -163,6 +171,8 @@ internal class SamplingLocationChangeRequestService(
                     .FirstOrDefaultAsync(sl => sl.Id == request.SamplingLocationId, cancellationToken);
                 if (locationToUpdate is not null)
                 {
+                    // Polish F-218 — uniqueness check excludes the location being updated.
+                    await EnsureLocationCodeUniqueAsync(request.ProposedLocationCode!, locationToUpdate.DistributorId, locationToUpdate.Id, tenantId, cancellationToken);
                     locationToUpdate.Name = request.ProposedName!;
                     locationToUpdate.LocationCode = request.ProposedLocationCode!;
                     locationToUpdate.Description = request.ProposedDescription;
@@ -207,6 +217,29 @@ internal class SamplingLocationChangeRequestService(
         logger.LogInformation("Change request {Id} rejected by {ReviewerId}", id, reviewerId);
 
         return await GetByIdAsync(id, tenantId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Polish F-218 — mirrors SamplingLocationService.IsLocationCodeUniqueAsync; throws a
+    /// <see cref="BusinessRuleException"/> when the code already exists for the distributor in the
+    /// tenant (optionally excluding the location being updated).
+    /// </summary>
+    private async Task EnsureLocationCodeUniqueAsync(string locationCode, Guid distributorId, Guid? excludeId, Guid tenantId, CancellationToken cancellationToken)
+    {
+        var query = dbContext.SamplingLocations
+            .Where(sl => sl.LocationCode == locationCode
+                && sl.DistributorId == distributorId
+                && sl.Distributor!.TenantId == tenantId);
+
+        if (excludeId.HasValue)
+        {
+            query = query.Where(sl => sl.Id != excludeId.Value);
+        }
+
+        if (await query.AnyAsync(cancellationToken))
+        {
+            throw new BusinessRuleException($"A sampling location with code '{locationCode}' already exists for this distributor.");
+        }
     }
 
     private IQueryable<SamplingLocationChangeRequest> QueryRequests()

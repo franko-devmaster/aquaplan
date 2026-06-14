@@ -148,14 +148,31 @@ internal class UserManagementService(
             CreatedBy = createdBy,
         };
 
-        // Generate next UserNumber for this tenant
-        var maxNumber = await dbContext.Users
-            .Where(u => u.TenantId == tenantId)
-            .Select(u => (int?)u.UserNumber)
-            .MaxAsync(cancellationToken) ?? 100000;
-        user.UserNumber = maxNumber + 1;
+        // Polish F-217 — UserNumber is "max + 1" per tenant, a classic race. There is a unique
+        // index on (UserNumber, TenantId), so two concurrent creations collide on the second insert.
+        // Retry with a freshly computed number on a unique-constraint violation instead of bubbling
+        // a raw 500.
+        const int maxAttempts = 5;
+        IdentityResult result = IdentityResult.Success;
+        for (var attempt = 1; ; attempt++)
+        {
+            var maxNumber = await dbContext.Users
+                .Where(u => u.TenantId == tenantId)
+                .Select(u => (int?)u.UserNumber)
+                .MaxAsync(cancellationToken) ?? 100000;
+            user.UserNumber = maxNumber + 1;
 
-        var result = await userManager.CreateAsync(user, dto.Password);
+            try
+            {
+                result = await userManager.CreateAsync(user, dto.Password);
+                break;
+            }
+            catch (DbUpdateException) when (attempt < maxAttempts)
+            {
+                logger.LogWarning("UserNumber {UserNumber} collided on attempt {Attempt}; retrying", user.UserNumber, attempt);
+            }
+        }
+
         if (!result.Succeeded)
         {
             var errors = string.Join(", ", result.Errors.Select(e => e.Description));
@@ -164,7 +181,8 @@ internal class UserManagementService(
 
         if (!string.IsNullOrEmpty(dto.Role))
         {
-            await userManager.AddToRoleAsync(user, dto.Role);
+            // Polish F-217 — check the role-assignment result instead of ignoring it.
+            EnsureIdentitySucceeded(await userManager.AddToRoleAsync(user, dto.Role), "assign role");
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -189,22 +207,34 @@ internal class UserManagementService(
         user.UpdatedAt = DateTime.UtcNow;
         user.UpdatedBy = updatedBy;
 
+        // Polish F-217 — validate the requested role up front so we don't silently strip every
+        // role (RemoveFromRolesAsync) and then fail to add an unknown one, leaving a roleless user.
+        if (!string.IsNullOrEmpty(dto.Role) && !RoleName.All.Contains(dto.Role))
+        {
+            throw new BusinessRuleException($"Unknown role: {dto.Role}");
+        }
+
         // Update email if changed
         if (!string.IsNullOrEmpty(dto.Email) && !string.Equals(user.Email, dto.Email, StringComparison.OrdinalIgnoreCase))
         {
-            await userManager.SetEmailAsync(user, dto.Email);
-            await userManager.SetUserNameAsync(user, dto.Email);
+            // Polish F-217 — Identity results must be checked; a failed email/username change
+            // (e.g. duplicate) was previously swallowed.
+            var emailResult = await userManager.SetEmailAsync(user, dto.Email);
+            EnsureIdentitySucceeded(emailResult, "update email");
+            var userNameResult = await userManager.SetUserNameAsync(user, dto.Email);
+            EnsureIdentitySucceeded(userNameResult, "update username");
         }
 
         // Update role (single role)
         var currentRoles = await userManager.GetRolesAsync(user);
         if (currentRoles.Count > 0)
         {
-            await userManager.RemoveFromRolesAsync(user, currentRoles);
+            // Polish F-217 — check the Identity result instead of ignoring it.
+            EnsureIdentitySucceeded(await userManager.RemoveFromRolesAsync(user, currentRoles), "remove roles");
         }
         if (!string.IsNullOrEmpty(dto.Role))
         {
-            await userManager.AddToRoleAsync(user, dto.Role);
+            EnsureIdentitySucceeded(await userManager.AddToRoleAsync(user, dto.Role), "assign role");
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -249,5 +279,19 @@ internal class UserManagementService(
 
         logger.LogInformation("User {UserId} activated by {UpdatedBy}", userId, updatedBy);
         return true;
+    }
+
+    /// <summary>
+    /// Polish F-217 — throws a <see cref="BusinessRuleException"/> when an ASP.NET Identity
+    /// operation fails, so callers can no longer silently ignore the result and leave the user in
+    /// an inconsistent state (e.g. roles stripped but the new role never assigned).
+    /// </summary>
+    private static void EnsureIdentitySucceeded(IdentityResult result, string operation)
+    {
+        if (!result.Succeeded)
+        {
+            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+            throw new BusinessRuleException($"Failed to {operation}: {errors}");
+        }
     }
 }

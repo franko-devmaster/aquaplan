@@ -55,6 +55,15 @@ public class UserManagementServiceTest : IDisposable
             .Setup(m => m.AddToRoleAsync(It.IsAny<AppUser>(), It.IsAny<string>()))
             .ReturnsAsync(IdentityResult.Success);
         _userManagerMock
+            .Setup(m => m.RemoveFromRolesAsync(It.IsAny<AppUser>(), It.IsAny<IEnumerable<string>>()))
+            .ReturnsAsync(IdentityResult.Success);
+        _userManagerMock
+            .Setup(m => m.SetEmailAsync(It.IsAny<AppUser>(), It.IsAny<string>()))
+            .ReturnsAsync(IdentityResult.Success);
+        _userManagerMock
+            .Setup(m => m.SetUserNameAsync(It.IsAny<AppUser>(), It.IsAny<string>()))
+            .ReturnsAsync(IdentityResult.Success);
+        _userManagerMock
             .Setup(m => m.GetRolesAsync(It.IsAny<AppUser>()))
             .ReturnsAsync(new List<string> { RoleName.Requerant });
 
@@ -131,5 +140,54 @@ public class UserManagementServiceTest : IDisposable
         _userManagerMock.Verify(
             m => m.AddToRoleAsync(It.Is<AppUser>(u => u.Email == "new@user.ch"), role),
             Times.Once);
+    }
+
+    // --- Polish F-217 — UpdateUserAsync role validation + Identity result checking ---
+
+    [Fact]
+    public async Task UpdateUserAsync_WhenRoleIsUnknown_ShouldThrowAndNotStripRoles()
+    {
+        var userId = await SeedExistingUser();
+        var dto = new UserUpdateDto("u@test.ch", "First", "Last", "SuperAdmin");
+
+        await _sut.Awaiting(s => s.UpdateUserAsync(userId, dto, CreatedBy, TenantId))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Unknown role*");
+
+        // The unknown role is rejected BEFORE removing the existing roles.
+        _userManagerMock.Verify(
+            m => m.RemoveFromRolesAsync(It.IsAny<AppUser>(), It.IsAny<IEnumerable<string>>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateUserAsync_WhenAddRoleFails_ShouldThrow()
+    {
+        var userId = await SeedExistingUser();
+        _userManagerMock
+            .Setup(m => m.AddToRoleAsync(It.IsAny<AppUser>(), RoleName.Administrator))
+            .ReturnsAsync(IdentityResult.Failed(new IdentityError { Description = "boom" }));
+        var dto = new UserUpdateDto(null, "First", "Last", RoleName.Administrator);
+
+        await _sut.Awaiting(s => s.UpdateUserAsync(userId, dto, CreatedBy, TenantId))
+            .Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*assign role*");
+    }
+
+    private async Task<string> SeedExistingUser()
+    {
+        var userId = Guid.NewGuid().ToString();
+        _dbContext.Users.Add(new AppUser
+        {
+            Id = userId,
+            UserName = "existing@test.ch",
+            Email = "existing@test.ch",
+            FirstName = "Old",
+            LastName = "Name",
+            TenantId = TenantId,
+            IsActive = true,
+        });
+        await _dbContext.SaveChangesAsync();
+        return userId;
     }
 }

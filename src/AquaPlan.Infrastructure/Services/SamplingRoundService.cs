@@ -671,19 +671,17 @@ internal class SamplingRoundService(
         // be left without a LimsOrderId, so the worker never pulled their results).
         await transmissionService.TransmitCompletedOrdersAsync(completedOrders, userId, tenantId, cancellationToken);
 
-        // If all orders are now transmitted or done, mark round as completed
+        // If all orders are now transmitted or done, mark round as completed.
+        // Polish F-215 — use the shared MarkCompleted (status + timestamps + lock release).
         if (round.Orders.All(o => o.Status == OrderStatus.Transmitted || o.Status == OrderStatus.Done || o.Status == OrderStatus.Cancelled))
         {
-            round.Status = SamplingRoundStatus.Completed;
-            round.CompletedAt = DateTime.UtcNow;
-            // AQ-370 — completing the round releases the préleveur's lock.
-            round.IsLocked = false;
-            round.LockedById = null;
-            round.LockedAt = null;
+            round.MarkCompleted(userId);
         }
-
-        round.UpdatedAt = DateTime.UtcNow;
-        round.UpdatedBy = userId;
+        else
+        {
+            round.UpdatedAt = DateTime.UtcNow;
+            round.UpdatedBy = userId;
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return MapToDetailDto(round);

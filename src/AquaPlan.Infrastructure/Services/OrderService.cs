@@ -960,10 +960,8 @@ internal class OrderService(
             {
                 if (round.Orders.All(o => o.Status is OrderStatus.Transmitted or OrderStatus.Done or OrderStatus.Cancelled))
                 {
-                    round.Status = SamplingRoundStatus.Completed;
-                    round.CompletedAt = now;
-                    round.UpdatedAt = now;
-                    round.UpdatedBy = userId;
+                    // Polish F-215 — complete AND release the préleveur lock (single source of truth).
+                    round.MarkCompleted(userId);
                     completed = true;
                 }
             }

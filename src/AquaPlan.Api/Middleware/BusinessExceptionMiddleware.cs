@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AquaPlan.Application.Exceptions;
+using Microsoft.EntityFrameworkCore;
 
 namespace AquaPlan.Api.Middleware;
 
@@ -40,6 +41,16 @@ public class BusinessExceptionMiddleware(RequestDelegate next, ILogger<BusinessE
             context.Response.StatusCode = StatusCodes.Status409Conflict;
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message }));
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // Polish F-216 — a concurrent write lost the optimistic-concurrency check (e.g. an admin
+            // force-unlock racing a préleveur start on the same round). Surface a 409 so the client
+            // can reload and retry, rather than a silent last-write-wins or an opaque 500.
+            logger.LogWarning(ex, "Concurrency conflict on update");
+            context.Response.StatusCode = StatusCodes.Status409Conflict;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = "concurrency.conflict" }));
         }
         catch (BusinessRuleException ex)
         {

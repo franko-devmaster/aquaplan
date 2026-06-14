@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Delegations;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Infrastructure.Data;
 using AquaPlan.Infrastructure.Services;
@@ -79,6 +80,54 @@ public class DelegationServiceTest : IDisposable
         result.DelegatingDistributorId.Should().Be(DistributorAId);
         result.DelegatedToDistributorId.Should().Be(DistributorBId);
         result.IsActive.Should().BeTrue();
+    }
+
+    // --- Polish F-219 — delegation creation validation ---
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenSelfDelegation()
+    {
+        var dto = new DistributorDelegationCreateDto(
+            DistributorAId, DistributorAId, DateTime.UtcNow, null);
+
+        await _sut.Awaiting(s => s.CreateAsync(dto, TenantId))
+            .Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*itself*");
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenValidToBeforeValidFrom()
+    {
+        var dto = new DistributorDelegationCreateDto(
+            DistributorAId, DistributorBId,
+            DateTime.UtcNow, DateTime.UtcNow.AddDays(-5));
+
+        await _sut.Awaiting(s => s.CreateAsync(dto, TenantId))
+            .Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*end date*");
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenDistributorNotInTenant()
+    {
+        var dto = new DistributorDelegationCreateDto(
+            DistributorAId, Guid.NewGuid(), DateTime.UtcNow, null);
+
+        await _sut.Awaiting(s => s.CreateAsync(dto, TenantId))
+            .Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*tenant*");
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenActiveDuplicateExists()
+    {
+        await SeedDelegation(DistributorAId, DistributorBId);
+        var dto = new DistributorDelegationCreateDto(
+            DistributorAId, DistributorBId, DateTime.UtcNow, null);
+
+        await _sut.Awaiting(s => s.CreateAsync(dto, TenantId))
+            .Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*already exists*");
     }
 
     [Fact]

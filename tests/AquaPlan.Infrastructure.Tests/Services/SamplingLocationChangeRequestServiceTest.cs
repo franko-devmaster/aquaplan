@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.ChangeRequests;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Domain.Enums;
 using AquaPlan.Infrastructure.Data;
@@ -323,6 +324,33 @@ public class SamplingLocationChangeRequestServiceTest : IDisposable
         location.Description.Should().Be("Description source");
         location.DistributorId.Should().Be(DistributorId);
         location.IsActive.Should().BeTrue();
+        // Polish F-218 — admin approval IS the validation; the LDP must be IsValidated so it shows
+        // up in offline snapshots (filtered on IsValidated).
+        location.IsValidated.Should().BeTrue();
+    }
+
+    // Polish F-218 — the approval path must enforce LocationCode uniqueness, like direct creation.
+    [Fact]
+    public async Task ApproveAsync_WhenCreateRequestWithDuplicateCode_ShouldThrow()
+    {
+        await SeedDistributorWithUserAccess();
+        _dbContext.SamplingLocations.Add(new SamplingLocation
+        {
+            Id = Guid.NewGuid(),
+            Name = "Existing",
+            LocationCode = "DUP-001",
+            DistributorId = DistributorId,
+            IsActive = true,
+            IsValidated = true,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var dto = new ChangeRequestCreateDto("New One", "DUP-001", "desc", DistributorId);
+        var submitted = await _sut.SubmitCreateRequestAsync(dto, UserId, TenantId);
+
+        await _sut.Awaiting(s => s.ApproveAsync(submitted.Id, "ok", ReviewerId, TenantId))
+            .Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*already exists*");
     }
 
     [Fact]

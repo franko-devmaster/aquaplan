@@ -30,4 +30,24 @@ public class SamplingRound
     public DateTime? LockedAt { get; set; }
 
     public ICollection<Order> Orders { get; set; } = new List<Order>();
+
+    /// <summary>
+    /// Polish F-215 — single place that completes a round: sets the Completed status and timestamps
+    /// AND releases the préleveur lock. Previously only the round transmit path released the lock,
+    /// so the single-transition and bulk auto-complete paths left a finished round IsLocked = true,
+    /// which then blocked admin writes until a manual force-unlock.
+    /// </summary>
+    public void MarkCompleted(string? completedBy)
+    {
+        var now = DateTime.UtcNow;
+        Status = SamplingRoundStatus.Completed;
+        CompletedAt = now;
+        UpdatedAt = now;
+        UpdatedBy = completedBy;
+
+        // Releasing the lock on completion (AQ-370).
+        IsLocked = false;
+        LockedById = null;
+        LockedAt = null;
+    }
 }

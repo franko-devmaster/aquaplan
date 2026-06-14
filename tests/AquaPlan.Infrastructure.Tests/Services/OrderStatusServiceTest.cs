@@ -283,6 +283,47 @@ public class OrderStatusServiceTest : IDisposable
             Times.Once);
     }
 
+    // Polish F-215 — when the single-order transition completes the parent round, the préleveur
+    // lock must be released too (previously only the round transmit path released it, so a finished
+    // round stayed IsLocked and blocked admin writes).
+    [Fact]
+    public async Task TransitionOrderAsync_WhenRoundAutoCompletes_ShouldReleaseLock()
+    {
+        var round = new SamplingRound
+        {
+            Id = Guid.NewGuid(),
+            Name = "Round to complete",
+            DistributorId = Guid.NewGuid(),
+            Status = SamplingRoundStatus.InProgress,
+            TenantId = TenantId,
+            CreatedById = UserId,
+            IsLocked = true,
+            LockedById = UserId,
+            LockedAt = DateTime.UtcNow,
+        };
+        _dbContext.SamplingRounds.Add(round);
+        _dbContext.Orders.Add(new Order
+        {
+            Id = OrderId,
+            OrderNumber = "ORD-RND-1",
+            Status = OrderStatus.Transmitted,
+            CreatedById = UserId,
+            DistributorId = round.DistributorId,
+            TenantId = TenantId,
+            SamplingRoundId = round.Id,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        await _sut.TransitionOrderAsync(OrderId, OrderStatus.Done, UserId, TenantId);
+
+        var reloaded = await _dbContext.SamplingRounds.SingleAsync(r => r.Id == round.Id);
+        reloaded.Status.Should().Be(SamplingRoundStatus.Completed);
+        reloaded.IsLocked.Should().BeFalse();
+        reloaded.LockedById.Should().BeNull();
+        reloaded.LockedAt.Should().BeNull();
+        reloaded.CompletedAt.Should().NotBeNull();
+    }
+
     private async Task SeedOrder(OrderStatus status)
     {
         _dbContext.Orders.Add(new Order
