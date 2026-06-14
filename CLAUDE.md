@@ -212,7 +212,7 @@ Skills are reusable workflows in `/.claude/skills/`.
 
 ### After implementation (Definition of Done — code)
 2. **Commit with AQ-xxx keys**: Every commit message must reference Jira ticket keys
-3. **Push to Bitbucket immediately**: `git push origin Main` — code not on Bitbucket is invisible
+3. **Push to GitHub immediately**: `git push origin Main` — `origin` is GitHub (franko-devmaster/aquaplan); Render auto-builds from it. (Bitbucket is no longer used.)
 4. **Jira tickets → "Terminé"**: Stories transitioned after code is pushed
 5. **Verify Jira Development tab**: Commits must appear linked to stories
 
