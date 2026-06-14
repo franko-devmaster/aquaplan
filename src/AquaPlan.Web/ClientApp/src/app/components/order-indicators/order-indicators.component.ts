@@ -37,7 +37,7 @@ export interface OrderIndicatorsInput {
       <span class="indicators">
         @if (data().hasMandatorNote) {
           <mat-icon class="indicator mandator"
-                    aria-label="mandator-note"
+                    [attr.aria-label]="'a11y.mandatorNote' | translate"
                     [matTooltip]="mandatorTooltip()"
                     matTooltipShowDelay="200">
             sticky_note_2
@@ -45,7 +45,7 @@ export interface OrderIndicatorsInput {
         }
         @if (data().hasPreleveurNote) {
           <mat-icon class="indicator preleveur"
-                    aria-label="preleveur-note"
+                    [attr.aria-label]="'a11y.preleveurNote' | translate"
                     [matTooltip]="preleveurTooltip()"
                     matTooltipShowDelay="200">
             comment
@@ -53,7 +53,7 @@ export interface OrderIndicatorsInput {
         }
         @if (data().hasReplacedLocation) {
           <mat-icon class="indicator replaced"
-                    aria-label="location-replaced"
+                    [attr.aria-label]="'a11y.locationReplaced' | translate"
                     [matTooltip]="replacedTooltip()"
                     matTooltipShowDelay="200">
             swap_horiz

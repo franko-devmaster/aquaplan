@@ -5,20 +5,18 @@ import { catchError, throwError } from 'rxjs';
 
 /**
  * AQ-409 — offline-aware auth interceptor.
- * The token is read from sessionStorage for speed (AuthService mirrors it there on
- * every login / IDB restore). On a 401, delegate to AuthService.handleAuthFailure()
+ * F-036 — the token is read through AuthService.getToken() (signal-backed single
+ * source of truth, mirrored to sessionStorage / IndexedDB) instead of reading the
+ * raw sessionStorage key directly, so the interceptor can never diverge from the
+ * service's storage strategy. On a 401, delegate to AuthService.handleAuthFailure()
  * which decides to logout only when the device is online — keeping field sessions
  * alive when connectivity drops.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const injector = inject(Injector);
+  const authService = injector.get(AuthService);
 
-  let token: string | null = null;
-  try {
-    token = sessionStorage.getItem('access_token');
-  } catch {
-    // private mode — no header, request will 401 if needed.
-  }
+  const token = authService.getToken();
   if (token) {
     req = req.clone({
       setHeaders: {
@@ -30,7 +28,6 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   return next(req).pipe(
     catchError((error) => {
       if (error.status === 401 && !req.url.includes('/api/auth/login')) {
-        const authService = injector.get(AuthService);
         void authService.handleAuthFailure();
       }
       return throwError(() => error);

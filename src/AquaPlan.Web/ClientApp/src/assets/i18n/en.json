@@ -39,7 +39,8 @@
     "accountDisabled": "Account disabled. Contact your administrator.",
     "signInHeading": "Sign in",
     "or": "or",
-    "contactAdmin": "Need access? Contact your administrator."
+    "contactAdmin": "Need access? Contact your administrator.",
+    "invalidEmail": "Invalid email address"
   },
   "common": {
     "save": "Save",
@@ -83,12 +84,6 @@
       "title": "Notifications",
       "empty": "No notifications",
       "markAllRead": "Mark all as read"
-    },
-    "type": {
-      "OrderAssigned": "Order assigned",
-      "RoundAssigned": "Round assigned",
-      "ResultsReceived": "Results received",
-      "NonConformResult": "Non-conform result"
     }
   },
   "sync": {
@@ -223,7 +218,8 @@
         "range": "Reference range",
         "conformity": "Conformity"
       }
-    }
+    },
+    "loadError": "Order not found or failed to load."
   },
   "delegations": {
     "title": "Delegations",
@@ -483,7 +479,8 @@
       "edit": "Edit",
       "delete": "Delete",
       "removeFromRound": "Remove from round"
-    }
+    },
+    "loadError": "Round not found or failed to load."
   },
   "orderIndicators": {
     "mandatorNote": "Requester note",
@@ -613,5 +610,20 @@
       "light_rain": "Light rain",
       "heavy_rain": "Heavy rain"
     }
+  },
+  "errors": {
+    "generic": "An error occurred.",
+    "saveFailed": "An error occurred while saving."
+  },
+  "a11y": {
+    "mainNavigation": "Main navigation",
+    "toggleNavigation": "Toggle navigation menu",
+    "home": "AquaPlan home",
+    "changeLanguage": "Change language",
+    "userMenu": "User menu",
+    "close": "Close",
+    "mandatorNote": "Mandator note",
+    "preleveurNote": "Sampler note",
+    "locationReplaced": "Sampling location replaced"
   }
 }

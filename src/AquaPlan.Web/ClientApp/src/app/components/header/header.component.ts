@@ -6,7 +6,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterModule } from '@angular/router';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { AuthService } from '../../services/auth.service';
 import { LocaleService } from '../../services/locale.service';
 import { SyncService } from '../../services/sync.service';
@@ -27,11 +27,11 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
   template: `
     <header class="ap-header" role="banner">
       <button mat-icon-button class="ap-header__menu" (click)="menuToggle.emit()"
-              aria-label="Toggle navigation menu">
-        <mat-icon>menu</mat-icon>
+              [attr.aria-label]="'a11y.toggleNavigation' | translate">
+        <mat-icon aria-hidden="true">menu</mat-icon>
       </button>
 
-      <a class="ap-header__brand" routerLink="/" aria-label="AquaPlan home">
+      <a class="ap-header__brand" routerLink="/" [attr.aria-label]="'a11y.home' | translate">
         <img src="assets/brand/mark.svg" alt="" class="ap-header__mark" width="24" height="24"/>
         <span class="ap-header__title">{{ 'app.title' | translate }}</span>
       </a>
@@ -54,7 +54,7 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
         <span class="sync-chip sync-chip--offline"
               [attr.aria-label]="'header.offline' | translate"
               [matTooltip]="'header.offlineTooltip' | translate">
-          <mat-icon>cloud_off</mat-icon>
+          <mat-icon aria-hidden="true">cloud_off</mat-icon>
           @if (!isMobile()) {
             <span class="sync-chip__label">{{ 'header.offline' | translate }}</span>
           }
@@ -64,7 +64,7 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
         <span class="sync-chip sync-chip--pending"
               [attr.aria-label]="pendingAriaLabel()"
               [matTooltip]="'header.pendingActionsTooltip' | translate:{ count: syncService.pendingCount() }">
-          <mat-icon>sync_problem</mat-icon>
+          <mat-icon aria-hidden="true">sync_problem</mat-icon>
           @if (!isMobile()) {
             <span class="sync-chip__label">
               {{ syncService.pendingCount() }} {{ 'header.pendingActions' | translate }}
@@ -76,7 +76,7 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
       }
 
       @if (!isMobile()) {
-        <button mat-button [matMenuTriggerFor]="langMenu" aria-label="Change language"
+        <button mat-button [matMenuTriggerFor]="langMenu" [attr.aria-label]="'a11y.changeLanguage' | translate"
                 class="ap-header__lang">
           {{ localeService.currentLang().toUpperCase() }}
         </button>
@@ -92,9 +92,9 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
       @if (authService.isAuthenticated()) {
         <!-- AQ-43 — Notifications bell with unread badge + dropdown -->
         <app-notifications-bell />
-        <button mat-button [matMenuTriggerFor]="userMenu" class="user-chip" aria-label="User menu">
+        <button mat-button [matMenuTriggerFor]="userMenu" class="user-chip" [attr.aria-label]="'a11y.userMenu' | translate">
           <span class="user-name">{{ userDisplayName() }}</span>
-          <mat-icon>arrow_drop_down</mat-icon>
+          <mat-icon aria-hidden="true">arrow_drop_down</mat-icon>
         </button>
         <mat-menu #userMenu="matMenu">
           @if (isMobile()) {
@@ -110,12 +110,12 @@ import { NotificationsBellComponent } from '../notifications-bell/notifications-
             <mat-divider></mat-divider>
           }
           <button mat-menu-item (click)="authService.logout()">
-            <mat-icon>logout</mat-icon>
+            <mat-icon aria-hidden="true">logout</mat-icon>
             {{ 'auth.logout' | translate }}
           </button>
         </mat-menu>
       } @else if (isMobile()) {
-        <button mat-button [matMenuTriggerFor]="langMenu" aria-label="Change language"
+        <button mat-button [matMenuTriggerFor]="langMenu" [attr.aria-label]="'a11y.changeLanguage' | translate"
                 class="ap-header__lang">
           {{ localeService.currentLang().toUpperCase() }}
         </button>
@@ -247,6 +247,7 @@ export class HeaderComponent {
   readonly authService = inject(AuthService);
   readonly localeService = inject(LocaleService);
   readonly syncService = inject(SyncService);
+  private readonly translate = inject(TranslateService);
   readonly isMobile = input(false);
   readonly menuToggle = output();
 
@@ -257,8 +258,9 @@ export class HeaderComponent {
     return `${initial}. ${user.lastName}`;
   });
 
+  // F-024 — externalised; was a hard-coded French string.
   readonly pendingAriaLabel = computed(() => {
     const count = this.syncService.pendingCount();
-    return `${count} actions en attente`;
+    return this.translate.instant('header.pendingActionsTooltip', { count });
   });
 }

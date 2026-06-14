@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -27,6 +27,8 @@ import {
 } from '../../models/sampling-round.model';
 import { SamplingRoundCreateDialogComponent } from './sampling-round-create-dialog.component';
 import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
+import { roundStatusVariant } from '../../utils/status-variant';
+import { debouncedSearch } from '../../utils/debounced-search';
 
 @Component({
   selector: 'app-sampling-round-list',
@@ -166,9 +168,15 @@ export class SamplingRoundListComponent implements OnInit {
 
   readonly canCreate = this.authService.canCreateOrders;
 
+  private readonly destroyRef = inject(DestroyRef);
+
   readonly distributors = signal<DistributorListDto[]>([]);
   readonly searchValue = signal('');
-  private searchTimeout: ReturnType<typeof setTimeout> | null = null;
+  // F-015 — debounced search cleaned up on destroy.
+  private readonly debouncedSearch = debouncedSearch<string>(
+    value => this.store.setSearch(value),
+    this.destroyRef
+  );
 
   readonly displayedColumns = ['name', 'deadline', 'status', 'sampler', 'distributor', 'orders', 'progress'];
 
@@ -220,24 +228,12 @@ export class SamplingRoundListComponent implements OnInit {
   }
 
   getStatusVariant(status: SamplingRoundStatus): StatusChipVariant {
-    const map: Record<string, StatusChipVariant> = {
-      'Draft': 'draft',
-      'Assigned': 'info',
-      'InProgress': 'info',
-      'Completed': 'success',
-      'Cancelled': 'danger',
-    };
-    return map[status] ?? 'draft';
+    return roundStatusVariant(status);
   }
 
   onSearchChange(value: string): void {
     this.searchValue.set(value);
-    if (this.searchTimeout) {
-      clearTimeout(this.searchTimeout);
-    }
-    this.searchTimeout = setTimeout(() => {
-      this.store.setSearch(value);
-    }, 300);
+    this.debouncedSearch(value);
   }
 
   onSortChange(sort: Sort): void {

@@ -39,7 +39,8 @@
     "accountDisabled": "Compte désactivé. Contactez votre administrateur.",
     "signInHeading": "Connexion",
     "or": "ou",
-    "contactAdmin": "Besoin d'un accès ? Contactez votre administrateur."
+    "contactAdmin": "Besoin d'un accès ? Contactez votre administrateur.",
+    "invalidEmail": "Adresse e-mail invalide"
   },
   "common": {
     "save": "Enregistrer",
@@ -83,12 +84,6 @@
       "title": "Notifications",
       "empty": "Aucune notification",
       "markAllRead": "Tout marquer lu"
-    },
-    "type": {
-      "OrderAssigned": "Mandat attribué",
-      "RoundAssigned": "Tournée attribuée",
-      "ResultsReceived": "Résultats reçus",
-      "NonConformResult": "Résultat non conforme"
     }
   },
   "sync": {
@@ -223,7 +218,8 @@
         "range": "Plage de référence",
         "conformity": "Conformité"
       }
-    }
+    },
+    "loadError": "Mandat introuvable ou erreur de chargement."
   },
   "delegations": {
     "title": "Délégations",
@@ -483,7 +479,8 @@
       "edit": "Modifier",
       "delete": "Supprimer",
       "removeFromRound": "Retirer de la tournée"
-    }
+    },
+    "loadError": "Tournée introuvable ou erreur de chargement."
   },
   "orderIndicators": {
     "mandatorNote": "Note du mandataire",
@@ -613,5 +610,20 @@
       "light_rain": "Faibles pluies",
       "heavy_rain": "Fortes pluies"
     }
+  },
+  "errors": {
+    "generic": "Une erreur est survenue.",
+    "saveFailed": "Une erreur est survenue lors de l’enregistrement."
+  },
+  "a11y": {
+    "mainNavigation": "Navigation principale",
+    "toggleNavigation": "Afficher/masquer le menu",
+    "home": "Accueil AquaPlan",
+    "changeLanguage": "Changer de langue",
+    "userMenu": "Menu utilisateur",
+    "close": "Fermer",
+    "mandatorNote": "Note du mandataire",
+    "preleveurNote": "Remarque du préleveur",
+    "locationReplaced": "Lieu de prélèvement remplacé"
   }
 }

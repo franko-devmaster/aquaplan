@@ -14,14 +14,6 @@ export const SamplingRoundStatusLabels: Record<SamplingRoundStatus, string> = {
   [SamplingRoundStatus.Cancelled]: 'samplingRounds.status.cancelled',
 };
 
-export const SamplingRoundStatusColors: Record<SamplingRoundStatus, string> = {
-  [SamplingRoundStatus.Draft]: '#455A64',
-  [SamplingRoundStatus.Assigned]: '#0277BD',
-  [SamplingRoundStatus.InProgress]: '#1565C0',
-  [SamplingRoundStatus.Completed]: '#2E7D32',
-  [SamplingRoundStatus.Cancelled]: '#C62828',
-};
-
 export interface SamplingRoundListDto {
   id: string;
   name: string;

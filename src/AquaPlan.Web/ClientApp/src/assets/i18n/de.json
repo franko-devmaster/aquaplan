@@ -39,7 +39,8 @@
     "accountDisabled": "Konto deaktiviert. Wenden Sie sich an Ihren Administrator.",
     "signInHeading": "Anmelden",
     "or": "oder",
-    "contactAdmin": "Zugang benötigt? Wenden Sie sich an Ihren Administrator."
+    "contactAdmin": "Zugang benötigt? Wenden Sie sich an Ihren Administrator.",
+    "invalidEmail": "Ungültige E-Mail-Adresse"
   },
   "common": {
     "save": "Speichern",
@@ -83,12 +84,6 @@
       "title": "Benachrichtigungen",
       "empty": "Keine Benachrichtigungen",
       "markAllRead": "Alle als gelesen markieren"
-    },
-    "type": {
-      "OrderAssigned": "Auftrag zugewiesen",
-      "RoundAssigned": "Tour zugewiesen",
-      "ResultsReceived": "Ergebnisse erhalten",
-      "NonConformResult": "Nicht konformes Ergebnis"
     }
   },
   "sync": {
@@ -223,7 +218,8 @@
         "range": "Referenzbereich",
         "conformity": "Konformität"
       }
-    }
+    },
+    "loadError": "Auftrag nicht gefunden oder Ladefehler."
   },
   "delegations": {
     "title": "Delegationen",
@@ -483,7 +479,8 @@
       "edit": "Bearbeiten",
       "delete": "Löschen",
       "removeFromRound": "Aus Tour entfernen"
-    }
+    },
+    "loadError": "Tour nicht gefunden oder Ladefehler."
   },
   "orderIndicators": {
     "mandatorNote": "Auftraggeber-Notiz",
@@ -613,5 +610,20 @@
       "light_rain": "Leichter Regen",
       "heavy_rain": "Starker Regen"
     }
+  },
+  "errors": {
+    "generic": "Ein Fehler ist aufgetreten.",
+    "saveFailed": "Beim Speichern ist ein Fehler aufgetreten."
+  },
+  "a11y": {
+    "mainNavigation": "Hauptnavigation",
+    "toggleNavigation": "Menü ein-/ausblenden",
+    "home": "AquaPlan Startseite",
+    "changeLanguage": "Sprache wechseln",
+    "userMenu": "Benutzermenü",
+    "close": "Schliessen",
+    "mandatorNote": "Notiz des Auftraggebers",
+    "preleveurNote": "Bemerkung des Probenehmers",
+    "locationReplaced": "Probenahmestelle ersetzt"
   }
 }
