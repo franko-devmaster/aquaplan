@@ -23,7 +23,7 @@
     "@angular/platform-browser-dynamic": "^19.2.0",
     "@angular/router": "^19.2.0",
     "@angular/service-worker": "^19.2.20",
-    "@ngx-translate/core": "^17.0.0",
+    "@ngx-translate/core": "^18.0.0",
     "@ngx-translate/http-loader": "^17.0.0",
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
