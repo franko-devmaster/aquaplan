@@ -421,7 +421,8 @@ export class SamplingFormDialogComponent implements OnInit {
       if (maybeResponse.error?.error) return maybeResponse.error.error;
       if (maybeResponse.error?.message) return maybeResponse.error.message;
     }
-    return 'Une erreur est survenue lors de l’enregistrement.';
+    // F-024 — externalised, was a hard-coded French string.
+    return this.translate.instant('errors.saveFailed');
   }
 
   private toDatetimeLocalValue(isoString: string): string {

@@ -223,7 +223,8 @@
         "range": "Referenzbereich",
         "conformity": "Konformität"
       }
-    }
+    },
+    "loadError": "Auftrag nicht gefunden oder Ladefehler."
   },
   "delegations": {
     "title": "Delegationen",
@@ -483,7 +484,8 @@
       "edit": "Bearbeiten",
       "delete": "Löschen",
       "removeFromRound": "Aus Tour entfernen"
-    }
+    },
+    "loadError": "Tour nicht gefunden oder Ladefehler."
   },
   "orderIndicators": {
     "mandatorNote": "Auftraggeber-Notiz",
@@ -613,5 +615,9 @@
       "light_rain": "Leichter Regen",
       "heavy_rain": "Starker Regen"
     }
+  },
+  "errors": {
+    "generic": "Ein Fehler ist aufgetreten.",
+    "saveFailed": "Beim Speichern ist ein Fehler aufgetreten."
   }
 }

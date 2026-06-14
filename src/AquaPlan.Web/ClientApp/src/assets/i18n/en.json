@@ -223,7 +223,8 @@
         "range": "Reference range",
         "conformity": "Conformity"
       }
-    }
+    },
+    "loadError": "Order not found or failed to load."
   },
   "delegations": {
     "title": "Delegations",
@@ -483,7 +484,8 @@
       "edit": "Edit",
       "delete": "Delete",
       "removeFromRound": "Remove from round"
-    }
+    },
+    "loadError": "Round not found or failed to load."
   },
   "orderIndicators": {
     "mandatorNote": "Requester note",
@@ -613,5 +615,9 @@
       "light_rain": "Light rain",
       "heavy_rain": "Heavy rain"
     }
+  },
+  "errors": {
+    "generic": "An error occurred.",
+    "saveFailed": "An error occurred while saving."
   }
 }

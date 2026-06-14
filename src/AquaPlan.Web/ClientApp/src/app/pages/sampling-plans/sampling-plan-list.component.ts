@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
@@ -23,6 +23,8 @@ import { DistributorListDto } from '../../models/distributor.model';
 import { SamplingPlanListDto, SamplingPlanStatus, SamplingPlanStatusLabels } from '../../models/sampling-plan.model';
 import { SamplingPlanCreateDialogComponent } from './sampling-plan-create-dialog.component';
 import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
+import { planStatusVariant } from '../../utils/status-variant';
+import { debouncedSearch } from '../../utils/debounced-search';
 
 @Component({
   selector: 'app-sampling-plan-list',
@@ -162,13 +164,18 @@ export class SamplingPlanListComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly distributorApi = inject(DistributorApiService);
 
-  readonly isAdmin = computed(() =>
-    this.authService.currentUser()?.roles.includes('Administrator') ?? false
-  );
+  private readonly destroyRef = inject(DestroyRef);
+
+  // F-012 — centralised role check.
+  readonly isAdmin = this.authService.isAdmin;
   readonly canCreate = this.authService.canCreateOrders;
   readonly distributors = signal<DistributorListDto[]>([]);
   readonly searchValue = signal('');
-  private searchTimeout: ReturnType<typeof setTimeout> | null = null;
+  // F-015 — debounced search cleaned up on destroy.
+  private readonly debouncedSearch = debouncedSearch<string>(
+    value => this.store.setSearch(value),
+    this.destroyRef
+  );
 
   readonly displayedColumns = ['year', 'distributor', 'status', 'itemCount', 'createdBy', 'createdAt'];
 
@@ -191,13 +198,7 @@ export class SamplingPlanListComponent implements OnInit {
   }
 
   getStatusVariant(status: SamplingPlanStatus): StatusChipVariant {
-    const map: Record<string, StatusChipVariant> = {
-      'Draft': 'draft',
-      'Submitted': 'info',
-      'Validated': 'success',
-      'Rejected': 'danger',
-    };
-    return map[status] ?? 'draft';
+    return planStatusVariant(status);
   }
 
   getStatusLabel(plan: SamplingPlanListDto): string {
@@ -206,12 +207,7 @@ export class SamplingPlanListComponent implements OnInit {
 
   onSearchChange(value: string): void {
     this.searchValue.set(value);
-    if (this.searchTimeout) {
-      clearTimeout(this.searchTimeout);
-    }
-    this.searchTimeout = setTimeout(() => {
-      this.store.setSearch(value);
-    }, 300);
+    this.debouncedSearch(value);
   }
 
   onYearChange(year: number | undefined): void {

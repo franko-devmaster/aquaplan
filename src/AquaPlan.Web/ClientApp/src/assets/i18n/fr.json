@@ -223,7 +223,8 @@
         "range": "Plage de référence",
         "conformity": "Conformité"
       }
-    }
+    },
+    "loadError": "Mandat introuvable ou erreur de chargement."
   },
   "delegations": {
     "title": "Délégations",
@@ -483,7 +484,8 @@
       "edit": "Modifier",
       "delete": "Supprimer",
       "removeFromRound": "Retirer de la tournée"
-    }
+    },
+    "loadError": "Tournée introuvable ou erreur de chargement."
   },
   "orderIndicators": {
     "mandatorNote": "Note du mandataire",
@@ -613,5 +615,9 @@
       "light_rain": "Faibles pluies",
       "heavy_rain": "Fortes pluies"
     }
+  },
+  "errors": {
+    "generic": "Une erreur est survenue.",
+    "saveFailed": "Une erreur est survenue lors de l’enregistrement."
   }
 }

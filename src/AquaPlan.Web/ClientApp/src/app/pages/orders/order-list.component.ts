@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatTableModule } from '@angular/material/table';
@@ -30,6 +30,10 @@ import { DistributorListDto } from '../../models/distributor.model';
 import { OrderCreateDialogComponent } from './order-create-dialog.component';
 import { ConfirmDialogComponent } from '../../components/confirm-dialog.component';
 import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
+import { ApiErrorService } from '../../services/api-error.service';
+import { orderStatusVariant } from '../../utils/status-variant';
+import { debouncedSearch } from '../../utils/debounced-search';
+import { downloadBlob } from '../../utils/download-blob';
 
 @Component({
   selector: 'app-order-list',
@@ -65,8 +69,8 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
           </button>
         }
         @if (isAdmin()) {
-          <button mat-stroked-button (click)="exportCsv()">
-            <mat-icon>download</mat-icon>
+          <button mat-stroked-button (click)="exportCsv()" [disabled]="exporting()">
+            <mat-icon aria-hidden="true">download</mat-icon>
             {{ 'orders.export' | translate }}
           </button>
         }
@@ -312,10 +316,11 @@ export class OrderListComponent implements OnInit {
   private readonly translate = inject(TranslateService);
   private readonly networkCheck = inject(NetworkCheckService);
   private readonly dashboardRefresh = inject(DashboardRefreshService);
+  private readonly apiError = inject(ApiErrorService);
+  private readonly destroyRef = inject(DestroyRef);
 
-  readonly isAdmin = computed(() =>
-    this.authService.currentUser()?.roles.includes('Administrator') ?? false
-  );
+  // F-012 — centralised role check.
+  readonly isAdmin = this.authService.isAdmin;
   readonly isRequerant = computed(() => {
     const roles = this.authService.currentUser()?.roles ?? [];
     return roles.includes('Requérant') || roles.includes('Requérant-Préleveur');
@@ -330,7 +335,13 @@ export class OrderListComponent implements OnInit {
   /** AQ-406 — button "Tout finaliser" is enabled whenever any order is eligible
    * for validation OR transmission (InProgress + Completed together). */
   readonly finalizableCount = computed(() => this.inProgressCount() + this.completedCount());
-  private searchTimeout: ReturnType<typeof setTimeout> | null = null;
+  // F-027 — disable export button + show progress while the CSV is built.
+  readonly exporting = signal(false);
+  // F-015 — debounced search cleaned up on destroy (was a leaking setTimeout).
+  private readonly debouncedSearch = debouncedSearch<string>(
+    value => this.store.setSearch(value),
+    this.destroyRef
+  );
 
   readonly displayedColumns = [
     'orderNumber', 'status', 'distributor', 'samplingLocation',
@@ -517,25 +528,12 @@ export class OrderListComponent implements OnInit {
   }
 
   getStatusVariant(status: string): StatusChipVariant {
-    const map: Record<string, StatusChipVariant> = {
-      'New': 'draft',
-      'InProgress': 'info',
-      'Completed': 'success',
-      'Transmitted': 'success',
-      'Done': 'success',
-      'Cancelled': 'danger',
-    };
-    return map[status] ?? 'draft';
+    return orderStatusVariant(status);
   }
 
   onSearchChange(value: string): void {
     this.searchValue.set(value);
-    if (this.searchTimeout) {
-      clearTimeout(this.searchTimeout);
-    }
-    this.searchTimeout = setTimeout(() => {
-      this.store.setSearch(value);
-    }, 300);
+    this.debouncedSearch(value);
   }
 
   onUnassignedChange(checked: boolean): void {
@@ -595,18 +593,22 @@ export class OrderListComponent implements OnInit {
   }
 
   async exportCsv(): Promise<void> {
-    const blob = await firstValueFrom(this.orderApi.exportCsv({
-      statuses: this.store.statusFilter().length > 0 ? this.store.statusFilter() : undefined,
-      search: this.store.searchFilter() || undefined,
-      distributorId: this.store.distributorFilter(),
-      dateFrom: this.store.dateFromFilter(),
-      dateTo: this.store.dateToFilter(),
-    }));
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `orders-export-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // F-027 — loading state (prevents double-click double-request) + error toast.
+    if (this.exporting()) return;
+    this.exporting.set(true);
+    try {
+      const blob = await firstValueFrom(this.orderApi.exportCsv({
+        statuses: this.store.statusFilter().length > 0 ? this.store.statusFilter() : undefined,
+        search: this.store.searchFilter() || undefined,
+        distributorId: this.store.distributorFilter(),
+        dateFrom: this.store.dateFromFilter(),
+        dateTo: this.store.dateToFilter(),
+      }));
+      downloadBlob(blob, `orders-export-${new Date().toISOString().slice(0, 10)}.csv`);
+    } catch (err: unknown) {
+      this.apiError.toast(err);
+    } finally {
+      this.exporting.set(false);
+    }
   }
 }

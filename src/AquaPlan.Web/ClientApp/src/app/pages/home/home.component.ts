@@ -18,6 +18,7 @@ import {
     SamplingRoundListDto,
 } from '../../models/sampling-round.model';
 import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
+import { roundStatusVariant } from '../../utils/status-variant';
 import { RecentResultsZoneComponent } from '../results/recent-results-zone.component';
 import { DashboardRefreshService } from '../../services/dashboard-refresh.service';
 
@@ -243,13 +244,11 @@ export class HomeComponent implements OnInit {
     readonly plannedRoundsCount = signal(0);
     readonly conformCount = signal(0);
     readonly nonConformCount = signal(0);
-    readonly pendingResultsCount = signal(0);
     readonly upcomingRounds = signal<SamplingRoundListDto[]>([]);
     readonly ldpToValidateCount = signal(0);
 
-    readonly isAdmin = computed(() =>
-        this.authService.currentUser()?.roles.includes('Administrator') ?? false
-    );
+    // F-012 — centralised role check.
+    readonly isAdmin = this.authService.isAdmin;
 
     // AQ-424 — display "Bienvenue, Prénom Nom" above the dashboard title.
     readonly greetingName = computed(() => {
@@ -263,14 +262,6 @@ export class HomeComponent implements OnInit {
             return [first, last].filter(Boolean).join(' ');
         }
         return u.email ?? '';
-    });
-
-    readonly isPreleveur = computed(() => {
-        const user = this.authService.currentUser();
-        if (!user) {
-            return false;
-        }
-        return user.roles.some(r => r.toLowerCase().includes('réleveur')) && !user.roles.includes('Administrator');
     });
 
     constructor() {
@@ -328,14 +319,7 @@ export class HomeComponent implements OnInit {
     }
 
     getRoundStatusVariant(status: SamplingRoundStatus): StatusChipVariant {
-        const map: Record<string, StatusChipVariant> = {
-            'Draft': 'draft',
-            'Assigned': 'info',
-            'InProgress': 'info',
-            'Completed': 'success',
-            'Cancelled': 'danger',
-        };
-        return map[status] ?? 'draft';
+        return roundStatusVariant(status);
     }
 
     getRoundStatusLabel(status: SamplingRoundStatus): string {
@@ -359,7 +343,6 @@ export class HomeComponent implements OnInit {
             const summary = await firstValueFrom(this.orderApi.getDashboardSummary());
             this.conformCount.set(summary.conformCount);
             this.nonConformCount.set(summary.nonConformCount);
-            this.pendingResultsCount.set(summary.pendingCount);
         } catch {
             // Silently handle error
         }

@@ -18,6 +18,9 @@ import { firstValueFrom } from 'rxjs';
 import { SamplingLocationDatastore } from '../../datastore/sampling-location.datastore';
 import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
 import { AuthService } from '../../services/auth.service';
+import { ConfirmService } from '../../services/confirm.service';
+import { ApiErrorService } from '../../services/api-error.service';
+import { downloadBlob } from '../../utils/download-blob';
 import { SamplingLocationDto } from '../../models/sampling-location.model';
 import { SamplingLocationFormDialogComponent } from './sampling-location-form-dialog.component';
 import { StatusChipComponent } from '../../components/status-chip/status-chip.component';
@@ -36,8 +39,8 @@ import { StatusChipComponent } from '../../components/status-chip/status-chip.co
     <div class="page-header">
       <h2>{{ 'samplingLocations.title' | translate }}</h2>
       <div class="header-actions">
-        <button mat-stroked-button (click)="exportPdf()">
-          <mat-icon>picture_as_pdf</mat-icon>
+        <button mat-stroked-button (click)="exportPdf()" [disabled]="exporting()">
+          <mat-icon aria-hidden="true">picture_as_pdf</mat-icon>
           {{ 'samplingLocations.exportPdf' | translate }}
         </button>
         <button mat-raised-button color="primary" (click)="openCreateDialog()">
@@ -192,8 +195,12 @@ export class SamplingLocationListComponent implements OnInit {
   private readonly snackBar = inject(MatSnackBar);
   private readonly translate = inject(TranslateService);
   private readonly route = inject(ActivatedRoute);
+  private readonly confirmService = inject(ConfirmService);
+  private readonly apiError = inject(ApiErrorService);
 
   readonly validationFilter = signal<'pending' | null>(null);
+  // F-027 — disable the export button and show progress while the PDF is built.
+  readonly exporting = signal(false);
 
   private readonly baseColumns = ['locationCode', 'name', 'distributor', 'sector', 'status', 'actions'];
 
@@ -214,22 +221,13 @@ export class SamplingLocationListComponent implements OnInit {
   readonly displayedColumns = computed(() => this.baseColumns);
 
   async deleteLocationFromMenu(location: SamplingLocationDto): Promise<void> {
-    if (!confirm(this.translate.instant('samplingLocations.confirmDelete'))) return;
+    if (!(await this.confirmService.confirm('samplingLocations.confirmDelete'))) return;
     try {
       await firstValueFrom(this.apiService.delete(location.id));
-      this.snackBar.open(
-        this.translate.instant('samplingLocations.deleteSuccess'),
-        this.translate.instant('common.close'),
-        { duration: 3000 }
-      );
+      this.apiError.success('samplingLocations.deleteSuccess');
       this.store.loadAll().then(() => this.applyFilters());
     } catch (err: unknown) {
-      const apiError = err as { error?: { message?: string } };
-      this.snackBar.open(
-        apiError?.error?.message ?? this.translate.instant('common.error'),
-        this.translate.instant('common.close'),
-        { duration: 5000 }
-      );
+      this.apiError.toast(err);
     }
   }
 
@@ -314,16 +312,19 @@ export class SamplingLocationListComponent implements OnInit {
     });
   }
 
-  exportPdf(): void {
-    const distributorId = this.selectedDistributorId || undefined;
-    this.apiService.exportPdf(distributorId).subscribe(blob => {
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `lieux-prelevement-${new Date().toISOString().slice(0, 10)}.pdf`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    });
+  async exportPdf(): Promise<void> {
+    // F-027 — loading state (prevents double-click double-request) + error toast.
+    if (this.exporting()) return;
+    this.exporting.set(true);
+    try {
+      const distributorId = this.selectedDistributorId || undefined;
+      const blob = await firstValueFrom(this.apiService.exportPdf(distributorId));
+      downloadBlob(blob, `lieux-prelevement-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch (err: unknown) {
+      this.apiError.toast(err);
+    } finally {
+      this.exporting.set(false);
+    }
   }
 
   private getFilteredAll(): SamplingLocationDto[] {

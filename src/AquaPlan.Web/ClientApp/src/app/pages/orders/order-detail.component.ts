@@ -20,6 +20,7 @@ import { ConfirmDialogComponent } from '../../components/confirm-dialog.componen
 import { OrderLinkRoundDialogComponent } from './order-link-round-dialog.component';
 import { SamplingRoundDetailDto } from '../../models/sampling-round.model';
 import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
+import { orderStatusVariant } from '../../utils/status-variant';
 import { SamplingResultsTableComponent } from '../../components/sampling-results-table/sampling-results-table.component';
 import { ResultsStatus } from '../../models/order.model';
 
@@ -166,9 +167,24 @@ import { ResultsStatus } from '../../models/order.model';
       </mat-card>
 
       <app-sampling-results-table [orderId]="order()!.id"></app-sampling-results-table>
+    } @else if (loadError()) {
+      <!-- F-030 — explicit not-found / error state with a way back. -->
+      <div class="load-error">
+        <mat-icon aria-hidden="true">error_outline</mat-icon>
+        <p>{{ 'orders.loadError' | translate }}</p>
+        <button mat-stroked-button (click)="goBack()">
+          <mat-icon aria-hidden="true">arrow_back</mat-icon>
+          {{ 'common.back' | translate }}
+        </button>
+      </div>
     }
   `,
   styles: [`
+    .load-error {
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      padding: 48px; color: #666; text-align: center;
+    }
+    .load-error mat-icon { font-size: 48px; width: 48px; height: 48px; color: #999; }
     .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     .header-left { display: flex; align-items: center; gap: 8px; }
     .header-actions { display: flex; gap: 8px; }
@@ -198,6 +214,8 @@ export class OrderDetailComponent implements OnInit {
 
   readonly order = signal<OrderDetailDto | null>(null);
   readonly loading = signal(false);
+  // F-030 — surface load failures instead of rendering a blank page on 404/error.
+  readonly loadError = signal(false);
 
   async ngOnInit(): Promise<void> {
     await this.loadOrder();
@@ -208,22 +226,25 @@ export class OrderDetailComponent implements OnInit {
     if (!id) return;
 
     this.loading.set(true);
+    this.loadError.set(false);
     try {
       const data = await firstValueFrom(this.orderApi.getById(id));
       this.order.set(data);
+    } catch {
+      // F-030 — 404 (deleted order / stale notification link) or network error.
+      this.loadError.set(true);
     } finally {
       this.loading.set(false);
     }
   }
 
+  // F-012 — delegate to AuthService (single source of truth).
   private isAdmin(): boolean {
-    return this.authService.currentUser()?.roles.includes('Administrator') ?? false;
+    return this.authService.isAdmin();
   }
 
   private isPreleveur(): boolean {
-    const user = this.authService.currentUser();
-    if (!user) return false;
-    return user.roles.some(r => r.toLowerCase().includes('réleveur')) && !user.roles.includes('Administrator');
+    return this.authService.isPreleveur();
   }
 
   canEdit(): boolean {
@@ -254,16 +275,7 @@ export class OrderDetailComponent implements OnInit {
 
   getStatusVariant(): StatusChipVariant {
     const o = this.order();
-    if (!o) return 'draft';
-    const map: Record<string, StatusChipVariant> = {
-      'New': 'draft',
-      'InProgress': 'info',
-      'Completed': 'success',
-      'Transmitted': 'success',
-      'Done': 'success',
-      'Cancelled': 'danger',
-    };
-    return map[o.status] ?? 'draft';
+    return o ? orderStatusVariant(o.status) : 'draft';
   }
 
   getConformityLabel(): string {
