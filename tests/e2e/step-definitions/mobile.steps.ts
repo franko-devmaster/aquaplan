@@ -78,12 +78,18 @@ When('j\'ouvre la première liste déroulante', async function (this: AquaPlanWo
 
 When('je tape en dehors de la liste', async function (this: AquaPlanWorld) {
   if (!this.page) { return 'pending'; }
-  const backdrop = this.page.locator('.cdk-overlay-backdrop');
-  if (await backdrop.count()) {
-    await backdrop.first().click({ force: true }).catch(() => {});
-  } else {
-    await this.page.mouse.click(8, 200);
-  }
+  // The backdrop centre sits under the open panel, so tap a point on the backdrop
+  // that is clearly outside the panel (just below it).
+  const pt = await this.page.evaluate(() => {
+    const pane = document.querySelector('.cdk-overlay-pane');
+    const r = pane?.getBoundingClientRect();
+    if (!r) { return { x: 5, y: window.innerHeight - 20 }; }
+    return {
+      x: Math.round(r.left + r.width / 2),
+      y: Math.min(window.innerHeight - 10, Math.round(r.bottom + 30)),
+    };
+  });
+  await this.page.mouse.click(pt.x, pt.y);
   await this.page.waitForTimeout(800);
 });
 

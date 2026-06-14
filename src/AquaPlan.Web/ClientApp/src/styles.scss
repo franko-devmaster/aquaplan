@@ -270,3 +270,13 @@ h3 {
 }
 
 // Status badges are rendered via <app-status-chip> (see components/status-chip)
+
+// -----------------------------------------------------------------------------
+// AQ-431 — mobile/iOS fire a `click` on a plain <div> only when it is treated as
+// clickable. Without this, tapping the transparent CDK overlay backdrop on a
+// phone does NOT dismiss mat-select / menus (the user must re-tap the control).
+// `cursor: pointer` makes touch browsers emit the click the CDK close handler needs.
+// -----------------------------------------------------------------------------
+.cdk-overlay-backdrop {
+  cursor: pointer;
+}
