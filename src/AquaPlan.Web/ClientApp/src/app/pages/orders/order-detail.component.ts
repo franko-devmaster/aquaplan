@@ -50,19 +50,19 @@ import { ResultsStatus } from '../../models/order.model';
         @if (canEdit() || canDelete() || canLinkToRound()) {
           <div class="header-actions">
             @if (canLinkToRound()) {
-              <button mat-raised-button (click)="openLinkRoundDialog()">
+              <button mat-stroked-button (click)="openLinkRoundDialog()">
                 <mat-icon>route</mat-icon>
                 {{ 'orders.linkToRound' | translate }}
               </button>
             }
             @if (canEdit()) {
-              <button mat-raised-button color="primary" (click)="openEditDialog()">
+              <button mat-flat-button color="primary" (click)="openEditDialog()">
                 <mat-icon>edit</mat-icon>
                 {{ 'common.edit' | translate }}
               </button>
             }
             @if (canDelete()) {
-              <button mat-raised-button color="warn" (click)="confirmDelete()">
+              <button mat-button color="warn" (click)="confirmDelete()">
                 <mat-icon>delete</mat-icon>
                 {{ 'common.delete' | translate }}
               </button>

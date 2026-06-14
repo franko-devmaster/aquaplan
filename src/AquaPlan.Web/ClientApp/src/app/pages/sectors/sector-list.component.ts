@@ -31,7 +31,7 @@ import { StatusChipComponent } from '../../components/status-chip/status-chip.co
     <div class="page-header">
       <h2>{{ 'sectors.title' | translate }}</h2>
       @if (isAdmin()) {
-        <button mat-raised-button color="primary" (click)="openCreateDialog()">
+        <button mat-flat-button color="primary" (click)="openCreateDialog()">
           <mat-icon>add</mat-icon>
           {{ 'sectors.addSector' | translate }}
         </button>

@@ -71,24 +71,9 @@ import { OrderIndicatorsComponent, OrderIndicatorsInput } from '../../components
                            [label]="(getStatusLabel() | translate)"></app-status-chip>
         </div>
         <div class="header-actions">
-          @if (isDraft()) {
-            <button mat-stroked-button color="warn" (click)="deleteRound()">
-              <mat-icon>delete</mat-icon>
-              {{ 'common.delete' | translate }}
-            </button>
-          }
-          @if (isDraft() || isAssigned()) {
-            <button mat-stroked-button color="warn" (click)="cancelRound()" [disabled]="saving()">
-              <mat-icon>cancel</mat-icon>
-              {{ 'samplingRounds.cancelRound' | translate }}
-            </button>
-          }
+          <!-- Secondary actions (neutral) -->
           @if (isDraft() && canCreate()) {
-            <button mat-raised-button color="primary" (click)="assignSampler()" [disabled]="saving()">
-              <mat-icon>person_add</mat-icon>
-              {{ 'samplingRounds.assignSampler' | translate }}
-            </button>
-            <button mat-raised-button color="accent" (click)="addOrder()" [disabled]="saving()">
+            <button mat-stroked-button (click)="addOrder()" [disabled]="saving()">
               <mat-icon>add</mat-icon>
               {{ 'samplingRounds.addOrder' | translate }}
             </button>
@@ -99,23 +84,51 @@ import { OrderIndicatorsComponent, OrderIndicatorsInput } from '../../components
               {{ 'samplingRounds.revertToDraft' | translate }}
             </button>
           }
+          <!-- Single primary action (status-driven), aligned right -->
+          @if (isDraft() && canCreate()) {
+            <button mat-flat-button color="primary" (click)="assignSampler()" [disabled]="saving()">
+              <mat-icon>person_add</mat-icon>
+              {{ 'samplingRounds.assignSampler' | translate }}
+            </button>
+          }
           @if (isAssigned()) {
-            <button mat-raised-button color="primary" (click)="startRound()" [disabled]="saving()">
+            <button mat-flat-button color="primary" (click)="startRound()" [disabled]="saving()">
               <mat-icon>play_arrow</mat-icon>
               {{ 'samplingRounds.startRound' | translate }}
             </button>
           }
           @if (isInProgress() && hasCompletedOrders()) {
-            <button mat-raised-button color="accent" (click)="transmitAll()" [disabled]="saving()">
+            <button mat-flat-button color="primary" (click)="transmitAll()" [disabled]="saving()">
               <mat-icon>send</mat-icon>
               {{ 'samplingRounds.transmitAll' | translate }}
             </button>
           }
-          @if (isLocked() && isAdmin()) {
-            <button mat-stroked-button color="warn" (click)="forceUnlockRound()" [disabled]="saving()">
-              <mat-icon>lock_open</mat-icon>
-              {{ 'samplingRounds.forceUnlock' | translate }}
+          <!-- Destructive / rare actions relegated to an overflow menu -->
+          @if (isDraft() || isAssigned() || (isLocked() && isAdmin())) {
+            <button mat-icon-button [matMenuTriggerFor]="roundMenu" [disabled]="saving()"
+                    [attr.aria-label]="'common.actions' | translate">
+              <mat-icon>more_vert</mat-icon>
             </button>
+            <mat-menu #roundMenu="matMenu">
+              @if (isDraft() || isAssigned()) {
+                <button mat-menu-item (click)="cancelRound()">
+                  <mat-icon>cancel</mat-icon>
+                  <span>{{ 'samplingRounds.cancelRound' | translate }}</span>
+                </button>
+              }
+              @if (isLocked() && isAdmin()) {
+                <button mat-menu-item (click)="forceUnlockRound()">
+                  <mat-icon>lock_open</mat-icon>
+                  <span>{{ 'samplingRounds.forceUnlock' | translate }}</span>
+                </button>
+              }
+              @if (isDraft()) {
+                <button mat-menu-item (click)="deleteRound()">
+                  <mat-icon color="warn">delete</mat-icon>
+                  <span>{{ 'common.delete' | translate }}</span>
+                </button>
+              }
+            </mat-menu>
           }
         </div>
       </div>

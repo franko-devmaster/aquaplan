@@ -93,7 +93,7 @@ export interface UserFormDialogData {
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>{{ 'common.cancel' | translate }}</button>
-      <button mat-raised-button color="primary" (click)="onSubmit()"
+      <button mat-flat-button color="primary" (click)="onSubmit()"
               [disabled]="form.invalid || saving()">
         @if (saving()) {
           <mat-spinner diameter="20"></mat-spinner>

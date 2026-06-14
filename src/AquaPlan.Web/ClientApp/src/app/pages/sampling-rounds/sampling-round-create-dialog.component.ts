@@ -54,7 +54,7 @@ import { SamplingRoundDetailDto } from '../../models/sampling-round.model';
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>{{ 'common.cancel' | translate }}</button>
-      <button mat-raised-button color="primary" (click)="create()"
+      <button mat-flat-button color="primary" (click)="create()"
               [disabled]="saving() || !selectedDistributorId || !name">
         @if (saving()) {
           <mat-spinner diameter="20"></mat-spinner>

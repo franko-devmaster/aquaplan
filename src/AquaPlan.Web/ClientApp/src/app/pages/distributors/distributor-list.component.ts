@@ -29,7 +29,7 @@ import { StatusChipComponent } from '../../components/status-chip/status-chip.co
   template: `
     <div class="page-header">
       <h2>{{ 'distributors.title' | translate }}</h2>
-      <button mat-raised-button color="primary" (click)="openCreateDialog()">
+      <button mat-flat-button color="primary" (click)="openCreateDialog()">
         <mat-icon>add</mat-icon>
         {{ 'distributors.createDistributor' | translate }}
       </button>

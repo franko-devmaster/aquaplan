@@ -31,7 +31,7 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
     <div class="page-header">
       <h2>{{ 'analysisCatalog.profiles.title' | translate }}</h2>
       @if (isAdmin()) {
-        <button mat-raised-button color="primary" (click)="openCreateForm()">
+        <button mat-flat-button color="primary" (click)="openCreateForm()">
           <mat-icon>add</mat-icon>
           {{ 'analysisCatalog.profiles.create' | translate }}
         </button>
@@ -138,7 +138,7 @@ import { StatusChipComponent, StatusChipVariant } from '../../components/status-
           <div class="form-actions">
             <button mat-button (click)="closeForm()">{{ (formReadonly() ? 'common.close' : 'common.cancel') | translate }}</button>
             @if (!formReadonly()) {
-              <button mat-raised-button color="primary" (click)="saveProfile()" [disabled]="!canSave()">{{ 'common.save' | translate }}</button>
+              <button mat-flat-button color="primary" (click)="saveProfile()" [disabled]="!canSave()">{{ 'common.save' | translate }}</button>
             }
           </div>
         </div>

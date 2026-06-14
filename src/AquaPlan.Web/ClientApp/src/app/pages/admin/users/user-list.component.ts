@@ -32,7 +32,7 @@ import { StatusChipComponent } from '../../../components/status-chip/status-chip
   template: `
     <div class="page-header">
       <h2>{{ 'users.title' | translate }}</h2>
-      <button mat-raised-button color="primary" (click)="openCreateDialog()">
+      <button mat-flat-button color="primary" (click)="openCreateDialog()">
         <mat-icon>add</mat-icon>
         {{ 'users.createUser' | translate }}
       </button>
