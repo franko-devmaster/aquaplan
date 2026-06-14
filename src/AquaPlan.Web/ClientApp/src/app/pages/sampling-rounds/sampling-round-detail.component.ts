@@ -212,26 +212,26 @@ import { OrderIndicatorsComponent, OrderIndicatorsInput } from '../../components
 
             <ng-container matColumnDef="location">
               <th mat-header-cell *matHeaderCellDef>{{ 'samplingRounds.location' | translate }}</th>
-              <td mat-cell *matCellDef="let order">
+              <td mat-cell *matCellDef="let order" class="order-location">
                 {{ order.samplingLocationCode }} — {{ order.samplingLocationName }}
               </td>
             </ng-container>
 
             <ng-container matColumnDef="sector">
               <th mat-header-cell *matHeaderCellDef>{{ 'samplingRounds.sector' | translate }}</th>
-              <td mat-cell *matCellDef="let order">{{ order.sectorName ?? '-' }}</td>
+              <td mat-cell *matCellDef="let order" [attr.data-label]="'samplingRounds.sector' | translate">{{ order.sectorName ?? '-' }}</td>
             </ng-container>
 
             <ng-container matColumnDef="profiles">
               <th mat-header-cell *matHeaderCellDef>{{ 'samplingRounds.programs' | translate }}</th>
-              <td mat-cell *matCellDef="let order">
+              <td mat-cell *matCellDef="let order" [attr.data-label]="'samplingRounds.programs' | translate">
                 {{ order.analysisProgramNames.join(', ') }}
               </td>
             </ng-container>
 
             <ng-container matColumnDef="status">
               <th mat-header-cell *matHeaderCellDef>{{ 'samplingRounds.status.label' | translate }}</th>
-              <td mat-cell *matCellDef="let order">
+              <td mat-cell *matCellDef="let order" [attr.data-label]="'samplingRounds.status.label' | translate">
                 <app-status-chip [variant]="getOrderStatusVariant(order.status)"
                                  [label]="('orders.status.' + toCamelCase(order.status) | translate)"></app-status-chip>
               </td>
@@ -450,8 +450,15 @@ import { OrderIndicatorsComponent, OrderIndicatorsInput } from '../../components
     .sampling-done-icon--completed { color: var(--chip-in-analysis-fg); }
     .sampling-done-icon--transmitted { color: var(--color-success-600); }
 
+    .order-location { font-weight: var(--font-weight-semibold); color: var(--color-fg-default); }
+
     @media (max-width: 768px) {
       :host { padding: var(--space-3); }
+      /* header layout (stack, back-button size, action wrapping) is handled globally
+         in styles/_responsive.scss .page-header / .header-actions */
+      .header-info { min-width: 0; }
+      /* Order card: emphasise the location (primary) vs the muted secondary fields. */
+      .order-location { font-size: var(--font-size-16); }
     }
   `],
 })

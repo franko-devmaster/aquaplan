@@ -66,8 +66,8 @@ $breakpoint-tablet: 1200px;
         height: auto !important;
         border: 1px solid #e0e0e0;
         border-radius: 8px;
-        margin-bottom: 12px;
-        padding: 12px 16px;
+        margin-bottom: 10px;
+        padding: 10px 14px;
         background: #fff;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
       }
@@ -75,22 +75,25 @@ $breakpoint-tablet: 1200px;
         display: flex;
         flex-direction: column;
         align-items: flex-start;
-        padding: 8px 0;
+        padding: 3px 0;
         border-bottom: none;
         height: auto !important;
         min-height: auto !important;
         overflow: visible !important;
         word-break: break-word;
-        font-size: 16px;
-        line-height: 1.4;
-        &::before {
+        font-size: 14px;
+        line-height: 1.35;
+        color: var(--color-fg-muted, #555);
+        // Label only when the cell declares one — unlabeled cells (primary value,
+        // actions) must not reserve empty label space.
+        &[data-label]::before {
           content: attr(data-label);
           font-weight: 600;
-          font-size: 13px;
-          color: #666;
+          font-size: 12px;
+          color: #777;
           text-transform: uppercase;
           letter-spacing: 0.3px;
-          margin-bottom: 2px;
+          margin-bottom: 1px;
         }
         // Ensure chips inside cards are readable
         .mat-mdc-chip { font-size: 14px; }
@@ -150,7 +153,7 @@ $breakpoint-tablet: 1200px;
 
 // --- AQ-224: Global responsive helpers ---
 
-// Page headers: stack on mobile
+// Page headers: stack on mobile (title row, then actions row)
 .page-header {
   @include responsive(mobile) {
     flex-direction: column;
@@ -158,12 +161,16 @@ $breakpoint-tablet: 1200px;
     gap: 12px;
 
     h2 {
-      font-size: 20px;
+      font-size: 18px;
       margin: 0;
+      min-width: 0;
+      overflow-wrap: anywhere;
     }
 
-    button {
-      width: 100%;
+    // Title-row icon buttons (back arrow) keep their natural size — they must NOT
+    // become full-width (that squeezed the title to zero width). Only labelled
+    // action buttons get the comfortable tap height.
+    button:not(.mat-mdc-icon-button) {
       min-height: 44px;
       font-size: 15px;
     }
@@ -185,11 +192,15 @@ $breakpoint-tablet: 1200px;
 .header-actions {
   @include responsive(mobile) {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
-    button {
-      flex: 1;
+    // Labelled actions share the row and wrap rather than overflow; their text never
+    // wraps inside the button. Icon buttons (kebab ⋮) keep their natural size.
+    button:not(.mat-mdc-icon-button) {
+      flex: 1 1 auto;
       min-height: 44px;
       font-size: 15px;
+      white-space: nowrap;
     }
   }
 }
