@@ -14,6 +14,9 @@ export class AquaPlanWorld extends World<AquaPlanWorldParams> {
   context!: BrowserContext;
   page!: Page;
 
+  // Set by the Before hooks: "desktop" or "mobile:<device>"
+  viewportLabel?: string;
+
   // Auth state
   accessToken: string | null = null;
   refreshToken: string | null = null;
