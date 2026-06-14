@@ -42,6 +42,14 @@ services:
     networks:
       - aquaplan-net
     mem_limit: 384m
+    # Audit F-036cc — health probe. The aspnet-alpine image ships busybox wget
+    # (no curl). start_period covers EF migrations + seeding at first boot.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
 
   aquaplan-web:
     image: francoischarriere/aquaplan-web:${TAG:-latest}
@@ -50,10 +58,18 @@ services:
     ports:
       - "8880:80"
     depends_on:
-      - aquaplan-api
+      aquaplan-api:
+        condition: service_healthy
     networks:
       - aquaplan-net
     mem_limit: 64m
+    # Audit F-036cc — nginx:alpine ships busybox wget.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 networks:
   aquaplan-net:
