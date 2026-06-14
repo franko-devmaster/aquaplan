@@ -8,7 +8,7 @@ namespace AquaPlan.Application.DTOs.Auth;
 /// transit in a URL anymore (browser history, proxy logs, Referer).
 /// </summary>
 public record OidcExchangeRequestDto(
-    [property: Required] string Code);
+    [Required] string Code);
 
 /// <summary>Tokens returned by the one-time code exchange.</summary>
 public record OidcExchangeResponseDto(

@@ -16,7 +16,7 @@ public record DistributorDelegationDto(
 // Polish F-220 — the two distributor IDs and the start date are mandatory. Cross-field rules
 // (distinct distributors, ValidFrom <= ValidTo) are enforced in DelegationService (F-219).
 public record DistributorDelegationCreateDto(
-    [property: Required] Guid DelegatingDistributorId,
-    [property: Required] Guid DelegatedToDistributorId,
-    [property: Required] DateTime ValidFrom,
+    [Required] Guid DelegatingDistributorId,
+    [Required] Guid DelegatedToDistributorId,
+    [Required] DateTime ValidFrom,
     DateTime? ValidTo);

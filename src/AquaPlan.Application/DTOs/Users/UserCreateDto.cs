@@ -8,9 +8,9 @@ namespace AquaPlan.Application.DTOs.Users;
 /// client-supplied tenant.
 /// </summary>
 public record UserCreateDto(
-    [property: Required, EmailAddress] string Email,
-    [property: Required, StringLength(100)] string FirstName,
-    [property: Required, StringLength(100)] string LastName,
-    [property: Required] string Password,
+    [Required, EmailAddress] string Email,
+    [Required, StringLength(100)] string FirstName,
+    [Required, StringLength(100)] string LastName,
+    [Required] string Password,
     string? Role,
     Guid? DistributorId);
