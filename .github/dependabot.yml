@@ -1,0 +1,45 @@
+# Audit F-042cc — dependency update automation.
+# Weekly checks so base images, NuGet, npm and the pinned GitHub Actions
+# don't silently drift / accumulate known CVEs.
+version: 2
+updates:
+  # GitHub Actions used by .github/workflows/ci.yml
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # .NET / NuGet — solution-wide
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # Angular frontend
+  - package-ecosystem: npm
+    directory: /src/AquaPlan.Web/ClientApp
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # e2e test harness
+  - package-ecosystem: npm
+    directory: /tests/e2e
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  # Docker base images (API + Web Dockerfiles)
+  - package-ecosystem: docker
+    directory: /src/AquaPlan.Api
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: docker
+    directory: /src/AquaPlan.Web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3

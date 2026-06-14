@@ -1,3 +1,8 @@
+> ⚠️ **DOCUMENT ARCHIVÉ — OBSOLÈTE (audit F-040cc).**
+> Photographie de l'état au 2026-03-30 (« 3 commits locaux, 44 fichiers non committés »)
+> sans valeur pour l'état courant. Le workflow Git/Jira/Xray a évolué depuis.
+> Conservé pour historique uniquement.
+
 # Plan d'intégration des tests et optimisation du workflow
 
 **Projet**: AquaPlan — Gestion de la qualité de l'eau, Canton de Fribourg

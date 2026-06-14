@@ -14,8 +14,24 @@
 .env
 .git
 .claude
-tests/e2e/reports
+.github
 docker-compose*.yml
+bitbucket-pipelines.yml
+
+# Audit F-023cc — keep the build context lean. None of these are needed by the
+# API or Web Dockerfile; excluding them avoids cache invalidation on every doc
+# edit and stops docs/tests leaking into the build layer.
+docs
+**/*.md
+AquaPlan-prototype*.html
+.tmp_workspace
+
+# e2e harness is not part of any .NET/Angular image and is absent from the slnx.
+# NB: the .NET unit-test projects (tests/AquaPlan.*) are referenced by
+# AquaPlan.slnx, so their .csproj MUST stay in the context for `dotnet restore`
+# to resolve the solution — do NOT exclude all of tests/.
+tests/e2e
+
 # AQ-416 — /scripts/generate-version.mjs is needed by the web Dockerfile.
 # Only exclude the seed/synology helpers, keep the rest of the folder.
 scripts/seed_*
