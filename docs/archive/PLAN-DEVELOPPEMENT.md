@@ -1,3 +1,8 @@
+> ⚠️ **DOCUMENT ARCHIVÉ — OBSOLÈTE (audit F-040cc).**
+> Planning initial « 4 releases » dépassé par la réalité (v0.94+ livrée). Référence
+> `AquaPlan.sln` alors que le repo utilise `AquaPlan.slnx`, et renvoie vers Confluence
+> externe. Conservé pour historique uniquement — ne pas s'y fier pour l'état courant.
+
 # AquaPlan — Plan de développement
 
 ## Vue d'ensemble

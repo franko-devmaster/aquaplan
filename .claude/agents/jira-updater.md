@@ -363,45 +363,43 @@ function validate_commit_message() {
 
 ### 6. `push-and-link`
 
-Pousse la branche courante vers Bitbucket et vérifie que les liens Jira seront créés.
+Pousse la branche courante vers GitHub (`github` = `franko-devmaster/aquaplan`) et
+vérifie que les liens Jira seront créés. NB (audit F-041cc) : Bitbucket (`origin`)
+est mort — pousser exclusivement sur `github`.
 
 **Comportement** :
-- Vérifie que le remote origin est configuré
+- Vérifie que le remote `github` est configuré
 - Vérifie que les commits contiennent des clés AQ-xxx
-- Pousse vers Bitbucket : `git push -u origin HEAD`
+- Pousse vers GitHub : `git push -u github HEAD`
 - Affiche les clés Jira détectées dans les commits
 
 **Exemple** :
 ```bash
 # Push la branche courante et vérifie les liens
-git push -u origin HEAD
+git push -u github HEAD
 
 # Vérifier les clés Jira dans les commits non poussés
-git log origin/main..HEAD --oneline | grep -oE 'AQ-[0-9]+' | sort -u
+git log github/Main..HEAD --oneline | grep -oE 'AQ-[0-9]+' | sort -u
 ```
 
 ### 7. `create-pr <story-key>`
 
-Crée une Pull Request sur Bitbucket avec la clé Jira dans le titre.
+Crée une Pull Request sur GitHub avec la clé Jira dans le titre.
 
 **Comportement** :
 - Titre de la PR : `AQ-{key}: {summary de la story}`
 - Description : liste des commits avec leurs clés
-- Target branch : `main`
+- Target branch : `Main`
 
 **Exemple** :
 ```bash
-# Créer une PR via l'API Bitbucket
-curl -s -X POST \
-  -H "Authorization: Bearer ${BITBUCKET_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "AQ-24: Authentification via compte IdP",
-    "source": {"branch": {"name": "feature/AQ-24-auth-idp"}},
-    "destination": {"branch": {"name": "main"}},
-    "close_source_branch": true
-  }' \
-  "https://api.bitbucket.org/2.0/repositories/francisuster/aquaplan/pullrequests"
+# Créer une PR via le CLI gh (repo franko-devmaster/aquaplan)
+gh pr create \
+  --repo franko-devmaster/aquaplan \
+  --base Main \
+  --head feature/AQ-24-auth-idp \
+  --title "AQ-24: Authentification via compte IdP" \
+  --body "Commits liés : voir git log"
 ```
 
 ## Workflow complet par story
