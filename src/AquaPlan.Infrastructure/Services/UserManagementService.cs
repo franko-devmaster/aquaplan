@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Users;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Domain.Enums;
@@ -101,7 +102,7 @@ internal class UserManagementService(
     {
         if (!string.IsNullOrEmpty(dto.Role) && !RoleName.All.Contains(dto.Role))
         {
-            throw new InvalidOperationException($"Unknown role: {dto.Role}");
+            throw new BusinessRuleException($"Unknown role: {dto.Role}");
         }
 
         if (dto.DistributorId.HasValue)
@@ -110,7 +111,7 @@ internal class UserManagementService(
                 .AnyAsync(d => d.Id == dto.DistributorId.Value && d.TenantId == tenantId, cancellationToken);
             if (!distributorInTenant)
             {
-                throw new InvalidOperationException("The distributor does not exist in the caller's tenant.");
+                throw new BusinessRuleException("The distributor does not exist in the caller's tenant.");
             }
         }
 
@@ -136,7 +137,7 @@ internal class UserManagementService(
         if (!result.Succeeded)
         {
             var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-            throw new InvalidOperationException($"Failed to create user: {errors}");
+            throw new BusinessRuleException($"Failed to create user: {errors}");
         }
 
         if (!string.IsNullOrEmpty(dto.Role))

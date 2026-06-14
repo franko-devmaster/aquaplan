@@ -184,7 +184,7 @@ internal class SamplingRoundService(
 
         if (round.Status is SamplingRoundStatus.InProgress or SamplingRoundStatus.Completed or SamplingRoundStatus.Cancelled)
         {
-            throw new InvalidOperationException($"Cannot update a sampling round in status {round.Status}");
+            throw new BusinessRuleException($"Cannot update a sampling round in status {round.Status}");
         }
 
         round.Name = dto.Name;
@@ -259,12 +259,12 @@ internal class SamplingRoundService(
 
         if (round.Status is SamplingRoundStatus.InProgress or SamplingRoundStatus.Completed or SamplingRoundStatus.Cancelled)
         {
-            throw new InvalidOperationException($"Cannot assign a préleveur to a sampling round in status {round.Status}");
+            throw new BusinessRuleException($"Cannot assign a préleveur to a sampling round in status {round.Status}");
         }
 
         if (round.Orders.Count == 0)
         {
-            throw new InvalidOperationException("Cannot assign a préleveur to a sampling round with no orders");
+            throw new BusinessRuleException("Cannot assign a préleveur to a sampling round with no orders");
         }
 
         round.PreleveurId = dto.PreleveurId;
@@ -327,7 +327,7 @@ internal class SamplingRoundService(
 
         if (round.Status != SamplingRoundStatus.Assigned)
         {
-            throw new InvalidOperationException("Only assigned rounds can be reverted to draft");
+            throw new BusinessRuleException("Only assigned rounds can be reverted to draft");
         }
 
         round.Status = SamplingRoundStatus.Draft;
@@ -359,7 +359,7 @@ internal class SamplingRoundService(
 
         if (round.Status is SamplingRoundStatus.InProgress or SamplingRoundStatus.Completed or SamplingRoundStatus.Cancelled)
         {
-            throw new InvalidOperationException($"Cannot cancel a sampling round in status {round.Status}");
+            throw new BusinessRuleException($"Cannot cancel a sampling round in status {round.Status}");
         }
 
         round.Status = SamplingRoundStatus.Cancelled;
@@ -400,7 +400,7 @@ internal class SamplingRoundService(
 
         if (round.Status is SamplingRoundStatus.InProgress or SamplingRoundStatus.Completed or SamplingRoundStatus.Cancelled)
         {
-            throw new InvalidOperationException($"Cannot modify orders in a sampling round in status {round.Status}");
+            throw new BusinessRuleException($"Cannot modify orders in a sampling round in status {round.Status}");
         }
 
         var order = await dbContext.Orders
@@ -409,17 +409,17 @@ internal class SamplingRoundService(
 
         if (order is null)
         {
-            throw new InvalidOperationException($"Order {orderId} not found");
+            throw new BusinessRuleException($"Order {orderId} not found");
         }
 
         if (order.DistributorId != round.DistributorId)
         {
-            throw new InvalidOperationException("The order must belong to the same distributor as the sampling round");
+            throw new BusinessRuleException("The order must belong to the same distributor as the sampling round");
         }
 
         if (order.SamplingRoundId is not null && order.SamplingRoundId != Guid.Empty && order.SamplingRoundId != roundId)
         {
-            throw new InvalidOperationException("This order is already assigned to another sampling round");
+            throw new BusinessRuleException("This order is already assigned to another sampling round");
         }
 
         var maxSortOrder = round.Orders.Any() ? round.Orders.Max(o => o.SortOrder) : -1;
@@ -493,7 +493,7 @@ internal class SamplingRoundService(
 
         if (round.Status is SamplingRoundStatus.InProgress or SamplingRoundStatus.Completed or SamplingRoundStatus.Cancelled)
         {
-            throw new InvalidOperationException($"Cannot reorder orders in a sampling round in status {round.Status}");
+            throw new BusinessRuleException($"Cannot reorder orders in a sampling round in status {round.Status}");
         }
 
         foreach (var position in dto.Positions)
@@ -522,12 +522,12 @@ internal class SamplingRoundService(
 
         if (!isAdmin && order.SamplingRound?.PreleveurId != userId)
         {
-            throw new InvalidOperationException("Only the assigned préleveur or an administrator can replace a sampling location");
+            throw new BusinessRuleException("Only the assigned préleveur or an administrator can replace a sampling location");
         }
 
         if (order.Status is not (OrderStatus.New or OrderStatus.InProgress))
         {
-            throw new InvalidOperationException($"Cannot replace location on an order in status {order.Status}");
+            throw new BusinessRuleException($"Cannot replace location on an order in status {order.Status}");
         }
 
         var newLocation = await dbContext.SamplingLocations
@@ -536,12 +536,12 @@ internal class SamplingRoundService(
 
         if (newLocation is null)
         {
-            throw new InvalidOperationException("The replacement sampling location must be active");
+            throw new BusinessRuleException("The replacement sampling location must be active");
         }
 
         if (newLocation.DistributorId != order.DistributorId)
         {
-            throw new InvalidOperationException("The replacement sampling location must belong to the same distributor");
+            throw new BusinessRuleException("The replacement sampling location must belong to the same distributor");
         }
 
         if (order.OriginalSamplingLocationId is null)
@@ -570,12 +570,12 @@ internal class SamplingRoundService(
 
         if (order.SamplingRound?.PreleveurId != userId)
         {
-            throw new InvalidOperationException("Only the assigned préleveur can start an order");
+            throw new BusinessRuleException("Only the assigned préleveur can start an order");
         }
 
         if (order.Status != OrderStatus.New)
         {
-            throw new InvalidOperationException($"Cannot start an order in status {order.Status}");
+            throw new BusinessRuleException($"Cannot start an order in status {order.Status}");
         }
 
         order.Status = OrderStatus.InProgress;
@@ -612,7 +612,7 @@ internal class SamplingRoundService(
 
         if (order.SamplingRound?.PreleveurId != userId)
         {
-            throw new InvalidOperationException("Only the assigned préleveur can add comments");
+            throw new BusinessRuleException("Only the assigned préleveur can add comments");
         }
 
         order.SamplerComment = dto.Comment;
@@ -652,7 +652,7 @@ internal class SamplingRoundService(
         var completedOrders = round.Orders.Where(o => o.Status == OrderStatus.Completed).ToList();
         if (completedOrders.Count == 0)
         {
-            throw new InvalidOperationException("No completed orders to transmit");
+            throw new BusinessRuleException("No completed orders to transmit");
         }
 
         // Sprint Robustesse F-108 — delegate the Completed → Transmitted transition to the
@@ -734,7 +734,7 @@ internal class SamplingRoundService(
 
         if (!round.IsLocked)
         {
-            throw new InvalidOperationException("Sampling round is not locked.");
+            throw new BusinessRuleException("Sampling round is not locked.");
         }
 
         var previousLockedById = round.LockedById;

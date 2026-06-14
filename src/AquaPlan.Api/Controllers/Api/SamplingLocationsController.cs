@@ -29,13 +29,25 @@ public class SamplingLocationsController(
         return Ok(locations);
     }
 
+    // Polish F-205 — listing LDP must follow the same visibility policy as the rest of the app:
+    // admins see the whole tenant, others are restricted to the distributors they are authorized
+    // on (own + active delegations). Otherwise any tenant user could enumerate every LDP.
     [HttpGet("filtered")]
     public async Task<ActionResult<SamplingLocationListDto>> GetFiltered(
         [FromQuery] SamplingLocationFilteringInputDto filter,
         CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
         var tenantId = GetTenantId();
-        var result = await samplingLocationService.GetFilteredAsync(filter, tenantId, cancellationToken);
+
+        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, PermissionName.ViewAllOrders, cancellationToken);
+        List<Guid>? authorizedDistributorIds = null;
+        if (!hasViewAll)
+        {
+            authorizedDistributorIds = await delegationService.GetAuthorizedDistributorIdsForUserAsync(userId, cancellationToken);
+        }
+
+        var result = await samplingLocationService.GetFilteredAsync(filter, tenantId, authorizedDistributorIds, cancellationToken);
         return Ok(result);
     }
 
@@ -175,10 +187,22 @@ public class SamplingLocationsController(
         var userId = GetUserId();
         var tenantId = GetTenantId();
 
-        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, "ViewAllOrders", cancellationToken);
-        if (!hasViewAll && distributorId is null)
+        // Polish F-206 — a non-admin must scope the export to a distributor they are authorized on.
+        // Previously only `distributorId is null` was rejected, so an explicit foreign distributorId
+        // leaked another distributor's LDP list (addresses, installation access descriptions = IDOR).
+        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, PermissionName.ViewAllOrders, cancellationToken);
+        if (!hasViewAll)
         {
-            return Forbid();
+            if (distributorId is null)
+            {
+                return Forbid();
+            }
+
+            var authorizedIds = await delegationService.GetAuthorizedDistributorIdsForUserAsync(userId, cancellationToken);
+            if (!authorizedIds.Contains(distributorId.Value))
+            {
+                return Forbid();
+            }
         }
 
         var pdfBytes = await samplingLocationService.ExportPdfAsync(tenantId, distributorId, cancellationToken);

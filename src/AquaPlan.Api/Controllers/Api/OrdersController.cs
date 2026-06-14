@@ -412,10 +412,26 @@ public class OrdersController(
         return Ok(results);
     }
 
+    // Polish F-204 — the audit log exposes actor names, scanned barcodes and the full action
+    // history, so it must pass the same access check as GetOrder instead of being readable by
+    // any authenticated tenant user on any order.
     [HttpGet("{id:guid}/audit-log")]
     public async Task<ActionResult<List<OrderAuditLogDto>>> GetAuditLog(Guid id, CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
         var tenantId = GetTenantId();
+
+        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, PermissionName.ViewAllOrders, cancellationToken);
+        if (!hasViewAll)
+        {
+            var canAccess = await orderService.UserCanAccessOrderAsync(userId, id, tenantId, cancellationToken);
+            if (!canAccess)
+            {
+                var exists = await orderService.GetOrderByIdAsync(id, tenantId, cancellationToken);
+                return exists is null ? NotFound() : Forbid();
+            }
+        }
+
         var logs = await orderAuditService.GetByOrderIdAsync(id, tenantId, cancellationToken);
         return Ok(logs);
     }

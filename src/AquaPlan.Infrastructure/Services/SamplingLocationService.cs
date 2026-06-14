@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.SamplingLocations;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Infrastructure.Data;
@@ -26,13 +27,20 @@ internal class SamplingLocationService(
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<SamplingLocationListDto> GetFilteredAsync(SamplingLocationFilteringInputDto filter, Guid tenantId, CancellationToken cancellationToken = default)
+    public async Task<SamplingLocationListDto> GetFilteredAsync(SamplingLocationFilteringInputDto filter, Guid tenantId, IReadOnlyCollection<Guid>? authorizedDistributorIds = null, CancellationToken cancellationToken = default)
     {
         var query = dbContext.SamplingLocations
             .Where(sl => sl.Distributor!.TenantId == tenantId)
             .Include(sl => sl.Distributor)
             .Include(sl => sl.Sector)
             .AsQueryable();
+
+        // Polish F-205 — non-admins only see LDP of their authorized distributors.
+        if (authorizedDistributorIds is not null)
+        {
+            var ids = authorizedDistributorIds.ToList();
+            query = query.Where(sl => ids.Contains(sl.DistributorId));
+        }
 
         if (filter.DistributorId.HasValue)
         {
@@ -127,13 +135,13 @@ internal class SamplingLocationService(
             .AnyAsync(d => d.Id == dto.DistributorId && d.TenantId == tenantId, cancellationToken);
         if (!distributorInTenant)
         {
-            throw new InvalidOperationException("The distributor does not belong to your tenant.");
+            throw new BusinessRuleException("The distributor does not belong to your tenant.");
         }
 
         var isUnique = await IsLocationCodeUniqueAsync(dto.LocationCode, dto.DistributorId, null, tenantId, cancellationToken);
         if (!isUnique)
         {
-            throw new InvalidOperationException($"A sampling location with code '{dto.LocationCode}' already exists for this distributor.");
+            throw new BusinessRuleException($"A sampling location with code '{dto.LocationCode}' already exists for this distributor.");
         }
 
         var location = new SamplingLocation
@@ -172,7 +180,7 @@ internal class SamplingLocationService(
         var isUnique = await IsLocationCodeUniqueAsync(dto.LocationCode, location.DistributorId, id, tenantId, cancellationToken);
         if (!isUnique)
         {
-            throw new InvalidOperationException($"A sampling location with code '{dto.LocationCode}' already exists for this distributor.");
+            throw new BusinessRuleException($"A sampling location with code '{dto.LocationCode}' already exists for this distributor.");
         }
 
         location.Name = dto.Name;
@@ -374,7 +382,7 @@ internal class SamplingLocationService(
             .AnyAsync(o => o.SamplingLocationId == id, cancellationToken);
         if (hasOrders)
         {
-            throw new InvalidOperationException("Cannot delete a sampling location that is referenced by orders. Deactivate it instead.");
+            throw new BusinessRuleException("Cannot delete a sampling location that is referenced by orders. Deactivate it instead.");
         }
 
         var location = await dbContext.SamplingLocations

@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Orders;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Enums;
 using AquaPlan.Infrastructure.Data;
@@ -74,7 +75,7 @@ internal class OrderStatusService(
 
         if (!ValidateTransition(currentStatus, newStatus))
         {
-            throw new InvalidOperationException(
+            throw new BusinessRuleException(
                 $"Transition from {currentStatus} to {newStatus} is not allowed.");
         }
 

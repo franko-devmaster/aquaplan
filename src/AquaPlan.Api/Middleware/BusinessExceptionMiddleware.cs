@@ -41,19 +41,34 @@ public class BusinessExceptionMiddleware(RequestDelegate next, ILogger<BusinessE
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message }));
         }
-        catch (InvalidOperationException ex)
+        catch (BusinessRuleException ex)
         {
+            // Polish F-202 — intentional, curated business-rule violation: the message is safe to
+            // expose and is consumed by the frontend (snackbars, Gherkin assertions).
             logger.LogWarning(ex, "Business rule violation: {Message}", ex.Message);
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message }));
         }
+        catch (InvalidOperationException ex)
+        {
+            // Polish F-202 — a bare InvalidOperationException reaching here is an *unexpected*
+            // condition (framework: LINQ Single(), EF "connection disposed", DI…). Its raw message
+            // must not leak to the client; surface a generic 500 and keep the detail in the log.
+            logger.LogError(ex, "Unexpected InvalidOperationException: {Message}", ex.Message);
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = "An error occurred while processing your request." }));
+        }
         catch (UnauthorizedAccessException ex)
         {
+            // Polish F-203 — keep the detail (which may embed internal user/distributor IDs) in the
+            // server log only; return a generic message to the client to avoid leaking identifiers
+            // useful for enumeration.
             logger.LogWarning(ex, "Unauthorized: {Message}", ex.Message);
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             context.Response.ContentType = "application/json";
-            await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = ex.Message }));
+            await context.Response.WriteAsync(JsonSerializer.Serialize(new { error = "Accès refusé." }));
         }
         catch (KeyNotFoundException)
         {

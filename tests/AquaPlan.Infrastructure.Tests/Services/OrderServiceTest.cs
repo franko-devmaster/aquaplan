@@ -1283,6 +1283,155 @@ public class OrderServiceTest : IDisposable
             Times.Never);
     }
 
+    // --- Polish F-228 — CreateOrderAsync FK validation against the tenant ---
+
+    [Fact]
+    public async Task CreateOrderAsync_ShouldThrow_WhenDistributorNotInTenant()
+    {
+        var dto = new OrderCreateDto(
+            DistributorId: Guid.NewGuid(),
+            SamplingLocationId: null,
+            PreleveurId: null,
+            PlannedDate: null,
+            AnalysisProgramIds: null,
+            Notes: null,
+            IsUnplanned: false);
+
+        await _sut.Awaiting(s => s.CreateOrderAsync(dto, UserId, TenantId))
+            .Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*distributor*");
+    }
+
+    [Fact]
+    public async Task CreateOrderAsync_ShouldThrow_WhenSamplingLocationBelongsToAnotherDistributor()
+    {
+        var otherDistributorId = Guid.NewGuid();
+        _dbContext.Distributors.Add(new Distributor { Id = otherDistributorId, Name = "Other", TenantId = TenantId, IsActive = true });
+        var location = new SamplingLocation { Id = Guid.NewGuid(), Name = "LDP", LocationCode = "L-1", DistributorId = otherDistributorId };
+        _dbContext.SamplingLocations.Add(location);
+        await _dbContext.SaveChangesAsync();
+
+        var dto = new OrderCreateDto(
+            DistributorId: DistributorId,
+            SamplingLocationId: location.Id,
+            PreleveurId: null,
+            PlannedDate: null,
+            AnalysisProgramIds: null,
+            Notes: null,
+            IsUnplanned: false);
+
+        await _sut.Awaiting(s => s.CreateOrderAsync(dto, UserId, TenantId))
+            .Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*sampling location*");
+    }
+
+    [Fact]
+    public async Task CreateOrderAsync_ShouldThrow_WhenAnalysisProgramNotInTenant()
+    {
+        var dto = new OrderCreateDto(
+            DistributorId: DistributorId,
+            SamplingLocationId: null,
+            PreleveurId: null,
+            PlannedDate: null,
+            AnalysisProgramIds: [Guid.NewGuid()],
+            Notes: null,
+            IsUnplanned: false);
+
+        await _sut.Awaiting(s => s.CreateOrderAsync(dto, UserId, TenantId))
+            .Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*analysis program*");
+    }
+
+    [Fact]
+    public async Task CreateOrderAsync_ShouldSucceed_WhenLocationBelongsToDistributorInTenant()
+    {
+        var location = new SamplingLocation { Id = Guid.NewGuid(), Name = "LDP-OK", LocationCode = "L-OK", DistributorId = DistributorId };
+        _dbContext.SamplingLocations.Add(location);
+        await _dbContext.SaveChangesAsync();
+
+        var dto = new OrderCreateDto(
+            DistributorId: DistributorId,
+            SamplingLocationId: location.Id,
+            PreleveurId: null,
+            PlannedDate: null,
+            AnalysisProgramIds: null,
+            Notes: null,
+            IsUnplanned: false);
+
+        var result = await _sut.CreateOrderAsync(dto, UserId, TenantId);
+
+        result.SamplingLocationId.Should().Be(location.Id);
+    }
+
+    // --- Polish F-208 — CSV export escaping (formula injection + separators) ---
+
+    [Fact]
+    public async Task ExportOrdersCsvAsync_ShouldEscapeFormulaAndSeparators()
+    {
+        var distributorId = Guid.NewGuid();
+        // Distributor name starts with '=' (formula) and embeds a ';' (separator).
+        _dbContext.Distributors.Add(new Distributor { Id = distributorId, Name = "=cmd|'/c calc';evil", TenantId = TenantId, IsActive = true });
+        _dbContext.Orders.Add(new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = "ORD-CSV-01",
+            Status = OrderStatus.New,
+            IsUnplanned = false,
+            CreatedById = UserId,
+            DistributorId = distributorId,
+            TenantId = TenantId,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var bytes = await _sut.ExportOrdersCsvAsync(TenantId, new OrderFilterDto(null, null, null, null));
+        var csv = System.Text.Encoding.UTF8.GetString(bytes);
+
+        // The malicious value must be neutralised (leading quote) and wrapped (contains ';').
+        csv.Should().Contain("\"'=cmd|'/c calc';evil\"");
+        // The injected ';' must not have shifted the column layout: the data row keeps 10 fields.
+        var dataLine = csv.Split('\n').First(l => l.StartsWith("ORD-CSV-01"));
+        SplitCsv(dataLine).Should().HaveCount(10);
+    }
+
+    // Minimal RFC-4180 splitter for the assertion (handles quoted fields with embedded ';').
+    private static List<string> SplitCsv(string line)
+    {
+        var fields = new List<string>();
+        var current = new System.Text.StringBuilder();
+        var inQuotes = false;
+        for (var i = 0; i < line.Length; i++)
+        {
+            var c = line[i];
+            if (c == '"')
+            {
+                if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                {
+                    current.Append('"');
+                    i++;
+                }
+                else
+                {
+                    inQuotes = !inQuotes;
+                }
+            }
+            else if (c == ';' && !inQuotes)
+            {
+                fields.Add(current.ToString());
+                current.Clear();
+            }
+            else if (c is '\r' or '\n')
+            {
+                // ignore trailing CR/LF
+            }
+            else
+            {
+                current.Append(c);
+            }
+        }
+        fields.Add(current.ToString());
+        return fields;
+    }
+
     private async Task SeedData()
     {
         _dbContext.Users.Add(new AppUser

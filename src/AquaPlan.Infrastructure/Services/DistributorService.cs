@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Distributors;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Infrastructure.Data;
@@ -61,7 +62,7 @@ internal class DistributorService(
 
         if (nameExists)
         {
-            throw new InvalidOperationException($"A distributor with the name '{dto.Name}' already exists for this tenant.");
+            throw new BusinessRuleException($"A distributor with the name '{dto.Name}' already exists for this tenant.");
         }
 
         var distributor = new Distributor
@@ -98,7 +99,7 @@ internal class DistributorService(
 
         if (nameExists)
         {
-            throw new InvalidOperationException($"A distributor with the name '{dto.Name}' already exists for this tenant.");
+            throw new BusinessRuleException($"A distributor with the name '{dto.Name}' already exists for this tenant.");
         }
 
         distributor.Name = dto.Name;

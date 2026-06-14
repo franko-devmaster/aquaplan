@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Orders;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.DTOs.SamplingPlans;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
@@ -121,7 +122,7 @@ internal class SamplingPlanService(
 
         if (exists)
         {
-            throw new InvalidOperationException($"A sampling plan already exists for this distributor and year {dto.Year}.");
+            throw new BusinessRuleException($"A sampling plan already exists for this distributor and year {dto.Year}.");
         }
 
         var plan = new SamplingPlan
@@ -174,7 +175,7 @@ internal class SamplingPlanService(
 
         if (plan.Status != SamplingPlanStatus.Draft)
         {
-            throw new InvalidOperationException($"Cannot modify sampling plan in status {plan.Status}. Only Draft plans can be modified.");
+            throw new BusinessRuleException($"Cannot modify sampling plan in status {plan.Status}. Only Draft plans can be modified.");
         }
 
         plan.Notes = dto.Notes;
@@ -217,7 +218,7 @@ internal class SamplingPlanService(
 
         if (plan.Status != SamplingPlanStatus.Draft)
         {
-            throw new InvalidOperationException($"Cannot delete sampling plan in status {plan.Status}. Only Draft plans can be deleted.");
+            throw new BusinessRuleException($"Cannot delete sampling plan in status {plan.Status}. Only Draft plans can be deleted.");
         }
 
         dbContext.SamplingPlans.Remove(plan);
@@ -243,12 +244,12 @@ internal class SamplingPlanService(
 
         if (plan.Status != SamplingPlanStatus.Draft)
         {
-            throw new InvalidOperationException($"Cannot submit sampling plan in status {plan.Status}. Only Draft plans can be submitted.");
+            throw new BusinessRuleException($"Cannot submit sampling plan in status {plan.Status}. Only Draft plans can be submitted.");
         }
 
         if (plan.Items.Count == 0)
         {
-            throw new InvalidOperationException("Cannot submit an empty sampling plan. Add at least one item.");
+            throw new BusinessRuleException("Cannot submit an empty sampling plan. Add at least one item.");
         }
 
         plan.Status = SamplingPlanStatus.Submitted;
@@ -278,7 +279,7 @@ internal class SamplingPlanService(
 
         if (plan.Status != SamplingPlanStatus.Submitted)
         {
-            throw new InvalidOperationException($"Cannot validate sampling plan in status {plan.Status}. Only Submitted plans can be validated.");
+            throw new BusinessRuleException($"Cannot validate sampling plan in status {plan.Status}. Only Submitted plans can be validated.");
         }
 
         plan.Status = SamplingPlanStatus.Validated;
@@ -308,7 +309,7 @@ internal class SamplingPlanService(
 
         if (plan.Status != SamplingPlanStatus.Submitted)
         {
-            throw new InvalidOperationException($"Cannot reject sampling plan in status {plan.Status}. Only Submitted plans can be rejected.");
+            throw new BusinessRuleException($"Cannot reject sampling plan in status {plan.Status}. Only Submitted plans can be rejected.");
         }
 
         plan.Status = SamplingPlanStatus.Rejected;
@@ -363,12 +364,12 @@ internal class SamplingPlanService(
 
         if (plan is null)
         {
-            throw new InvalidOperationException("Sampling plan not found.");
+            throw new BusinessRuleException("Sampling plan not found.");
         }
 
         if (plan.Status != SamplingPlanStatus.Validated)
         {
-            throw new InvalidOperationException($"Cannot generate orders from a plan in status {plan.Status}. Only Validated plans can generate orders.");
+            throw new BusinessRuleException($"Cannot generate orders from a plan in status {plan.Status}. Only Validated plans can generate orders.");
         }
 
         // Sprint Robustesse F-109 — generation is a one-shot operation. The plan stays
@@ -377,13 +378,13 @@ internal class SamplingPlanService(
         // transaction below, so concurrent callers cannot both pass this check.
         if (plan.OrdersGeneratedAt is not null)
         {
-            throw new InvalidOperationException(
+            throw new BusinessRuleException(
                 $"Orders were already generated from this plan on {plan.OrdersGeneratedAt:yyyy-MM-dd HH:mm} UTC.");
         }
 
         if (plan.Items.Count == 0)
         {
-            throw new InvalidOperationException("Cannot generate orders from an empty plan.");
+            throw new BusinessRuleException("Cannot generate orders from an empty plan.");
         }
 
         var generatedOrders = new List<GeneratedOrderSummaryDto>();

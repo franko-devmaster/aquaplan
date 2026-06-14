@@ -17,10 +17,17 @@ public class SamplingsController(
     IPermissionService permissionService,
     ILogger<SamplingsController> logger) : ControllerBase
 {
+    // Polish F-205 — a sampling carries field data (barcodes, remarks); reading it must pass the
+    // same per-order access check as the order itself instead of being open to any tenant user.
     [HttpGet]
     public async Task<ActionResult<SamplingDto>> GetSampling(Guid orderId, CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
         var tenantId = GetTenantId();
+
+        var access = await EnsureCanAccessOrderAsync(userId, orderId, tenantId, cancellationToken);
+        if (access is not null) return access;
+
         var result = await samplingService.GetByOrderIdAsync(orderId, tenantId, cancellationToken);
         if (result is null) return NotFound();
         return Ok(result);
@@ -97,13 +104,44 @@ public class SamplingsController(
         return Ok(result);
     }
 
+    // Polish F-205 — barcode lookup is scoped to the tenant but must still respect per-order
+    // visibility: a non-admin can only resolve a barcode that maps to an order they can access.
     [HttpGet("~/api/samplings/by-barcode/{barcode}")]
     public async Task<ActionResult<SamplingDto>> GetByBarcode(string barcode, CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
         var tenantId = GetTenantId();
         var result = await samplingService.GetByBarcodeAsync(barcode, tenantId, cancellationToken);
         if (result is null) return NotFound();
+
+        var access = await EnsureCanAccessOrderAsync(userId, result.OrderId, tenantId, cancellationToken);
+        // Hide existence of out-of-scope barcodes: return 404 rather than 403.
+        if (access is not null) return NotFound();
+
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Polish F-205 — for non-admins, verifies the caller can access the order (creator, assigned
+    /// préleveur, authorized distributor). Returns 404 when the order does not exist, 403 when it
+    /// exists but is out of scope, or null when access is granted.
+    /// </summary>
+    private async Task<ActionResult?> EnsureCanAccessOrderAsync(string userId, Guid orderId, Guid tenantId, CancellationToken cancellationToken)
+    {
+        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, PermissionName.ViewAllOrders, cancellationToken);
+        if (hasViewAll)
+        {
+            return null;
+        }
+
+        var canAccess = await orderService.UserCanAccessOrderAsync(userId, orderId, tenantId, cancellationToken);
+        if (canAccess)
+        {
+            return null;
+        }
+
+        var exists = await orderService.GetOrderByIdAsync(orderId, tenantId, cancellationToken);
+        return exists is null ? NotFound() : Forbid();
     }
 
     private string GetUserId()

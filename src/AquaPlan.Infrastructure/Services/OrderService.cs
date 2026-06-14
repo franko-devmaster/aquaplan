@@ -220,8 +220,14 @@ internal class OrderService(
         // Validation: unplanned orders must have a reason
         if (dto.IsUnplanned && dto.UnplannedReason is null)
         {
-            throw new InvalidOperationException("An unplanned order must have an UnplannedReason.");
+            throw new BusinessRuleException("An unplanned order must have an UnplannedReason.");
         }
+
+        // Polish F-228 — referenced entities must all belong to the caller's tenant. The controller
+        // only checks distributor authorization for non-admins (delegation), so the admin path could
+        // otherwise create cross-tenant references (distributor/LDP/programmes of another tenant)
+        // that then leak through the DTOs. Validate the whole FK set against tenantId here.
+        await ValidateOrderReferencesAsync(dto.DistributorId, dto.SamplingLocationId, dto.AnalysisProgramIds, tenantId, cancellationToken);
 
         var initialStatus = dto.IsUnplanned ? OrderStatus.InProgress : OrderStatus.New;
 
@@ -295,6 +301,49 @@ internal class OrderService(
         return (await GetOrderByIdAsync(order.Id, tenantId, cancellationToken))!;
     }
 
+    /// <summary>
+    /// Polish F-228 — validates that every referenced entity belongs to the caller's tenant: the
+    /// distributor, the sampling location (and that it belongs to that distributor) and each
+    /// analysis programme. Throws <see cref="InvalidOperationException"/> on the first violation.
+    /// </summary>
+    private async Task ValidateOrderReferencesAsync(
+        Guid distributorId,
+        Guid? samplingLocationId,
+        IReadOnlyCollection<Guid>? analysisProgramIds,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var distributorInTenant = await dbContext.Distributors
+            .AnyAsync(d => d.Id == distributorId && d.TenantId == tenantId, cancellationToken);
+        if (!distributorInTenant)
+        {
+            throw new BusinessRuleException("The distributor does not belong to your tenant.");
+        }
+
+        if (samplingLocationId.HasValue)
+        {
+            var locationValid = await dbContext.SamplingLocations
+                .AnyAsync(sl => sl.Id == samplingLocationId.Value
+                    && sl.DistributorId == distributorId
+                    && sl.Distributor!.TenantId == tenantId, cancellationToken);
+            if (!locationValid)
+            {
+                throw new BusinessRuleException("The sampling location does not belong to the given distributor in your tenant.");
+            }
+        }
+
+        if (analysisProgramIds is { Count: > 0 })
+        {
+            var ids = analysisProgramIds.Distinct().ToList();
+            var validCount = await dbContext.AnalysisPrograms
+                .CountAsync(p => ids.Contains(p.Id) && p.TenantId == tenantId, cancellationToken);
+            if (validCount != ids.Count)
+            {
+                throw new BusinessRuleException("One or more analysis programs do not belong to your tenant.");
+            }
+        }
+    }
+
     public async Task<OrderDetailDto?> UpdateOrderAsync(Guid orderId, OrderUpdateDto dto, string updatedBy, Guid tenantId, bool isAdmin = false, CancellationToken cancellationToken = default)
     {
         var order = await dbContext.Orders
@@ -315,12 +364,12 @@ internal class OrderService(
         {
             if (terminalStatuses.Contains(order.Status))
             {
-                throw new InvalidOperationException($"Cannot modify order in terminal status {order.Status}.");
+                throw new BusinessRuleException($"Cannot modify order in terminal status {order.Status}.");
             }
         }
         else if (order.Status != OrderStatus.New)
         {
-            throw new InvalidOperationException($"Cannot modify order in status {order.Status}. Only New orders can be modified.");
+            throw new BusinessRuleException($"Cannot modify order in status {order.Status}. Only New orders can be modified.");
         }
 
         order.SamplingLocationId = dto.SamplingLocationId;
@@ -376,12 +425,12 @@ internal class OrderService(
         {
             if (order.Status >= OrderStatus.Completed)
             {
-                throw new InvalidOperationException($"Cannot delete order in status {order.Status}. Admin can only delete orders before sampling is completed.");
+                throw new BusinessRuleException($"Cannot delete order in status {order.Status}. Admin can only delete orders before sampling is completed.");
             }
         }
         else if (order.Status != OrderStatus.New)
         {
-            throw new InvalidOperationException($"Cannot delete order in status {order.Status}. Only New orders can be deleted.");
+            throw new BusinessRuleException($"Cannot delete order in status {order.Status}. Only New orders can be deleted.");
         }
 
         dbContext.Orders.Remove(order);
@@ -411,7 +460,7 @@ internal class OrderService(
             var isValidPreleveur = await IsValidPreleveurForTenantAsync(dto.PreleveurId, tenantId, cancellationToken);
             if (!isValidPreleveur)
             {
-                throw new InvalidOperationException(
+                throw new BusinessRuleException(
                     "The assigned préleveur must be an active user of the tenant with a préleveur role.");
             }
         }
@@ -508,22 +557,52 @@ internal class OrderService(
         {
             var preleveurName = o.Preleveur is not null ? $"{o.Preleveur.FirstName} {o.Preleveur.LastName}" : "";
             var createdByName = o.CreatedBy is not null ? $"{o.CreatedBy.FirstName} {o.CreatedBy.LastName}" : "";
+            // Polish F-208 — every field is escaped (quoting + formula-injection guard) because
+            // distributor/LDP/préleveur names are user-supplied and could otherwise break columns
+            // (embedded ';') or execute as Excel formulas (leading '=', '+', '-', '@').
             var line = string.Join(";",
-                o.OrderNumber,
-                o.Status,
-                o.IsUnplanned ? "Yes" : "No",
-                o.UnplannedReason?.ToString() ?? "",
-                o.Distributor?.Name ?? "",
-                o.SamplingLocation?.Name ?? "",
-                preleveurName,
-                o.PlannedDate?.ToString("yyyy-MM-dd") ?? "",
-                createdByName,
-                o.CreatedAt.ToString("yyyy-MM-dd HH:mm"));
+                EscapeCsvField(o.OrderNumber),
+                EscapeCsvField(o.Status.ToString()),
+                EscapeCsvField(o.IsUnplanned ? "Yes" : "No"),
+                EscapeCsvField(o.UnplannedReason?.ToString() ?? ""),
+                EscapeCsvField(o.Distributor?.Name ?? ""),
+                EscapeCsvField(o.SamplingLocation?.Name ?? ""),
+                EscapeCsvField(preleveurName),
+                EscapeCsvField(o.PlannedDate?.ToString("yyyy-MM-dd") ?? ""),
+                EscapeCsvField(createdByName),
+                EscapeCsvField(o.CreatedAt.ToString("yyyy-MM-dd HH:mm")));
             await writer.WriteLineAsync(line);
         }
 
         await writer.FlushAsync(cancellationToken);
         return ms.ToArray();
+    }
+
+    /// <summary>
+    /// Polish F-208 — escapes a CSV field per RFC 4180 (wrap in quotes, double inner quotes when the
+    /// value contains a separator, quote or newline) and neutralises CSV/formula injection by
+    /// prefixing a leading '=', '+', '-' or '@' with a single quote (OWASP recommendation).
+    /// </summary>
+    private static string EscapeCsvField(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return "";
+        }
+
+        var sanitized = value;
+        if (sanitized.Length > 0 && sanitized[0] is '=' or '+' or '-' or '@')
+        {
+            sanitized = "'" + sanitized;
+        }
+
+        var needsQuoting = sanitized.IndexOfAny([';', '"', '\n', '\r']) >= 0;
+        if (needsQuoting)
+        {
+            sanitized = "\"" + sanitized.Replace("\"", "\"\"") + "\"";
+        }
+
+        return sanitized;
     }
 
     public async Task<bool> UserHasDistributorAccessAsync(string userId, Guid distributorId, CancellationToken cancellationToken = default)

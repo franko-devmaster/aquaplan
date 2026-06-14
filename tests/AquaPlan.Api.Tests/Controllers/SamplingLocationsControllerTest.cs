@@ -119,13 +119,59 @@ public class SamplingLocationsControllerTest
         var listDto = new SamplingLocationListDto(
             new List<SamplingLocationDto> { CreateLocationDto() }, 1, 1, 25);
         _samplingLocationServiceMock
-            .Setup(x => x.GetFilteredAsync(filter, TenantId, It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetFilteredAsync(filter, TenantId, It.IsAny<IReadOnlyCollection<Guid>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(listDto);
 
         var result = await _sut.GetFiltered(filter, CancellationToken.None);
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().Be(listDto);
+    }
+
+    [Fact]
+    public async Task GetFiltered_ShouldScopeToAuthorizedDistributors_WhenNotAdmin()
+    {
+        // Polish F-205 — a non-admin caller must only see LDP of their authorized distributors.
+        var filter = new SamplingLocationFilteringInputDto(null, null, null, null, 1, 25);
+        var listDto = new SamplingLocationListDto(new List<SamplingLocationDto>(), 0, 1, 25);
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _samplingLocationServiceMock
+            .Setup(x => x.GetFilteredAsync(filter, TenantId, It.Is<IReadOnlyCollection<Guid>?>(ids => ids != null && ids.Contains(DistributorId)), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(listDto);
+
+        var result = await _sut.GetFiltered(filter, CancellationToken.None);
+
+        result.Result.Should().BeOfType<OkObjectResult>();
+        _samplingLocationServiceMock.Verify(
+            x => x.GetFilteredAsync(filter, TenantId, It.Is<IReadOnlyCollection<Guid>?>(ids => ids != null && ids.Contains(DistributorId)), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetFiltered_ShouldNotScope_WhenAdmin()
+    {
+        // Polish F-205 — an admin sees the whole tenant (null scope).
+        _sut.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = CreateUser(isAdmin: true) }
+        };
+        var filter = new SamplingLocationFilteringInputDto(null, null, null, null, 1, 25);
+        var listDto = new SamplingLocationListDto(new List<SamplingLocationDto>(), 0, 1, 25);
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _samplingLocationServiceMock
+            .Setup(x => x.GetFilteredAsync(filter, TenantId, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(listDto);
+
+        var result = await _sut.GetFiltered(filter, CancellationToken.None);
+
+        result.Result.Should().BeOfType<OkObjectResult>();
+        _samplingLocationServiceMock.Verify(
+            x => x.GetFilteredAsync(filter, TenantId, null, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -421,6 +467,73 @@ public class SamplingLocationsControllerTest
         var attributes = method!.GetCustomAttributes(typeof(AuthorizeAttribute), true).OfType<AuthorizeAttribute>();
         attributes.Should().NotContain(a => a.Roles == "Administrator",
             "any authenticated user should be able to check code uniqueness");
+    }
+
+    #endregion
+
+    #region ExportPdf — Polish F-206
+
+    [Fact]
+    public async Task ExportPdf_ShouldReturnFile_WhenAdmin()
+    {
+        _sut.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = CreateUser(isAdmin: true) }
+        };
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _samplingLocationServiceMock
+            .Setup(x => x.ExportPdfAsync(TenantId, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([1, 2, 3]);
+
+        var result = await _sut.ExportPdf(null, CancellationToken.None);
+
+        result.Should().BeOfType<FileContentResult>();
+    }
+
+    [Fact]
+    public async Task ExportPdf_ShouldReturnForbid_WhenNonAdminWithoutDistributor()
+    {
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _sut.ExportPdf(null, CancellationToken.None);
+
+        result.Should().BeOfType<ForbidResult>();
+    }
+
+    [Fact]
+    public async Task ExportPdf_ShouldReturnForbid_WhenNonAdminAndDistributorNotAuthorized()
+    {
+        // Polish F-206 — an explicit but foreign distributorId must be rejected (IDOR).
+        var foreignDistributor = Guid.Parse("00000000-0000-0000-0000-0000000000ff");
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _sut.ExportPdf(foreignDistributor, CancellationToken.None);
+
+        result.Should().BeOfType<ForbidResult>();
+        _samplingLocationServiceMock.Verify(
+            x => x.ExportPdfAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ExportPdf_ShouldReturnFile_WhenNonAdminAndDistributorAuthorized()
+    {
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _samplingLocationServiceMock
+            .Setup(x => x.ExportPdfAsync(TenantId, DistributorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([1, 2, 3]);
+
+        var result = await _sut.ExportPdf(DistributorId, CancellationToken.None);
+
+        result.Should().BeOfType<FileContentResult>();
     }
 
     #endregion

@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Containers;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Infrastructure.Data;
@@ -52,7 +53,7 @@ internal class ContainerService(
             .AnyAsync(c => c.TenantId == tenantId && c.Code == dto.Code, cancellationToken);
         if (codeExists)
         {
-            throw new InvalidOperationException($"A container with code '{dto.Code}' already exists for this tenant.");
+            throw new BusinessRuleException($"A container with code '{dto.Code}' already exists for this tenant.");
         }
 
         var container = new Container
@@ -91,7 +92,7 @@ internal class ContainerService(
                 .AnyAsync(c => c.TenantId == tenantId && c.Code == dto.Code && c.Id != id, cancellationToken);
             if (codeExists)
             {
-                throw new InvalidOperationException($"A container with code '{dto.Code}' already exists for this tenant.");
+                throw new BusinessRuleException($"A container with code '{dto.Code}' already exists for this tenant.");
             }
         }
 

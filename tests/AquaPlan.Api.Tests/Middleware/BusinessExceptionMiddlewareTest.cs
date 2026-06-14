@@ -72,16 +72,51 @@ public class BusinessExceptionMiddlewareTest
         doc.RootElement.GetProperty("roundId").GetGuid().Should().Be(roundId);
     }
 
+    // Polish F-202 — a curated BusinessRuleException maps to 400 and exposes its message.
     [Fact]
-    public async Task InvokeAsync_InvalidOperationException_ShouldReturn400()
+    public async Task InvokeAsync_BusinessRuleException_ShouldReturn400WithMessage()
     {
         var sut = new BusinessExceptionMiddleware(
-            _ => throw new InvalidOperationException("Bad state"),
+            _ => throw new BusinessRuleException("An unplanned order must have an UnplannedReason."),
             _loggerMock.Object);
 
-        var (status, _) = await InvokeAsync(sut);
+        var (status, body) = await InvokeAsync(sut);
 
         status.Should().Be(StatusCodes.Status400BadRequest);
+        body.Should().Contain("UnplannedReason");
+    }
+
+    // Polish F-202 — an unexpected (framework) InvalidOperationException must NOT leak its raw
+    // message; it returns a generic 500.
+    [Fact]
+    public async Task InvokeAsync_BareInvalidOperationException_ShouldReturn500Generic()
+    {
+        var sut = new BusinessExceptionMiddleware(
+            _ => throw new InvalidOperationException("Sequence contains no elements"),
+            _loggerMock.Object);
+
+        var (status, body) = await InvokeAsync(sut);
+
+        status.Should().Be(StatusCodes.Status500InternalServerError);
+        body.Should().NotContain("Sequence contains no elements");
+        body.Should().Contain("An error occurred");
+    }
+
+    // Polish F-203 — a 403 must not echo internal IDs; the body is a generic message and the
+    // detail (with IDs) only goes to the log.
+    [Fact]
+    public async Task InvokeAsync_UnauthorizedAccessException_ShouldReturn403Generic()
+    {
+        var sut = new BusinessExceptionMiddleware(
+            _ => throw new UnauthorizedAccessException("User abc-123 does not have access to distributor def-456."),
+            _loggerMock.Object);
+
+        var (status, body) = await InvokeAsync(sut);
+
+        status.Should().Be(StatusCodes.Status403Forbidden);
+        body.Should().NotContain("abc-123");
+        body.Should().NotContain("def-456");
+        body.Should().Contain("Acc");
     }
 
     [Fact]

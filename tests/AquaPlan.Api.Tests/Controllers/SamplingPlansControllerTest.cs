@@ -551,6 +551,12 @@ public class SamplingPlansControllerTest
     {
         var plan = CreateDetailDto(status: SamplingPlanStatus.Submitted);
         _samplingPlanServiceMock
+            .Setup(x => x.GetPlanByIdAsync(PlanId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateDetailDto());
+        _samplingPlanServiceMock
+            .Setup(x => x.UserHasDistributorAccessAsync(UserId, DistributorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _samplingPlanServiceMock
             .Setup(x => x.SubmitPlanAsync(PlanId, UserId, TenantId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(plan);
 
@@ -563,18 +569,43 @@ public class SamplingPlansControllerTest
     [Fact]
     public async Task SubmitPlan_WhenPlanNotFound_ShouldReturnNotFound()
     {
-        _samplingPlanServiceMock
-            .Setup(x => x.SubmitPlanAsync(PlanId, UserId, TenantId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((SamplingPlanDetailDto?)null);
-
+        // GetPlanByIdAsync not mocked → returns null → NotFound (before reaching the service).
         var result = await _sut.SubmitPlan(PlanId, CancellationToken.None);
 
         result.Result.Should().BeOfType<NotFoundResult>();
+        _samplingPlanServiceMock.Verify(
+            x => x.SubmitPlanAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    // Polish F-207 — a non-admin without access to the plan's distributor must be forbidden.
+    [Fact]
+    public async Task SubmitPlan_WhenNonAdminWithoutDistributorAccess_ShouldReturnForbid()
+    {
+        _samplingPlanServiceMock
+            .Setup(x => x.GetPlanByIdAsync(PlanId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateDetailDto());
+        _samplingPlanServiceMock
+            .Setup(x => x.UserHasDistributorAccessAsync(UserId, DistributorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _sut.SubmitPlan(PlanId, CancellationToken.None);
+
+        result.Result.Should().BeOfType<ForbidResult>();
+        _samplingPlanServiceMock.Verify(
+            x => x.SubmitPlanAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
     public async Task SubmitPlan_WhenServiceThrowsInvalidOperation_ShouldReturnBadRequest()
     {
+        _samplingPlanServiceMock
+            .Setup(x => x.GetPlanByIdAsync(PlanId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateDetailDto());
+        _samplingPlanServiceMock
+            .Setup(x => x.UserHasDistributorAccessAsync(UserId, DistributorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         _samplingPlanServiceMock
             .Setup(x => x.SubmitPlanAsync(PlanId, UserId, TenantId, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Invalid state transition"));

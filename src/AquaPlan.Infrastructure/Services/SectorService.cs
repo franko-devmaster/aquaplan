@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Sectors;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Infrastructure.Data;
@@ -70,7 +71,7 @@ internal class SectorService(
 
         if (nameExists)
         {
-            throw new InvalidOperationException($"A sector with the name '{dto.Name}' already exists for this tenant.");
+            throw new BusinessRuleException($"A sector with the name '{dto.Name}' already exists for this tenant.");
         }
 
         var sector = new Sector
@@ -107,7 +108,7 @@ internal class SectorService(
 
         if (nameExists)
         {
-            throw new InvalidOperationException($"A sector with the name '{dto.Name}' already exists for this tenant.");
+            throw new BusinessRuleException($"A sector with the name '{dto.Name}' already exists for this tenant.");
         }
 
         sector.Name = dto.Name;
