@@ -612,8 +612,9 @@ internal class OrderService(
 
     public async Task<bool> UserHasDistributorAccessAsync(string userId, Guid distributorId, CancellationToken cancellationToken = default)
     {
-        return await dbContext.UserDistributors
-            .AnyAsync(ud => ud.UserId == userId && ud.DistributorId == distributorId, cancellationToken);
+        // Polish F-227 — delegate to the single source of truth (own primary + UserDistributors +
+        // active delegations) instead of the previous UserDistributors-only check.
+        return await delegationService.UserHasDistributorAccessAsync(userId, distributorId, cancellationToken);
     }
 
     /// <summary>

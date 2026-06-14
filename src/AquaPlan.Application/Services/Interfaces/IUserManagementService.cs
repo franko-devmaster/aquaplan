@@ -4,7 +4,6 @@ namespace AquaPlan.Application.Services.Interfaces;
 
 public interface IUserManagementService
 {
-    Task<IList<UserListDto>> GetUsersAsync(Guid tenantId, CancellationToken cancellationToken = default);
     Task<IList<UserListDto>> GetUsersAsync(Guid tenantId, string? role, Guid? distributorId, bool? isActive, CancellationToken cancellationToken);
     Task<IList<UserListDto>> GetPreleveursAsync(Guid tenantId, Guid? distributorId, CancellationToken cancellationToken);
     Task<UserDetailDto?> GetUserByIdAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default);

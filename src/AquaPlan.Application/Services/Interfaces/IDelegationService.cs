@@ -8,7 +8,6 @@ public interface IDelegationService
     Task<List<DistributorDelegationDto>> GetAllAsync(Guid tenantId, CancellationToken cancellationToken = default);
     Task<DistributorDelegationDto> CreateAsync(DistributorDelegationCreateDto dto, Guid tenantId, CancellationToken cancellationToken = default);
     Task<bool> DeleteAsync(Guid id, Guid tenantId, CancellationToken cancellationToken = default);
-    Task<List<Guid>> GetDelegatedDistributorIdsAsync(string userId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// AQ-369 — returns the list of distributor IDs on which the user is authorized to
@@ -16,6 +15,14 @@ public interface IDelegationService
     /// (active, in window) where DelegatedToDistributorId belongs to the user.
     /// </summary>
     Task<List<Guid>> GetAuthorizedDistributorIdsForUserAsync(string userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Polish F-227 — single source of truth for "can this user act on this distributor": true when
+    /// the distributor is in the user's authorized set (own primary + UserDistributors + active
+    /// delegations). Previously duplicated (with divergent semantics) in OrderService,
+    /// SamplingPlanService and SamplingLocationChangeRequestService.
+    /// </summary>
+    Task<bool> UserHasDistributorAccessAsync(string userId, Guid distributorId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// AQ-369 — returns the list of distributors on which the user is authorized to create.

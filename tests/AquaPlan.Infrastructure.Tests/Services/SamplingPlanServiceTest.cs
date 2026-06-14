@@ -6,6 +6,8 @@ using AquaPlan.Domain.Enums;
 using AquaPlan.Infrastructure.Data;
 using AquaPlan.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.InMemory.Infrastructure.Internal;
 using Microsoft.Extensions.Logging;
 
 namespace AquaPlan.Infrastructure.Tests.Services;
@@ -14,6 +16,7 @@ public class SamplingPlanServiceTest : IDisposable
 {
     private readonly AquaPlanDbContext _dbContext;
     private readonly Mock<IOrderService> _orderServiceMock = new();
+    private readonly Mock<IDelegationService> _delegationServiceMock = new();
     private readonly Mock<ILogger<SamplingPlanService>> _loggerMock = new();
     private readonly SamplingPlanService _sut;
 
@@ -27,10 +30,20 @@ public class SamplingPlanServiceTest : IDisposable
     {
         var options = new DbContextOptionsBuilder<AquaPlanDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            // Polish F-225 — production now opens a real transaction unconditionally; the InMemory
+            // provider cannot honour transactions, so ignore the (expected) warning here instead of
+            // branching on the provider in production code.
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 
         _dbContext = new AquaPlanDbContext(options);
-        _sut = new SamplingPlanService(_dbContext, _orderServiceMock.Object, _loggerMock.Object);
+
+        // Polish F-227 — distributor access is resolved via IDelegationService now.
+        _delegationServiceMock
+            .Setup(d => d.UserHasDistributorAccessAsync(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        _sut = new SamplingPlanService(_dbContext, _orderServiceMock.Object, _delegationServiceMock.Object, _loggerMock.Object);
 
         SeedData().GetAwaiter().GetResult();
     }
@@ -230,18 +243,29 @@ public class SamplingPlanServiceTest : IDisposable
         result.Items.Should().AllSatisfy(p => p.Status.Should().Be(SamplingPlanStatus.Submitted));
     }
 
+    // Polish F-227 — the service now delegates to IDelegationService (single source of truth);
+    // verify it forwards the call and result faithfully.
     [Fact]
-    public async Task UserHasDistributorAccessAsync_ShouldReturnTrue_WhenUserHasAccess()
+    public async Task UserHasDistributorAccessAsync_ShouldReturnTrue_WhenDelegationServiceGrants()
     {
+        _delegationServiceMock
+            .Setup(d => d.UserHasDistributorAccessAsync(UserId, DistributorId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
         var result = await _sut.UserHasDistributorAccessAsync(UserId, DistributorId);
 
         result.Should().BeTrue();
     }
 
     [Fact]
-    public async Task UserHasDistributorAccessAsync_ShouldReturnFalse_WhenNoAccess()
+    public async Task UserHasDistributorAccessAsync_ShouldReturnFalse_WhenDelegationServiceDenies()
     {
-        var result = await _sut.UserHasDistributorAccessAsync(UserId, Guid.NewGuid());
+        var foreign = Guid.NewGuid();
+        _delegationServiceMock
+            .Setup(d => d.UserHasDistributorAccessAsync(UserId, foreign, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _sut.UserHasDistributorAccessAsync(UserId, foreign);
 
         result.Should().BeFalse();
     }

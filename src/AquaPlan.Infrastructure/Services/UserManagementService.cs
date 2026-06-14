@@ -15,27 +15,6 @@ internal class UserManagementService(
     AquaPlanDbContext dbContext,
     ILogger<UserManagementService> logger) : IUserManagementService
 {
-    public async Task<IList<UserListDto>> GetUsersAsync(Guid tenantId, CancellationToken cancellationToken = default)
-    {
-        var users = await dbContext.Users
-            .Include(u => u.Distributor)
-            .Where(u => u.TenantId == tenantId)
-            .OrderBy(u => u.LastName)
-            .ThenBy(u => u.FirstName)
-            .ToListAsync(cancellationToken);
-
-        var result = new List<UserListDto>();
-        foreach (var user in users)
-        {
-            var roles = await userManager.GetRolesAsync(user);
-            result.Add(new UserListDto(
-                user.Id, user.UserNumber, user.Email ?? string.Empty, user.FirstName, user.LastName,
-                roles.FirstOrDefault(), user.DistributorId, user.Distributor?.Name,
-                user.IsActive, user.TenantId, user.CreatedAt));
-        }
-        return result;
-    }
-
     public async Task<IList<UserListDto>> GetUsersAsync(Guid tenantId, string? role, Guid? distributorId, bool? isActive, CancellationToken cancellationToken)
     {
         return await BuildUserListQuery(tenantId, distributorId, isActive)

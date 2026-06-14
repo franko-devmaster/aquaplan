@@ -123,24 +123,11 @@ internal class DelegationService(
         return true;
     }
 
-    public async Task<List<Guid>> GetDelegatedDistributorIdsAsync(string userId, CancellationToken cancellationToken = default)
+    public async Task<bool> UserHasDistributorAccessAsync(string userId, Guid distributorId, CancellationToken cancellationToken = default)
     {
-        // Get all distributors the user belongs to:
-        //   - primary link via AppUser.DistributorId (seeded in AspNetUsers)
-        //   - additional links via UserDistributors (many-to-many)
-        var userDistributorIds = await GetOwnDistributorIdsAsync(userId, cancellationToken);
-
-        // Get distributors that have delegated to the user's distributors
-        var delegatedIds = await dbContext.DistributorDelegations
-            .Where(d => d.IsActive
-                && userDistributorIds.Contains(d.DelegatedToDistributorId)
-                && d.ValidFrom <= DateTime.UtcNow
-                && (d.ValidTo == null || d.ValidTo >= DateTime.UtcNow))
-            .Select(d => d.DelegatingDistributorId)
-            .Distinct()
-            .ToListAsync(cancellationToken);
-
-        return delegatedIds;
+        // Polish F-227 — single source of truth, built on the canonical authorized set.
+        var authorizedIds = await GetAuthorizedDistributorIdsForUserAsync(userId, cancellationToken);
+        return authorizedIds.Contains(distributorId);
     }
 
     public async Task<List<Guid>> GetAuthorizedDistributorIdsForUserAsync(string userId, CancellationToken cancellationToken = default)

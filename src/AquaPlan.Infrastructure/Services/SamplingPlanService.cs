@@ -14,6 +14,7 @@ namespace AquaPlan.Infrastructure.Services;
 internal class SamplingPlanService(
     AquaPlanDbContext dbContext,
     IOrderService orderService,
+    IDelegationService delegationService,
     ILogger<SamplingPlanService> logger) : ISamplingPlanService
 {
     public async Task<SamplingPlanPagedResultDto> GetPlansFilteredAsync(
@@ -334,25 +335,10 @@ internal class SamplingPlanService(
         string userId, Guid distributorId,
         CancellationToken cancellationToken = default)
     {
-        var hasDirectAccess = await dbContext.UserDistributors
-            .AnyAsync(ud => ud.UserId == userId && ud.DistributorId == distributorId, cancellationToken);
-
-        if (hasDirectAccess)
-        {
-            return true;
-        }
-
-        var userDistributorIds = await dbContext.UserDistributors
-            .Where(ud => ud.UserId == userId)
-            .Select(ud => ud.DistributorId)
-            .ToListAsync(cancellationToken);
-
-        return await dbContext.DistributorDelegations
-            .AnyAsync(d => d.IsActive
-                && userDistributorIds.Contains(d.DelegatedToDistributorId)
-                && d.DelegatingDistributorId == distributorId
-                && d.ValidFrom <= DateTime.UtcNow
-                && (d.ValidTo == null || d.ValidTo >= DateTime.UtcNow), cancellationToken);
+        // Polish F-227 — delegate to the single source of truth. The previous copy ignored the
+        // user's primary AppUser.DistributorId, so a user whose only link was the primary one got a
+        // spurious 403 on plans.
+        return await delegationService.UserHasDistributorAccessAsync(userId, distributorId, cancellationToken);
     }
 
     public async Task<GenerateOrdersResultDto> GenerateOrdersFromPlanAsync(
@@ -393,11 +379,6 @@ internal class SamplingPlanService(
 
         var generatedOrders = new List<GeneratedOrderSummaryDto>();
 
-        var supportsTransactions = dbContext.Database.ProviderName != "Microsoft.EntityFrameworkCore.InMemory";
-        var transaction = supportsTransactions
-            ? await dbContext.Database.BeginTransactionAsync(cancellationToken)
-            : null;
-
         // Map each profile to its parent programs (a profile may be in several programs).
         // After the BackfillOrdersToAnalysisPrograms migration, every profile is always in at least one program
         // (orphans are wrapped in PROG-{code} auto-programs).
@@ -410,8 +391,16 @@ internal class SamplingPlanService(
             .GroupBy(p => p.AnalysisProfileId)
             .ToDictionary(g => g.Key, g => g.Select(p => p.AnalysisProgramId).Distinct().ToList());
 
-        try
+        // Polish F-225 — wrap generation in an execution strategy + an unconditional transaction.
+        // The previous code skipped the transaction for the InMemory provider, so the transactional
+        // path actually exercised in production was never the one tested; the provider-detection
+        // leak is removed here (the InMemory test suppresses the transaction-ignored warning).
+        var strategy = dbContext.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
+            generatedOrders.Clear();
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
             foreach (var item in plan.Items)
             {
                 foreach (var month in item.PlannedMonths)
@@ -447,26 +436,8 @@ internal class SamplingPlanService(
             plan.UpdatedBy = userId;
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            if (transaction is not null)
-            {
-                await transaction.CommitAsync(cancellationToken);
-            }
-        }
-        catch
-        {
-            if (transaction is not null)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-            }
-            throw;
-        }
-        finally
-        {
-            if (transaction is not null)
-            {
-                await transaction.DisposeAsync();
-            }
-        }
+            await transaction.CommitAsync(cancellationToken);
+        });
 
         logger.LogInformation(
             "Generated {Count} orders from SamplingPlan {PlanId} by {UserId}",
