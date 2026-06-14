@@ -92,6 +92,56 @@ jobs:
           retention-days: 14
 
   # --------------------------------------------------------------------
+  # Audit F-034cc — lint + dépendances vulnérables (rapide, NON bloquant).
+  # Le job entier est `continue-on-error` : il remonte les problèmes sans
+  # faire passer le pipeline au rouge (pas d'.editorconfig encore, code
+  # historique non formaté). À durcir progressivement.
+  # --------------------------------------------------------------------
+  lint-audit:
+    name: Lint & Audit (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore AquaPlan.slnx
+
+      # dotnet format: vérifie le style sans modifier (advisory).
+      - name: dotnet format (verify)
+        run: dotnet format AquaPlan.slnx --verify-no-changes --no-restore || echo "::warning::dotnet format a relevé des écarts de style (non bloquant)"
+
+      # Paquets NuGet vulnérables (transitifs inclus).
+      - name: dotnet list package --vulnerable
+        run: dotnet list AquaPlan.slnx package --vulnerable --include-transitive || echo "::warning::dotnet list package --vulnerable a échoué (non bloquant)"
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: src/AquaPlan.Web/ClientApp/package-lock.json
+
+      # npm audit: vulnérabilités de niveau high+ (non bloquant).
+      - name: npm audit (ClientApp)
+        working-directory: src/AquaPlan.Web/ClientApp
+        run: npm audit --audit-level=high || echo "::warning::npm audit a relevé des vulnérabilités high+ (non bloquant)"
+
+  # --------------------------------------------------------------------
   # Build + push images Docker Hub. Uniquement sur push Main, après que
   # les jobs build-test-dotnet et build-angular sont OK.
   # --------------------------------------------------------------------
