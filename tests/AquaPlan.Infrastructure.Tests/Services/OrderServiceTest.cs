@@ -6,6 +6,7 @@ using AquaPlan.Domain.Entities;
 using AquaPlan.Domain.Enums;
 using AquaPlan.Infrastructure.Data;
 using AquaPlan.Infrastructure.Services;
+using AquaPlan.Shared.Pagination;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -616,10 +617,16 @@ public class OrderServiceTest : IDisposable
         var inProgressCount = await _dbContext.Orders
             .CountAsync(o => o.TenantId == TenantId && o.Status == OrderStatus.InProgress);
         inProgressCount.Should().Be(0);
-        _auditServiceMock.Verify(a => a.LogAsync(
-            It.IsAny<Guid>(), "StatusTransitioned", It.IsAny<string>(),
-            "InProgress", "Completed", UserId, TenantId, It.IsAny<CancellationToken>()),
-            Times.Exactly(3));
+        // Polish F-214 — the 3 audit entries are written in a single batched call, not 3 saves.
+        _auditServiceMock.Verify(a => a.LogRangeAsync(
+            It.Is<IReadOnlyCollection<OrderAuditEntry>>(entries =>
+                entries.Count == 3
+                && entries.All(e => e.Action == "StatusTransitioned"
+                    && e.OldValue == "InProgress"
+                    && e.NewValue == "Completed"
+                    && e.PerformedById == UserId)),
+            TenantId, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -1281,6 +1288,54 @@ public class OrderServiceTest : IDisposable
             It.IsAny<string>(), It.IsAny<NotificationType>(), It.IsAny<string>(), It.IsAny<string>(),
             It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    // --- Polish F-221 — pagination clamping ---
+
+    [Fact]
+    public async Task GetOrdersFilteredAsync_WithPageZero_ShouldNotThrowAndReturnFirstPage()
+    {
+        await CreateSeedOrder(OrderStatus.New);
+        var filter = new OrderFilterDto(null, null, null, null, Page: 0, PageSize: 20);
+
+        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: true, isPreleveurOnly: false);
+
+        result.Page.Should().Be(1);
+        result.Items.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetOrdersFilteredAsync_WithExcessivePageSize_ShouldClampToMax()
+    {
+        await CreateSeedOrder(OrderStatus.New);
+        var filter = new OrderFilterDto(null, null, null, null, Page: 1, PageSize: 100000);
+
+        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: true, isPreleveurOnly: false);
+
+        result.PageSize.Should().Be(PaginationGuard.MaxPageSize);
+    }
+
+    // --- Polish F-213 — dashboard summary aggregated counters ---
+
+    [Fact]
+    public async Task GetDashboardSummaryAsync_ShouldAggregateConformityBuckets()
+    {
+        // Done + a conform result → Conform
+        var conform = await CreateSeedOrder(OrderStatus.Done);
+        _dbContext.SamplingResults.Add(new SamplingResult { Id = Guid.NewGuid(), OrderId = conform.Id, ParameterCode = "PH", IsConform = true, TenantId = TenantId });
+        // Done + a non-conform result → NonConform
+        var nonConform = await CreateSeedOrder(OrderStatus.Done);
+        _dbContext.SamplingResults.Add(new SamplingResult { Id = Guid.NewGuid(), OrderId = nonConform.Id, ParameterCode = "E_COLI", IsConform = false, TenantId = TenantId });
+        // New order (no results) → Pending
+        await CreateSeedOrder(OrderStatus.New);
+        await _dbContext.SaveChangesAsync();
+
+        var summary = await _sut.GetDashboardSummaryAsync(UserId, TenantId, isAdmin: true, isPreleveurOnly: false);
+
+        summary.TotalCount.Should().Be(3);
+        summary.ConformCount.Should().Be(1);
+        summary.NonConformCount.Should().Be(1);
+        summary.PendingCount.Should().Be(1);
     }
 
     // --- Polish F-228 — CreateOrderAsync FK validation against the tenant ---

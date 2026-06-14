@@ -27,6 +27,9 @@ public class UsersController(
         return Ok(users);
     }
 
+    // Polish F-226 — role matching is done in the service on the exact role names
+    // (Préleveur / Requérant-Préleveur) via the UserRoles join, not by an accent-insensitive
+    // substring check that breaks silently on any role rename.
     [HttpGet("preleveurs")]
     [Authorize]
     public async Task<ActionResult<IList<UserListDto>>> GetPreleveurs(
@@ -34,12 +37,7 @@ public class UsersController(
         CancellationToken cancellationToken = default)
     {
         var tenantId = GetTenantId();
-        var users = await userManagementService.GetUsersAsync(tenantId, null, distributorId, true, cancellationToken);
-        var preleveurs = users.Where(u =>
-            u.Role != null && (
-                u.Role.Contains("réleveur", StringComparison.OrdinalIgnoreCase) ||
-                u.Role.Contains("releveur", StringComparison.OrdinalIgnoreCase)
-            )).ToList();
+        var preleveurs = await userManagementService.GetPreleveursAsync(tenantId, distributorId, cancellationToken);
         return Ok(preleveurs);
     }
 

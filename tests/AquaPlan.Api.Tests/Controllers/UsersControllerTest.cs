@@ -188,24 +188,26 @@ public class UsersControllerTest
     [Fact]
     public async Task GetPreleveurs_ShouldReturnOnlyPreleveurRoles()
     {
-        var users = new List<UserListDto>
+        // Polish F-226 — role filtering now lives in the service (GetPreleveursAsync); the
+        // controller simply returns its result. Verify it delegates correctly.
+        var preleveurUsers = new List<UserListDto>
         {
             new("u1", 100001, "a@b.ch", "John", "Doe", "Préleveur", null, null, true, TenantId, DateTime.UtcNow),
             new("u2", 100002, "c@d.ch", "Jane", "Doe", "Requérant-Préleveur", null, null, true, TenantId, DateTime.UtcNow),
-            new("u3", 100003, "e@f.ch", "Bob", "Smith", "Requérant", null, null, true, TenantId, DateTime.UtcNow),
         };
         _userManagementServiceMock
-            .Setup(x => x.GetUsersAsync(TenantId, null, null, true, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(users);
+            .Setup(x => x.GetPreleveursAsync(TenantId, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(preleveurUsers);
 
         var result = await _sut.GetPreleveurs(cancellationToken: CancellationToken.None);
 
         var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
-        var preleveurs = okResult.Value.Should().BeAssignableTo<List<UserListDto>>().Subject;
+        var preleveurs = okResult.Value.Should().BeAssignableTo<IList<UserListDto>>().Subject;
         preleveurs.Should().HaveCount(2);
         preleveurs.Should().Contain(u => u.Role == "Préleveur");
         preleveurs.Should().Contain(u => u.Role == "Requérant-Préleveur");
-        preleveurs.Should().NotContain(u => u.Role == "Requérant");
+        _userManagementServiceMock.Verify(
+            x => x.GetPreleveursAsync(TenantId, null, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

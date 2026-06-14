@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.SamplingLocations;
+using AquaPlan.Shared.Pagination;
 using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
@@ -67,14 +68,17 @@ internal class SamplingLocationService(
 
         var totalCount = await query.CountAsync(cancellationToken);
 
+        // Polish F-221 — clamp pagination (page >= 1, pageSize bounded).
+        var (page, pageSize) = PaginationGuard.Normalize(filter.Page, filter.PageSize);
+
         var items = await query
             .OrderBy(sl => sl.Name)
-            .Skip((filter.Page - 1) * filter.PageSize)
-            .Take(filter.PageSize)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(sl => MapToDto(sl))
             .ToListAsync(cancellationToken);
 
-        return new SamplingLocationListDto(items, totalCount, filter.Page, filter.PageSize);
+        return new SamplingLocationListDto(items, totalCount, page, pageSize);
     }
 
     public async Task<IList<SamplingLocationDto>> GetByDistributorAsync(Guid distributorId, Guid tenantId, CancellationToken cancellationToken = default)

@@ -38,9 +38,36 @@ internal class UserManagementService(
 
     public async Task<IList<UserListDto>> GetUsersAsync(Guid tenantId, string? role, Guid? distributorId, bool? isActive, CancellationToken cancellationToken)
     {
-        var query = dbContext.Users
-            .Include(u => u.Distributor)
-            .Where(u => u.TenantId == tenantId);
+        return await BuildUserListQuery(tenantId, distributorId, isActive)
+            // Polish F-209 — filter by role name in SQL instead of loading every user and calling
+            // GetRolesAsync per row (N+1) followed by an in-memory filter.
+            .Where(u => role == null || u.Role == role)
+            .OrderBy(u => u.LastName)
+            .ThenBy(u => u.FirstName)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Polish F-226 — returns active users holding a préleveur-capable role (Préleveur or
+    /// Requérant-Préleveur), matched on the exact role name via the UserRoles join rather than a
+    /// fragile accent-insensitive substring check in the controller.
+    /// </summary>
+    public async Task<IList<UserListDto>> GetPreleveursAsync(Guid tenantId, Guid? distributorId, CancellationToken cancellationToken)
+    {
+        return await BuildUserListQuery(tenantId, distributorId, isActive: true)
+            .Where(u => u.Role == RoleName.Preleveur || u.Role == RoleName.RequerantPreleveur)
+            .OrderBy(u => u.LastName)
+            .ThenBy(u => u.FirstName)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Polish F-209 — single projected query joining each user to (at most) one role via the
+    /// Identity UserRoles/Roles tables; eliminates the per-user GetRolesAsync round-trip.
+    /// </summary>
+    private IQueryable<UserListDto> BuildUserListQuery(Guid tenantId, Guid? distributorId, bool? isActive)
+    {
+        var query = dbContext.Users.Where(u => u.TenantId == tenantId);
 
         if (isActive.HasValue)
         {
@@ -52,26 +79,21 @@ internal class UserManagementService(
             query = query.Where(u => u.DistributorId == distributorId.Value);
         }
 
-        var users = await query
-            .OrderBy(u => u.LastName)
-            .ThenBy(u => u.FirstName)
-            .ToListAsync(cancellationToken);
-
-        var result = new List<UserListDto>();
-        foreach (var user in users)
-        {
-            var roles = await userManager.GetRolesAsync(user);
-            var userRole = roles.FirstOrDefault();
-            if (role is not null && !string.Equals(userRole, role, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-            result.Add(new UserListDto(
-                user.Id, user.UserNumber, user.Email ?? string.Empty, user.FirstName, user.LastName,
-                userRole, user.DistributorId, user.Distributor?.Name,
-                user.IsActive, user.TenantId, user.CreatedAt));
-        }
-        return result;
+        return query.Select(u => new UserListDto(
+            u.Id,
+            u.UserNumber,
+            u.Email ?? string.Empty,
+            u.FirstName,
+            u.LastName,
+            (from ur in dbContext.UserRoles
+             join r in dbContext.Roles on ur.RoleId equals r.Id
+             where ur.UserId == u.Id
+             select r.Name).FirstOrDefault(),
+            u.DistributorId,
+            u.Distributor != null ? u.Distributor.Name : null,
+            u.IsActive,
+            u.TenantId,
+            u.CreatedAt));
     }
 
     public async Task<UserDetailDto?> GetUserByIdAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default)

@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Orders;
+using AquaPlan.Shared.Pagination;
 using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
@@ -128,10 +129,14 @@ internal class OrderService(
             _ => filter.SortDescending ? query.OrderByDescending(o => o.CreatedAt) : query.OrderBy(o => o.CreatedAt),
         };
 
+        // Polish F-221 — clamp page/pageSize so page=0 cannot produce a negative OFFSET (500)
+        // and pageSize is bounded (no unbounded full-tenant load with correlated count subqueries).
+        var (page, pageSize) = PaginationGuard.Normalize(filter.Page, filter.PageSize);
+
         // Pagination — project with aggregated counters so we can derive ResultsStatus below.
         var rows = await query
-            .Skip((filter.Page - 1) * filter.PageSize)
-            .Take(filter.PageSize)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Include(o => o.CreatedBy)
             .Include(o => o.Preleveur)
             .Include(o => o.Distributor)
@@ -170,7 +175,7 @@ internal class OrderService(
                 DeriveResultsStatus(r.Status, r.TotalResults, r.NonConformResults)))
             .ToList();
 
-        return new OrderPagedResultDto(items, totalCount, filter.Page, filter.PageSize);
+        return new OrderPagedResultDto(items, totalCount, page, pageSize);
     }
 
     /// <summary>
@@ -644,6 +649,9 @@ internal class OrderService(
                             .ThenInclude(ap => ap.Container)
             .Include(o => o.Sampling)
                 .ThenInclude(s => s!.Containers)
+            // Polish F-211 — split query to avoid the cartesian product across the nested
+            // OrderAnalysisPrograms → ProgramProfiles → Profile → Container collections.
+            .AsSplitQuery()
             .FirstOrDefaultAsync(o => o.Id == orderId && o.TenantId == tenantId, cancellationToken);
 
         if (order is null)
@@ -827,36 +835,34 @@ internal class OrderService(
             }
         }
 
-        var stats = await query
-            .Select(o => new
+        // Polish F-213 — aggregate the conformity counters in a single SQL query instead of
+        // rapatriating one row per order (each with two correlated COUNT subqueries) and folding
+        // them in memory. The three buckets mirror DeriveResultsStatus:
+        //   • Conform    : Done + has results + no non-conform result
+        //   • NonConform : Done + has at least one non-conform result
+        //   • Pending    : everything else (not Done, or Done with no results yet)
+        var aggregate = await query
+            .GroupBy(_ => 1)
+            .Select(g => new
             {
-                o.Status,
-                TotalResults = dbContext.SamplingResults.Count(r => r.OrderId == o.Id),
-                NonConformResults = dbContext.SamplingResults.Count(r => r.OrderId == o.Id && !r.IsConform),
+                Total = g.Count(),
+                NonConform = g.Count(o =>
+                    o.Status == OrderStatus.Done
+                    && dbContext.SamplingResults.Any(r => r.OrderId == o.Id && !r.IsConform)),
+                Conform = g.Count(o =>
+                    o.Status == OrderStatus.Done
+                    && dbContext.SamplingResults.Any(r => r.OrderId == o.Id)
+                    && !dbContext.SamplingResults.Any(r => r.OrderId == o.Id && !r.IsConform)),
             })
-            .ToListAsync(cancellationToken);
+            .FirstOrDefaultAsync(cancellationToken);
 
-        var conform = 0;
-        var nonConform = 0;
-        var pending = 0;
-        foreach (var s in stats)
+        if (aggregate is null)
         {
-            var status = DeriveResultsStatus(s.Status, s.TotalResults, s.NonConformResults);
-            switch (status)
-            {
-                case ResultsStatus.Conform:
-                    conform++;
-                    break;
-                case ResultsStatus.NonConform:
-                    nonConform++;
-                    break;
-                default:
-                    pending++;
-                    break;
-            }
+            return new OrderDashboardSummaryDto(0, 0, 0, 0);
         }
 
-        return new OrderDashboardSummaryDto(conform, nonConform, pending, stats.Count);
+        var pending = aggregate.Total - aggregate.Conform - aggregate.NonConform;
+        return new OrderDashboardSummaryDto(aggregate.Conform, aggregate.NonConform, pending, aggregate.Total);
     }
 
     private async Task<BulkTransitionResultDto> BulkTransitionAsync(
@@ -927,19 +933,18 @@ internal class OrderService(
 
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            // Audit log per order (same pattern as OrderStatusService)
-            foreach (var order in orders)
-            {
-                await auditService.LogAsync(
+            // Polish F-214 — write all audit entries in a single SaveChanges instead of one
+            // round-trip per order.
+            var auditEntries = orders
+                .Select(order => new OrderAuditEntry(
                     order.Id,
                     "StatusTransitioned",
                     $"Status changed from {fromStatus} to {toStatus} (bulk)",
                     fromStatus.ToString(),
                     toStatus.ToString(),
-                    userId,
-                    tenantId,
-                    cancellationToken);
-            }
+                    userId))
+                .ToList();
+            await auditService.LogRangeAsync(auditEntries, tenantId, cancellationToken);
         }
 
         // Auto-complete rounds where all orders reached terminal states (same as OrderStatusService)

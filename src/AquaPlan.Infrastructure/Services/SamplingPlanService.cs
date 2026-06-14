@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Orders;
+using AquaPlan.Shared.Pagination;
 using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.DTOs.SamplingPlans;
 using AquaPlan.Application.Services.Interfaces;
@@ -75,9 +76,12 @@ internal class SamplingPlanService(
             _ => filter.SortDescending ? query.OrderByDescending(sp => sp.Year).ThenByDescending(sp => sp.CreatedAt) : query.OrderBy(sp => sp.Year).ThenBy(sp => sp.CreatedAt),
         };
 
+        // Polish F-221 — clamp pagination (page >= 1, pageSize bounded).
+        var (page, pageSize) = PaginationGuard.Normalize(filter.Page, filter.PageSize);
+
         var items = await query
-            .Skip((filter.Page - 1) * filter.PageSize)
-            .Take(filter.PageSize)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Include(sp => sp.CreatedBy)
             .Include(sp => sp.Distributor)
             .Select(sp => new SamplingPlanListDto(
@@ -90,7 +94,7 @@ internal class SamplingPlanService(
                 sp.CreatedAt))
             .ToListAsync(cancellationToken);
 
-        return new SamplingPlanPagedResultDto(items, totalCount, filter.Page, filter.PageSize);
+        return new SamplingPlanPagedResultDto(items, totalCount, page, pageSize);
     }
 
     public async Task<SamplingPlanDetailDto?> GetPlanByIdAsync(

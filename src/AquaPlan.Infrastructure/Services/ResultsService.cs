@@ -18,6 +18,10 @@ internal class ResultsService(
     IConfiguration configuration,
     ILogger<ResultsService> logger) : IResultsService
 {
+    // Polish F-212 — hard upper bound on the number of orders rapatriated for the matrix, so a
+    // wide date range can never load an unbounded graph (results + LDP + sector + programmes).
+    private const int MaxMatrixOrders = 2000;
+
     // AQ-415 — default list of parameters considered critical for conformity colouring.
     // Overridable via appsettings:ResultsConfig:CriticalParameters.
     private static readonly string[] DefaultCriticalParameters =
@@ -133,11 +137,12 @@ internal class ResultsService(
             query = query.Where(o => o.SamplingLocation != null && o.SamplingLocation.SectorId == sectorId.Value);
         }
 
-        if (dateFrom.HasValue)
-        {
-            var from = DateTime.SpecifyKind(dateFrom.Value.Date, DateTimeKind.Utc);
-            query = query.Where(o => o.ResultsReceivedAt >= from);
-        }
+        // Polish F-212 — bound the matrix. Without an explicit lower bound the query would load
+        // every order with results ever received for the tenant (growing every year). Default to a
+        // rolling 12-month window when no dateFrom is supplied.
+        var effectiveFrom = dateFrom?.Date ?? DateTime.UtcNow.Date.AddMonths(-12);
+        var from = DateTime.SpecifyKind(effectiveFrom, DateTimeKind.Utc);
+        query = query.Where(o => o.ResultsReceivedAt >= from);
 
         if (dateTo.HasValue)
         {
@@ -146,10 +151,14 @@ internal class ResultsService(
         }
 
         var orders = await query
+            .OrderByDescending(o => o.ResultsReceivedAt)
+            // Polish F-212 — hard cap so a wide date range cannot rapatriate an unbounded graph.
+            .Take(MaxMatrixOrders)
             .Include(o => o.SamplingLocation).ThenInclude(l => l!.Sector)
             .Include(o => o.SamplingLocation).ThenInclude(l => l!.Distributor)
             .Include(o => o.SamplingResults)
             .Include(o => o.OrderAnalysisPrograms).ThenInclude(oap => oap.AnalysisProgram)
+            .AsSplitQuery()
             .ToListAsync(cancellationToken);
 
         var criticals = GetCriticalParameters();

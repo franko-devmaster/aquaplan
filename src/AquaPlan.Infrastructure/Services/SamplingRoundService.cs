@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.AnalysisPrograms;
+using AquaPlan.Shared.Pagination;
 using AquaPlan.Application.DTOs.AnalysisProfiles;
 using AquaPlan.Application.DTOs.Containers;
 using AquaPlan.Application.DTOs.Orders;
@@ -67,6 +68,9 @@ internal class SamplingRoundService(
                         .ThenInclude(ap => ap.AnalysisProgramProfiles)
                             .ThenInclude(app => app.AnalysisProfile!)
                                 .ThenInclude(profile => profile.Container)
+            // Polish F-211 — split the nested collection Includes to avoid a cartesian explosion
+            // (Orders × OrderAnalysisPrograms × ProgramProfiles × …) in a single SQL result set.
+            .AsSplitQuery()
             .Where(sr => sr.TenantId == tenantId && sr.Id == id)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -141,10 +145,13 @@ internal class SamplingRoundService(
 
         var totalCount = await query.CountAsync(cancellationToken);
 
+        // Polish F-221 — clamp pagination (page >= 1, pageSize bounded).
+        var (page, pageSize) = PaginationGuard.Normalize(filter.Page, filter.PageSize);
+
         var items = await query
             .OrderByDescending(sr => sr.CreatedAt)
-            .Skip((filter.Page - 1) * filter.PageSize)
-            .Take(filter.PageSize)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(sr => new SamplingRoundListDto(
                 sr.Id,
                 sr.Name,
@@ -166,7 +173,7 @@ internal class SamplingRoundService(
                 sr.LockedAt))
             .ToListAsync(cancellationToken);
 
-        return new SamplingRoundPagedResultDto(items, totalCount, filter.Page, filter.PageSize);
+        return new SamplingRoundPagedResultDto(items, totalCount, page, pageSize);
     }
 
     public async Task<SamplingRoundDetailDto?> UpdateAsync(
@@ -645,6 +652,8 @@ internal class SamplingRoundService(
                         .ThenInclude(ap => ap.AnalysisProgramProfiles)
                             .ThenInclude(app => app.AnalysisProfile!)
                                 .ThenInclude(profile => profile.Container)
+            // Polish F-211 — split query to avoid the cartesian product across nested collections.
+            .AsSplitQuery()
             .FirstOrDefaultAsync(r => r.Id == id && r.TenantId == tenantId, cancellationToken);
 
         if (round is null) return null;
