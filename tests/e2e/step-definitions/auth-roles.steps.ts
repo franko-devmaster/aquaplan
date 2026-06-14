@@ -133,12 +133,10 @@ Given('des lieux de prélèvement pour plusieurs distributeurs', async function 
   await this.apiLogin('admin@aquaplan.ch', 'Admin123!');
 });
 
+// "Mandats" map to the SamplingRounds domain — the endpoint is /api/sampling-rounds
+// (there is no /api/mandates route).
 When('il consulte ses mandats', async function (this: AquaPlanWorld) {
-  const resp = await this.apiRequest('GET', '/api/mandates');
-  if (resp.status === 404) {
-    // Endpoint may not exist yet — try orders
-    await this.apiRequest('GET', '/api/sampling-locations');
-  }
+  await this.apiRequest('GET', '/api/sampling-rounds');
 });
 
 When('il consulte les LDP', async function (this: AquaPlanWorld) {
@@ -146,12 +144,12 @@ When('il consulte les LDP', async function (this: AquaPlanWorld) {
 });
 
 When('il consulte les mandats', async function (this: AquaPlanWorld) {
-  await this.apiRequest('GET', '/api/mandates');
+  await this.apiRequest('GET', '/api/sampling-rounds');
 });
 
 When('il tente de voir les mandats d\'un autre Préleveur', async function (this: AquaPlanWorld) {
   // Try to access a different user's data — should get filtered by tenant/role
-  await this.apiRequest('GET', '/api/mandates');
+  await this.apiRequest('GET', '/api/sampling-rounds');
 });
 
 Then('il ne voit que ses propres mandats', async function (this: AquaPlanWorld) {

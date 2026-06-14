@@ -16,6 +16,7 @@ export class AquaPlanWorld extends World<AquaPlanWorldParams> {
 
   // Auth state
   accessToken: string | null = null;
+  refreshToken: string | null = null;
   currentUserEmail: string | null = null;
 
   // API response state (for API tests)
@@ -54,8 +55,25 @@ export class AquaPlanWorld extends World<AquaPlanWorldParams> {
 
     const data = (await response.json()) as { accessToken: string; refreshToken: string };
     this.accessToken = data.accessToken;
+    this.refreshToken = data.refreshToken;
     this.currentUserEmail = email;
     return data.accessToken;
+  }
+
+  /** Exchange the stored refresh token for a new access token. */
+  async apiRefresh(): Promise<{ status: number; accessToken: string | null }> {
+    const response = await fetch(`${this.apiUrl}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: this.refreshToken }),
+    });
+    if (!response.ok) {
+      return { status: response.status, accessToken: null };
+    }
+    const data = (await response.json()) as { accessToken: string; refreshToken: string };
+    this.accessToken = data.accessToken;
+    this.refreshToken = data.refreshToken;
+    return { status: response.status, accessToken: data.accessToken };
   }
 
   /** Make an authenticated API request */
