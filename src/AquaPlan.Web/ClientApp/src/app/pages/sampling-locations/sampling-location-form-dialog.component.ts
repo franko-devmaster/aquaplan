@@ -85,9 +85,8 @@ export interface SamplingLocationFormDialogData {
       </form>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
-      <button mat-button mat-dialog-close>{{ (data.readonly ? 'common.close' : 'common.cancel') | translate }}</button>
       @if (canShowDelete()) {
-        <button mat-raised-button color="warn" (click)="onDelete()" [disabled]="saving()">
+        <button mat-button color="warn" (click)="onDelete()" [disabled]="saving()" style="margin-right:auto">
           @if (saving()) {
             <mat-spinner diameter="20"></mat-spinner>
           } @else {
@@ -95,8 +94,9 @@ export interface SamplingLocationFormDialogData {
           }
         </button>
       }
+      <button mat-button mat-dialog-close>{{ (data.readonly ? 'common.close' : 'common.cancel') | translate }}</button>
       @if (canShowValidate()) {
-        <button mat-raised-button color="accent" (click)="onValidate()" [disabled]="saving()">
+        <button mat-stroked-button (click)="onValidate()" [disabled]="saving()">
           @if (saving()) {
             <mat-spinner diameter="20"></mat-spinner>
           } @else {
@@ -105,7 +105,7 @@ export interface SamplingLocationFormDialogData {
         </button>
       }
       @if (!data.readonly) {
-        <button mat-raised-button color="primary" (click)="onSubmit()"
+        <button mat-flat-button color="primary" (click)="onSubmit()"
                 [disabled]="form.invalid || saving()">
           @if (saving()) {
             <mat-spinner diameter="20"></mat-spinner>
