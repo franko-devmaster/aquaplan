@@ -68,3 +68,29 @@ When('j\'ouvre le menu de navigation', async function (this: AquaPlanWorld) {
     await this.page.waitForTimeout(500);
   }
 });
+
+// ─── Pick-list (mat-select) close behaviour (AQ — mobile defect) ─────────────
+When('j\'ouvre la première liste déroulante', async function (this: AquaPlanWorld) {
+  if (!this.page) { return 'pending'; }
+  await this.page.locator('mat-select, [role="combobox"]').first().click();
+  await this.page.waitForTimeout(700);
+});
+
+When('je tape en dehors de la liste', async function (this: AquaPlanWorld) {
+  if (!this.page) { return 'pending'; }
+  const backdrop = this.page.locator('.cdk-overlay-backdrop');
+  if (await backdrop.count()) {
+    await backdrop.first().click({ force: true }).catch(() => {});
+  } else {
+    await this.page.mouse.click(8, 200);
+  }
+  await this.page.waitForTimeout(800);
+});
+
+Then('la liste déroulante est fermée', async function (this: AquaPlanWorld) {
+  if (!this.page) { return 'pending'; }
+  const open = await this.page
+    .locator('.cdk-overlay-pane .mat-mdc-select-panel, .cdk-overlay-pane [role="listbox"]')
+    .count();
+  expect(open, 'Le panneau mat-select est resté ouvert après un tap en dehors').toBe(0);
+});
