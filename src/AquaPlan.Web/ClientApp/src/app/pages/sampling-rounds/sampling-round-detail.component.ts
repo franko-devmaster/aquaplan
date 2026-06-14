@@ -555,8 +555,14 @@ export class SamplingRoundDetailComponent implements OnInit {
       // round (containers, barcode fields, catalog) without network later.
       void this.cacheOfflineSnapshot(id);
     } catch {
-      // F-030 — 404 (deleted round / stale notification link) or network error.
-      this.loadError.set(true);
+      // AQ-432 — iOS Safari runs without a service worker, so a live getById fails
+      // offline. Fall back to the snapshot cached at the last online view so the
+      // préleveur can still open the round (and its prélèvement forms) on the field.
+      const renderedOffline = await this.loadFromOfflineSnapshot(id);
+      if (!renderedOffline) {
+        // F-030 — 404 (deleted round / stale notification link) or no cached snapshot.
+        this.loadError.set(true);
+      }
     } finally {
       this.loading.set(false);
     }
@@ -572,6 +578,22 @@ export class SamplingRoundDetailComponent implements OnInit {
       await this.offlineStorage.saveSnapshot(roundId, snapshot);
     } catch {
       // 403 for non-assigned users / offline / transient — ignore.
+    }
+  }
+
+  // AQ-432 — render the round from the IndexedDB snapshot when the live load fails offline.
+  private async loadFromOfflineSnapshot(roundId: string): Promise<boolean> {
+    try {
+      const snap = await this.offlineStorage.getSnapshot(roundId);
+      const data = snap?.data as { round?: SamplingRoundDetailDto } | undefined;
+      if (!data?.round) {
+        return false;
+      }
+      this.round.set(data.round);
+      await this.loadSamplings(data.round); // resilient (allSettled) — skips offline-failing calls
+      return true;
+    } catch {
+      return false;
     }
   }
 
