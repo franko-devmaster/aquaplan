@@ -21,6 +21,8 @@ import { SamplingPlanApiService } from '../../services/sampling-plan-api.service
 import { SamplingLocationApiService } from '../../services/sampling-location-api.service';
 import { AnalysisProfileApiService } from '../../services/analysis-profile-api.service';
 import { AuthService } from '../../services/auth.service';
+import { ConfirmService } from '../../services/confirm.service';
+import { ApiErrorService } from '../../services/api-error.service';
 import {
   SamplingPlanDetailDto,
   SamplingPlanItemCreateDto,
@@ -28,6 +30,7 @@ import {
   SamplingPlanStatusLabels,
 } from '../../models/sampling-plan.model';
 import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
+import { planStatusVariant } from '../../utils/status-variant';
 
 interface EditableItem {
   samplingLocationId: string;
@@ -249,6 +252,8 @@ export class SamplingPlanDetailComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly translate = inject(TranslateService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly confirmService = inject(ConfirmService);
+  private readonly apiError = inject(ApiErrorService);
 
   readonly plan = signal<SamplingPlanDetailDto | null>(null);
   readonly loading = signal(true);
@@ -316,14 +321,7 @@ export class SamplingPlanDetailComponent implements OnInit {
 
   getStatusVariant(): StatusChipVariant {
     const p = this.plan();
-    if (!p) return 'draft';
-    const map: Record<string, StatusChipVariant> = {
-      'Draft': 'draft',
-      'Submitted': 'info',
-      'Validated': 'success',
-      'Rejected': 'danger',
-    };
-    return map[p.status] ?? 'draft';
+    return p ? planStatusVariant(p.status) : 'draft';
   }
 
   getMonthLabel(month: number): string {
@@ -351,9 +349,13 @@ export class SamplingPlanDetailComponent implements OnInit {
     }
   }
 
-  async save(): Promise<void> {
+  /**
+   * F-021 — returns true on success so callers (submitPlan) can abort the chain
+   * when the save fails, and surfaces errors instead of swallowing them.
+   */
+  async save(): Promise<boolean> {
     const p = this.plan();
-    if (!p) return;
+    if (!p) return false;
 
     this.saving.set(true);
     try {
@@ -371,13 +373,18 @@ export class SamplingPlanDetailComponent implements OnInit {
         items,
       }));
       this.plan.set(updated);
+      return true;
+    } catch (err: unknown) {
+      this.apiError.toast(err);
+      return false;
     } finally {
       this.saving.set(false);
     }
   }
 
   async submitPlan(): Promise<void> {
-    await this.save();
+    // F-021 — abort the submit if the preliminary save failed.
+    if (!(await this.save())) return;
     const p = this.plan();
     if (!p) return;
 
@@ -385,6 +392,8 @@ export class SamplingPlanDetailComponent implements OnInit {
     try {
       const updated = await firstValueFrom(this.planApi.submit(p.id));
       this.plan.set(updated);
+    } catch (err: unknown) {
+      this.apiError.toast(err);
     } finally {
       this.saving.set(false);
     }
@@ -398,6 +407,8 @@ export class SamplingPlanDetailComponent implements OnInit {
     try {
       const updated = await firstValueFrom(this.planApi.validate(p.id));
       this.plan.set(updated);
+    } catch (err: unknown) {
+      this.apiError.toast(err);
     } finally {
       this.saving.set(false);
     }
@@ -407,13 +418,18 @@ export class SamplingPlanDetailComponent implements OnInit {
     const p = this.plan();
     if (!p) return;
 
-    const reason = prompt(this.translate.instant('samplingPlans.confirmReject'));
+    const reason = await this.confirmService.prompt('samplingPlans.confirmReject', {
+      multiline: true,
+      required: true,
+    });
     if (!reason) return;
 
     this.saving.set(true);
     try {
       const updated = await firstValueFrom(this.planApi.reject(p.id, { reason }));
       this.plan.set(updated);
+    } catch (err: unknown) {
+      this.apiError.toast(err);
     } finally {
       this.saving.set(false);
     }
@@ -423,7 +439,7 @@ export class SamplingPlanDetailComponent implements OnInit {
     const p = this.plan();
     if (!p) return;
 
-    if (!confirm(this.translate.instant('samplingPlans.confirmGenerateOrders'))) return;
+    if (!(await this.confirmService.confirm('samplingPlans.confirmGenerateOrders'))) return;
 
     this.saving.set(true);
     try {
@@ -435,12 +451,7 @@ export class SamplingPlanDetailComponent implements OnInit {
       );
       this.router.navigate(['/orders']);
     } catch (err: unknown) {
-      const apiError = err as { error?: { error?: string } };
-      this.snackBar.open(
-        apiError?.error?.error ?? 'Error generating orders',
-        this.translate.instant('common.close'),
-        { duration: 5000 }
-      );
+      this.apiError.toast(err);
     } finally {
       this.saving.set(false);
     }
@@ -450,10 +461,14 @@ export class SamplingPlanDetailComponent implements OnInit {
     const p = this.plan();
     if (!p) return;
 
-    if (!confirm(this.translate.instant('samplingPlans.deleteConfirmMessage'))) return;
+    if (!(await this.confirmService.confirm('samplingPlans.deleteConfirmMessage'))) return;
 
-    await firstValueFrom(this.planApi.delete(p.id));
-    this.router.navigate(['/sampling-plans']);
+    try {
+      await firstValueFrom(this.planApi.delete(p.id));
+      this.router.navigate(['/sampling-plans']);
+    } catch (err: unknown) {
+      this.apiError.toast(err);
+    }
   }
 
   goBack(): void {

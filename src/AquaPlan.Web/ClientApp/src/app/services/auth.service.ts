@@ -64,6 +64,45 @@ export class AuthService {
     return ['Administrator', 'Requérant', 'Requérant-Préleveur'].some((r) => userRoles.includes(r));
   });
 
+  // F-012 — single source of truth for role checks. Previously `isAdmin` was
+  // duplicated in 8 components and `isPreleveur` existed in 3 divergent
+  // implementations (a tolerant regex, a fragile `includes('réleveur')`
+  // substring, and a strict equality), causing inconsistent UI permissions
+  // across screens. These computeds replace all local copies.
+
+  /** True when the user has the Administrator role. */
+  readonly isAdmin = computed(() => {
+    return this.currentUser()?.roles.includes('Administrator') ?? false;
+  });
+
+  /**
+   * True when the user holds any sampler role (Préleveur / Requérant-Préleveur)
+   * and is not an Administrator. Tolerant to the ASCII-mangled "Preleveur"
+   * variants that exist in some tenants.
+   */
+  readonly isPreleveur = computed(() => {
+    const user = this.currentUser();
+    if (!user || user.roles.includes('Administrator')) {
+      return false;
+    }
+    return user.roles.some((r) => /pr[eéè]leveur/i.test(r));
+  });
+
+  /**
+   * AQ-415 — true for a "pure" sampler: holds Préleveur but neither Requérant,
+   * Requérant-Préleveur nor Administrator (no access to /results).
+   */
+  readonly isPreleveurOnly = computed(() => {
+    const user = this.currentUser();
+    if (!user || user.roles.includes('Administrator')) {
+      return false;
+    }
+    if (user.roles.some((r) => r === 'Requérant' || r === 'Requérant-Préleveur')) {
+      return false;
+    }
+    return user.roles.some((r) => r === 'Préleveur');
+  });
+
   private _userLoaded: Promise<void> = Promise.resolve();
 
   constructor() {

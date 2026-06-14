@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MatDialogModule, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { TranslateModule } from '@ngx-translate/core';
@@ -34,8 +34,8 @@ export interface SamplingResultsDialogData {
           — {{ data.orderNumber }}
         }
       </span>
-      <button mat-icon-button mat-dialog-close aria-label="Close">
-        <mat-icon>close</mat-icon>
+      <button mat-icon-button mat-dialog-close [attr.aria-label]="'a11y.close' | translate">
+        <mat-icon aria-hidden="true">close</mat-icon>
       </button>
     </h2>
     @if (data.locationName) {
@@ -67,10 +67,7 @@ export interface SamplingResultsDialogData {
   `],
 })
 export class SamplingResultsDialogComponent {
+  // F-034 — the injected MatDialogRef and close() method were dead: the template
+  // closes via the `mat-dialog-close` directive directly.
   protected readonly data = inject<SamplingResultsDialogData>(MAT_DIALOG_DATA);
-  private readonly dialogRef = inject(MatDialogRef<SamplingResultsDialogComponent>);
-
-  protected close(): void {
-    this.dialogRef.close();
-  }
 }

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -18,14 +18,14 @@ import { AuthService } from '../../services/auth.service';
   selector: 'app-login',
   standalone: true,
   imports: [
-    FormsModule, MatFormFieldModule, MatInputModule,
+    ReactiveFormsModule, MatFormFieldModule, MatInputModule,
     MatButtonModule, MatIconModule, MatProgressSpinnerModule,
     TranslateModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="login-page">
-      <form class="login-card" (ngSubmit)="onLogin()">
+      <form class="login-card" [formGroup]="form" (ngSubmit)="onLogin()">
         <div class="brand">
           <img src="assets/brand/mark.svg" width="48" height="48" alt="Aquaplan" />
           <h1 class="brand-title">{{ 'app.title' | translate }}</h1>
@@ -36,14 +36,17 @@ import { AuthService } from '../../services/auth.service';
 
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>{{ 'auth.email' | translate }}</mat-label>
-          <input matInput type="email" [(ngModel)]="email" name="email" required autocomplete="email" />
-          <mat-icon matPrefix>mail_outline</mat-icon>
+          <input matInput type="email" formControlName="email" autocomplete="email" />
+          <mat-icon matPrefix aria-hidden="true">mail_outline</mat-icon>
+          @if (form.controls.email.touched && form.controls.email.hasError('email')) {
+            <mat-error>{{ 'auth.invalidEmail' | translate }}</mat-error>
+          }
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>{{ 'auth.password' | translate }}</mat-label>
-          <input matInput type="password" [(ngModel)]="password" name="password" required autocomplete="current-password" />
-          <mat-icon matPrefix>lock_outline</mat-icon>
+          <input matInput type="password" formControlName="password" autocomplete="current-password" />
+          <mat-icon matPrefix aria-hidden="true">lock_outline</mat-icon>
         </mat-form-field>
 
         @if (errorMessage()) {
@@ -54,7 +57,7 @@ import { AuthService } from '../../services/auth.service';
         }
 
         <button mat-raised-button color="primary" type="submit" class="full-width submit-btn"
-                [disabled]="loading()">
+                [disabled]="loading() || form.invalid">
           @if (loading()) {
             <mat-spinner diameter="20"></mat-spinner>
           } @else {
@@ -70,7 +73,7 @@ import { AuthService } from '../../services/auth.service';
           </div>
 
           <button mat-stroked-button type="button" class="full-width sso-button" (click)="onSsoLogin()">
-            <mat-icon>business</mat-icon>
+            <mat-icon aria-hidden="true">business</mat-icon>
             <span>{{ 'auth.loginSso' | translate }}</span>
           </button>
         }
@@ -228,11 +231,22 @@ export class LoginComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly http = inject(HttpClient);
 
-  email = '';
-  password = '';
-  loading = signal(false);
-  errorMessage = signal('');
-  oidcEnabled = signal(false);
+  // F-049 — typed Reactive Form with client-side email validation (was raw
+  // [(ngModel)] string properties with no validation).
+  readonly form = new FormGroup({
+    email: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.email],
+    }),
+    password: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+  });
+
+  readonly loading = signal(false);
+  readonly errorMessage = signal('');
+  readonly oidcEnabled = signal(false);
 
   async ngOnInit(): Promise<void> {
     try {
@@ -250,10 +264,15 @@ export class LoginComponent implements OnInit {
   }
 
   async onLogin(): Promise<void> {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
     this.loading.set(true);
     this.errorMessage.set('');
 
-    const success = await this.authService.login(this.email, this.password);
+    const { email, password } = this.form.getRawValue();
+    const success = await this.authService.login(email, password);
 
     if (success) {
       await this.router.navigate(['/']);

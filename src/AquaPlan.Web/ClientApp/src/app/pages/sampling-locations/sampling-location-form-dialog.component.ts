@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -130,6 +131,7 @@ export class SamplingLocationFormDialogComponent implements OnInit {
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly translate = inject(TranslateService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly distributors = signal<DistributorOption[]>([]);
   readonly sectors = signal<SectorDto[]>([]);
@@ -172,13 +174,6 @@ export class SamplingLocationFormDialogComponent implements OnInit {
     await this.store.loadAll();
     this.distributors.set(this.store.distributors());
 
-    // Listen for distributor changes to filter sectors
-    this.form.get('distributorId')!.valueChanges.subscribe((distributorId: string) => {
-      this.loadSectorsForDistributor(distributorId);
-      // Reset sector selection when distributor changes
-      this.form.get('sectorId')!.setValue('');
-    });
-
     if (this.data.mode === 'create' && !this.data.isAdmin && this.data.userDistributorId) {
       // Non-admin creation: auto-set distributor and load sectors for their distributor
       this.form.patchValue({ distributorId: this.data.userDistributorId });
@@ -201,6 +196,17 @@ export class SamplingLocationFormDialogComponent implements OnInit {
         sectorId: location.sectorId ?? '',
       });
     }
+
+    // F-028 — subscribe AFTER the initial patch so the edit pre-fill doesn't
+    // wipe the just-loaded sectorId, and tie the subscription to the component
+    // lifecycle via takeUntilDestroyed (was an untorn-down infinite stream).
+    this.form.get('distributorId')!.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((distributorId: string) => {
+        this.loadSectorsForDistributor(distributorId);
+        // Reset sector selection when the user changes distributor.
+        this.form.get('sectorId')!.setValue('');
+      });
   }
 
   async onDelete(): Promise<void> {

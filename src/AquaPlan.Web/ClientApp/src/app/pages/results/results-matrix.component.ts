@@ -23,7 +23,6 @@ import { SectorApiService } from '../../services/sector-api.service';
 import { DistributorListDto } from '../../models/distributor.model';
 import { SectorListDto } from '../../models/sector.model';
 import {
-  ResultConformity,
   ResultsCellDto,
   ResultsMatrixDto,
   ResultsMatrixLocationDto,
@@ -310,11 +309,6 @@ export class ResultsMatrixComponent implements OnInit {
         autoFocus: false,
       },
     );
-  }
-
-  // Expose for completeness; not used in template.
-  conformityBadge(c: ResultConformity): string {
-    return `pill-${c.toLowerCase()}`;
   }
 
   private async loadDistributors(): Promise<void> {

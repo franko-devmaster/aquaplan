@@ -20,6 +20,7 @@ import { ConfirmDialogComponent } from '../../components/confirm-dialog.componen
 import { OrderLinkRoundDialogComponent } from './order-link-round-dialog.component';
 import { SamplingRoundDetailDto } from '../../models/sampling-round.model';
 import { StatusChipComponent, StatusChipVariant } from '../../components/status-chip/status-chip.component';
+import { orderStatusVariant } from '../../utils/status-variant';
 import { SamplingResultsTableComponent } from '../../components/sampling-results-table/sampling-results-table.component';
 import { ResultsStatus } from '../../models/order.model';
 
@@ -166,23 +167,39 @@ import { ResultsStatus } from '../../models/order.model';
       </mat-card>
 
       <app-sampling-results-table [orderId]="order()!.id"></app-sampling-results-table>
+    } @else if (loadError()) {
+      <!-- F-030 — explicit not-found / error state with a way back. -->
+      <div class="load-error">
+        <mat-icon aria-hidden="true">error_outline</mat-icon>
+        <p>{{ 'orders.loadError' | translate }}</p>
+        <button mat-stroked-button (click)="goBack()">
+          <mat-icon aria-hidden="true">arrow_back</mat-icon>
+          {{ 'common.back' | translate }}
+        </button>
+      </div>
     }
   `,
   styles: [`
-    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .header-left { display: flex; align-items: center; gap: 8px; }
-    .header-actions { display: flex; gap: 8px; }
-    .loading-container { display: flex; justify-content: center; padding: 48px; }
-    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 16px; }
-    .detail-item { display: flex; flex-direction: column; gap: 4px; }
-    .detail-item label { font-size: 12px; color: #666; text-transform: uppercase; }
-    .detail-item span { font-size: 16px; }
-    .notes-section { padding: 16px; border-top: 1px solid #e0e0e0; margin-top: 8px; }
-    .notes-section label { font-size: 12px; color: #666; text-transform: uppercase; display: block; margin-bottom: 8px; }
+    /* F-040 — migrated from pre-design-system px/hex to design tokens. */
+    .load-error {
+      display: flex; flex-direction: column; align-items: center; gap: var(--space-3);
+      padding: var(--space-12); color: var(--color-fg-muted); text-align: center;
+    }
+    .load-error mat-icon { font-size: 48px; width: 48px; height: 48px; color: var(--color-fg-subtle); }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
+    .header-left { display: flex; align-items: center; gap: var(--space-2); }
+    .header-actions { display: flex; gap: var(--space-2); }
+    .loading-container { display: flex; justify-content: center; padding: var(--space-12); }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); padding: var(--space-4); }
+    .detail-item { display: flex; flex-direction: column; gap: var(--space-1); }
+    .detail-item label { font-size: var(--font-size-12); color: var(--color-fg-muted); text-transform: uppercase; }
+    .detail-item span { font-size: var(--font-size-16); color: var(--color-fg-default); }
+    .notes-section { padding: var(--space-4); border-top: 1px solid var(--color-border-default); margin-top: var(--space-2); }
+    .notes-section label { font-size: var(--font-size-12); color: var(--color-fg-muted); text-transform: uppercase; display: block; margin-bottom: var(--space-2); }
     .notes-section p { margin: 0; white-space: pre-wrap; }
-    .profiles-section { padding: 16px; border-top: 1px solid #e0e0e0; margin-top: 8px; }
-    .profiles-section label { font-size: 12px; color: #666; text-transform: uppercase; display: block; margin-bottom: 8px; }
-    .profiles-list { display: flex; gap: 8px; flex-wrap: wrap; }
+    .profiles-section { padding: var(--space-4); border-top: 1px solid var(--color-border-default); margin-top: var(--space-2); }
+    .profiles-section label { font-size: var(--font-size-12); color: var(--color-fg-muted); text-transform: uppercase; display: block; margin-bottom: var(--space-2); }
+    .profiles-list { display: flex; gap: var(--space-2); flex-wrap: wrap; }
   `],
 })
 export class OrderDetailComponent implements OnInit {
@@ -198,6 +215,8 @@ export class OrderDetailComponent implements OnInit {
 
   readonly order = signal<OrderDetailDto | null>(null);
   readonly loading = signal(false);
+  // F-030 — surface load failures instead of rendering a blank page on 404/error.
+  readonly loadError = signal(false);
 
   async ngOnInit(): Promise<void> {
     await this.loadOrder();
@@ -208,22 +227,25 @@ export class OrderDetailComponent implements OnInit {
     if (!id) return;
 
     this.loading.set(true);
+    this.loadError.set(false);
     try {
       const data = await firstValueFrom(this.orderApi.getById(id));
       this.order.set(data);
+    } catch {
+      // F-030 — 404 (deleted order / stale notification link) or network error.
+      this.loadError.set(true);
     } finally {
       this.loading.set(false);
     }
   }
 
+  // F-012 — delegate to AuthService (single source of truth).
   private isAdmin(): boolean {
-    return this.authService.currentUser()?.roles.includes('Administrator') ?? false;
+    return this.authService.isAdmin();
   }
 
   private isPreleveur(): boolean {
-    const user = this.authService.currentUser();
-    if (!user) return false;
-    return user.roles.some(r => r.toLowerCase().includes('réleveur')) && !user.roles.includes('Administrator');
+    return this.authService.isPreleveur();
   }
 
   canEdit(): boolean {
@@ -254,16 +276,7 @@ export class OrderDetailComponent implements OnInit {
 
   getStatusVariant(): StatusChipVariant {
     const o = this.order();
-    if (!o) return 'draft';
-    const map: Record<string, StatusChipVariant> = {
-      'New': 'draft',
-      'InProgress': 'info',
-      'Completed': 'success',
-      'Transmitted': 'success',
-      'Done': 'success',
-      'Cancelled': 'danger',
-    };
-    return map[o.status] ?? 'draft';
+    return o ? orderStatusVariant(o.status) : 'draft';
   }
 
   getConformityLabel(): string {

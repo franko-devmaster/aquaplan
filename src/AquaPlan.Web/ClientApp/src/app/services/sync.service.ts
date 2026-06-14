@@ -293,7 +293,7 @@ export class SyncService {
         return;
       }
       case 'REPLACE_LOCATION': {
-        // TODO AQ-376 — plumbing ready; endpoint exists at POST /api/orders/{id}/replace-location.
+        // AQ-376 — replayed against POST /api/orders/{id}/replace-location.
         // payload shape: { orderId: string; dto: LocationReplacementDto }
         const orderId = this.readString(payload, 'orderId');
         const dto = payload?.['dto'] ?? payload;
@@ -303,8 +303,8 @@ export class SyncService {
         return;
       }
       case 'COMPLETE_ORDER': {
-        // TODO AQ-376 — no dedicated endpoint yet; transition status via the
-        // existing orders/transition route so the replay remains idempotent.
+        // AQ-376 — transitions status via the existing orders/transition route
+        // so the replay remains idempotent (no dedicated complete endpoint).
         const orderId = this.readString(payload, 'orderId');
         const newStatus =
           this.readOptionalString(payload, 'newStatus') ?? 'Completed';

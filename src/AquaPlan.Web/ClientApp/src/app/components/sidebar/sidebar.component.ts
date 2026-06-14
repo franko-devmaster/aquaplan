@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { RouterModule } from '@angular/router';
@@ -16,7 +16,7 @@ import { AuthService } from '../../services/auth.service';
   // (<a routerLink> anchors) so guards, active detection, and click behaviour
   // are preserved.
   template: `
-    <nav class="ap-sidebar" aria-label="Main navigation">
+    <nav class="ap-sidebar" [attr.aria-label]="'a11y.mainNavigation' | translate">
       <div class="ap-sidebar__brand">
         <img src="assets/brand/logo-on-dark.svg" alt="AquaPlan" height="32"/>
       </div>
@@ -263,23 +263,11 @@ export class SidebarComponent {
   private readonly authService = inject(AuthService);
   readonly navigated = output();
 
-  readonly isAdmin = computed(() =>
-    this.authService.currentUser()?.roles.includes('Administrator') ?? false
-  );
-
-  readonly isPreleveur = computed(() => {
-    const user = this.authService.currentUser();
-    if (!user) return false;
-    return user.roles.some(r => r.toLowerCase().includes('réleveur')) && !user.roles.includes('Administrator');
-  });
+  // F-012 — centralised role checks (AuthService is the single source of truth).
+  // F-034 — the previously dead `isPreleveur` computed was removed (only
+  // isAdmin / isPreleveurOnly are consumed by the template).
+  readonly isAdmin = this.authService.isAdmin;
 
   /** AQ-415 — Préleveur seul (sans Requérant/RequérantPréleveur) : pas d'accès à /results. */
-  readonly isPreleveurOnly = computed(() => {
-    const user = this.authService.currentUser();
-    if (!user) return false;
-    const roles = user.roles;
-    if (roles.includes('Administrator')) return false;
-    if (roles.some(r => r === 'Requérant' || r === 'Requérant-Préleveur')) return false;
-    return roles.some(r => r === 'Préleveur');
-  });
+  readonly isPreleveurOnly = this.authService.isPreleveurOnly;
 }

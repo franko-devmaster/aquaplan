@@ -24,7 +24,10 @@ import { AuthService } from '../../services/auth.service';
 import { NetworkCheckService } from '../../services/network-check.service';
 import { SyncService } from '../../services/sync.service';
 import { OfflineStorageService } from '../../services/offline-storage.service';
+import { ConfirmService } from '../../services/confirm.service';
+import { ApiErrorService } from '../../services/api-error.service';
 import { devInfo } from '../../utils/dev-log';
+import { orderStatusVariant, roundStatusVariant } from '../../utils/status-variant';
 import {
   SamplingRoundDetailDto,
   SamplingRoundOrderDto,
@@ -230,7 +233,6 @@ import { OrderIndicatorsComponent, OrderIndicatorsInput } from '../../components
                   <!-- Sampler comment remains clickable (edit shortcut for préleveurs). -->
                   @if (order.samplerComment) {
                     <mat-icon class="indicator-icon clickable"
-                              [style.color]="'#9E9E9E'"
                               [matTooltip]="order.samplerComment"
                               (click)="editSamplerComment(order, $event)">
                       edit_note
@@ -268,7 +270,7 @@ import { OrderIndicatorsComponent, OrderIndicatorsInput } from '../../components
                     </button>
                   }
                   @if (order.status === 'Completed') {
-                    <mat-icon class="sampling-done-icon" [style.color]="'#7B1FA2'"
+                    <mat-icon class="sampling-done-icon sampling-done-icon--completed"
                               [matTooltip]="'sampling.completed' | translate">
                       check_circle
                     </mat-icon>
@@ -280,7 +282,7 @@ import { OrderIndicatorsComponent, OrderIndicatorsInput } from '../../components
                     </button>
                   }
                   @if (order.status === 'Transmitted' || order.status === 'Done') {
-                    <mat-icon class="sampling-done-icon" [style.color]="'#388E3C'"
+                    <mat-icon class="sampling-done-icon sampling-done-icon--transmitted"
                               [matTooltip]="'sampling.transmitted' | translate">
                       check_circle
                     </mat-icon>
@@ -329,6 +331,16 @@ import { OrderIndicatorsComponent, OrderIndicatorsInput } from '../../components
       } @else {
         <p class="no-data">{{ 'samplingRounds.noOrders' | translate }}</p>
       }
+    } @else {
+      <!-- F-030 — explicit not-found / error state with a way back. -->
+      <div class="load-error">
+        <mat-icon aria-hidden="true">error_outline</mat-icon>
+        <p>{{ 'samplingRounds.loadError' | translate }}</p>
+        <button mat-stroked-button (click)="goBack()">
+          <mat-icon aria-hidden="true">arrow_back</mat-icon>
+          {{ 'common.back' | translate }}
+        </button>
+      </div>
     }
   `,
   styles: [`
@@ -401,6 +413,11 @@ import { OrderIndicatorsComponent, OrderIndicatorsInput } from '../../components
       border-radius: var(--radius-md);
     }
     .no-data { text-align: center; padding: var(--space-6); color: var(--color-fg-muted); }
+    .load-error {
+      display: flex; flex-direction: column; align-items: center; gap: var(--space-3);
+      padding: var(--space-12); color: var(--color-fg-muted); text-align: center;
+    }
+    .load-error mat-icon { font-size: 48px; width: 48px; height: 48px; color: var(--color-fg-subtle); }
     .indicators { display: flex; gap: var(--space-1); align-items: center; }
     .indicator-icon { font-size: 20px; width: 20px; height: 20px; color: var(--color-fg-muted); }
     .clickable { cursor: pointer; }
@@ -416,6 +433,9 @@ import { OrderIndicatorsComponent, OrderIndicatorsInput } from '../../components
     .cdk-drag-animating { transition: transform var(--duration-slow) var(--easing-decelerate); }
     .action-buttons { display: flex; align-items: center; gap: var(--space-1); }
     .sampling-done-icon { font-size: 24px; width: 24px; height: 24px; color: var(--color-success-500); }
+    /* F-039 — token-based status colours (were inline hex #7B1FA2 / #388E3C). */
+    .sampling-done-icon--completed { color: var(--chip-in-analysis-fg); }
+    .sampling-done-icon--transmitted { color: var(--color-success-600); }
 
     @media (max-width: 768px) {
       :host { padding: var(--space-3); }
@@ -435,10 +455,14 @@ export class SamplingRoundDetailComponent implements OnInit {
   private readonly networkCheck = inject(NetworkCheckService);
   private readonly syncService = inject(SyncService);
   private readonly offlineStorage = inject(OfflineStorageService);
+  private readonly confirmService = inject(ConfirmService);
+  private readonly apiError = inject(ApiErrorService);
 
   readonly round = signal<SamplingRoundDetailDto | null>(null);
   readonly loading = signal(true);
   readonly saving = signal(false);
+  // F-030 — surface load failures instead of rendering a blank page on 404/error.
+  readonly loadError = signal(false);
 
   /** Map of orderId -> SamplingDto for orders that have sampling data */
   readonly orderSamplings = signal<Record<string, SamplingDto>>({});
@@ -448,18 +472,10 @@ export class SamplingRoundDetailComponent implements OnInit {
   readonly isInProgress = computed(() => this.round()?.status === SamplingRoundStatus.InProgress);
   readonly canSample = computed(() => this.isInProgress());
   readonly canCreate = this.authService.canCreateOrders;
-  readonly isAdmin = computed(() =>
-    this.authService.currentUser()?.roles.includes('Administrator') ?? false
-  );
+  // F-012 — centralised role checks (AuthService is the single source of truth).
+  readonly isAdmin = this.authService.isAdmin;
   // AQ-399 — distinguish preleveur from mandataire to scope menu actions.
-  readonly isPreleveur = computed(() => {
-    const user = this.authService.currentUser();
-    if (!user) return false;
-    if (user.roles.includes('Administrator')) return false;
-    // Match either the project role "Préleveur" or the compound "Requérant-Préleveur"
-    // accepting the ASCII-mangled variants that exist in some tenants.
-    return user.roles.some(r => /pr[eéè]leveur/i.test(r));
-  });
+  readonly isPreleveur = this.authService.isPreleveur;
   readonly isAssignedToCurrentUser = computed(() => {
     const r = this.round();
     const user = this.authService.currentUser();
@@ -504,9 +520,10 @@ export class SamplingRoundDetailComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     const id = this.route.snapshot.paramMap.get('id');
+    // F-032 — rounds are never created via this route ("new" was a dead branch);
+    // redirect any such navigation back to the list.
     if (!id || id === 'new') {
-      // TODO: handle create mode if needed
-      this.loading.set(false);
+      this.router.navigate(['/sampling-rounds']);
       return;
     }
 
@@ -514,6 +531,9 @@ export class SamplingRoundDetailComponent implements OnInit {
       const round = await firstValueFrom(this.roundApi.getById(id));
       this.round.set(round);
       await this.loadSamplings(round);
+    } catch {
+      // F-030 — 404 (deleted round / stale notification link) or network error.
+      this.loadError.set(true);
     } finally {
       this.loading.set(false);
     }
@@ -525,26 +545,11 @@ export class SamplingRoundDetailComponent implements OnInit {
   }
 
   getRoundStatusVariant(status: SamplingRoundStatus): StatusChipVariant {
-    const map: Record<string, StatusChipVariant> = {
-      'Draft': 'draft',
-      'Assigned': 'info',
-      'InProgress': 'info',
-      'Completed': 'success',
-      'Cancelled': 'danger',
-    };
-    return map[status] ?? 'draft';
+    return roundStatusVariant(status);
   }
 
   getOrderStatusVariant(status: string): StatusChipVariant {
-    const map: Record<string, StatusChipVariant> = {
-      'New': 'draft',
-      'InProgress': 'info',
-      'Completed': 'success',
-      'Transmitted': 'success',
-      'Done': 'success',
-      'Cancelled': 'danger',
-    };
-    return map[status] ?? 'draft';
+    return orderStatusVariant(status);
   }
 
   toCamelCase(value: string): string {
@@ -639,19 +644,14 @@ export class SamplingRoundDetailComponent implements OnInit {
     const r = this.round();
     if (!r) return;
 
-    if (!confirm(this.translate.instant('samplingRounds.confirmRemoveOrder'))) return;
+    if (!(await this.confirmService.confirm('samplingRounds.confirmRemoveOrder'))) return;
 
     try {
       await firstValueFrom(this.roundApi.removeOrder(r.id, order.id));
       const refreshed = await firstValueFrom(this.roundApi.getById(r.id));
       this.round.set(refreshed);
     } catch (err: unknown) {
-      const apiError = err as { error?: { error?: string } };
-      this.snackBar.open(
-        apiError?.error?.error ?? 'Error',
-        this.translate.instant('common.close'),
-        { duration: 5000 }
-      );
+      this.apiError.toast(err);
     }
   }
 
@@ -693,24 +693,34 @@ export class SamplingRoundDetailComponent implements OnInit {
     };
   }
 
-  editSamplerComment(order: SamplingRoundOrderDto, event: Event): void {
+  async editSamplerComment(order: SamplingRoundOrderDto, event: Event): Promise<void> {
     event.stopPropagation();
-    const newComment = prompt(
-      this.translate.instant('samplingRounds.editComment'),
-      order.samplerComment ?? ''
-    );
-    if (newComment === null) return;
+    const newComment = await this.confirmService.prompt('samplingRounds.editComment', {
+      value: order.samplerComment ?? '',
+      multiline: true,
+    });
+    // undefined = cancelled (distinct from an empty string = cleared comment).
+    if (newComment === undefined) return;
 
-    firstValueFrom(this.roundApi.updateSamplerComment(order.id, { comment: newComment }))
-      .then(() => {
-        const r = this.round();
-        if (r) {
-          const orders = r.orders.map(o =>
-            o.id === order.id ? { ...o, samplerComment: newComment || null } : o
-          );
-          this.round.set({ ...r, orders });
-        }
-      });
+    // F-020 — optimistic update with rollback on failure (was a bare .then()
+    // with no catch, leaving the user believing the comment was saved).
+    const previous = this.round();
+    if (previous) {
+      const orders = previous.orders.map(o =>
+        o.id === order.id ? { ...o, samplerComment: newComment || null } : o
+      );
+      this.round.set({ ...previous, orders });
+    }
+
+    try {
+      await firstValueFrom(this.roundApi.updateSamplerComment(order.id, { comment: newComment }));
+    } catch (err: unknown) {
+      // Roll back the optimistic change and surface the error.
+      if (previous) {
+        this.round.set(previous);
+      }
+      this.apiError.toast(err);
+    }
   }
 
   async assignSampler(): Promise<void> {
@@ -729,18 +739,9 @@ export class SamplingRoundDetailComponent implements OnInit {
     try {
       const updated = await firstValueFrom(this.roundApi.assign(r.id, { preleveurId }));
       this.round.set(updated);
-      this.snackBar.open(
-        this.translate.instant('samplingRounds.assigned'),
-        this.translate.instant('common.close'),
-        { duration: 3000 }
-      );
+      this.apiError.success('samplingRounds.assigned');
     } catch (err: unknown) {
-      const apiError = err as { error?: { error?: string } };
-      this.snackBar.open(
-        apiError?.error?.error ?? 'Error',
-        this.translate.instant('common.close'),
-        { duration: 5000 }
-      );
+      this.apiError.toast(err);
     } finally {
       this.saving.set(false);
     }
@@ -750,7 +751,7 @@ export class SamplingRoundDetailComponent implements OnInit {
     const r = this.round();
     if (!r) return;
 
-    if (!confirm(this.translate.instant('samplingRounds.confirmCancel'))) return;
+    if (!(await this.confirmService.confirm('samplingRounds.confirmCancel'))) return;
 
     this.saving.set(true);
     try {
@@ -764,24 +765,15 @@ export class SamplingRoundDetailComponent implements OnInit {
   async revertToDraft(): Promise<void> {
     const r = this.round();
     if (!r) return;
-    if (!confirm(this.translate.instant('samplingRounds.confirmRevertToDraft'))) return;
+    if (!(await this.confirmService.confirm('samplingRounds.confirmRevertToDraft'))) return;
 
     this.saving.set(true);
     try {
       const updated = await firstValueFrom(this.roundApi.revertToDraft(r.id));
       this.round.set(updated);
-      this.snackBar.open(
-        this.translate.instant('samplingRounds.revertedToDraft'),
-        this.translate.instant('common.close'),
-        { duration: 3000 }
-      );
+      this.apiError.success('samplingRounds.revertedToDraft');
     } catch (err: unknown) {
-      const apiError = err as { error?: { error?: string } };
-      this.snackBar.open(
-        apiError?.error?.error ?? 'Error',
-        this.translate.instant('common.close'),
-        { duration: 5000 }
-      );
+      this.apiError.toast(err);
     } finally {
       this.saving.set(false);
     }
@@ -806,18 +798,9 @@ export class SamplingRoundDetailComponent implements OnInit {
     try {
       const updated = await firstValueFrom(this.roundApi.start(r.id));
       this.round.set(updated);
-      this.snackBar.open(
-        this.translate.instant('samplingRounds.started'),
-        this.translate.instant('common.close'),
-        { duration: 3000 }
-      );
+      this.apiError.success('samplingRounds.started');
     } catch (err: unknown) {
-      const apiError = err as { error?: { error?: string } };
-      this.snackBar.open(
-        apiError?.error?.error ?? 'Error',
-        this.translate.instant('common.close'),
-        { duration: 5000 }
-      );
+      this.apiError.toast(err);
     } finally {
       this.saving.set(false);
     }
@@ -828,24 +811,15 @@ export class SamplingRoundDetailComponent implements OnInit {
     const r = this.round();
     if (!r) return;
 
-    if (!confirm(this.translate.instant('samplingRounds.confirmForceUnlock'))) return;
+    if (!(await this.confirmService.confirm('samplingRounds.confirmForceUnlock'))) return;
 
     this.saving.set(true);
     try {
       const updated = await firstValueFrom(this.roundApi.forceUnlock(r.id));
       this.round.set(updated);
-      this.snackBar.open(
-        this.translate.instant('samplingRounds.forceUnlocked'),
-        this.translate.instant('common.close'),
-        { duration: 3000 }
-      );
+      this.apiError.success('samplingRounds.forceUnlocked');
     } catch (err: unknown) {
-      const apiError = err as { error?: { error?: string } };
-      this.snackBar.open(
-        apiError?.error?.error ?? 'Error',
-        this.translate.instant('common.close'),
-        { duration: 5000 }
-      );
+      this.apiError.toast(err);
     } finally {
       this.saving.set(false);
     }
@@ -867,24 +841,15 @@ export class SamplingRoundDetailComponent implements OnInit {
       return;
     }
 
-    if (!confirm(this.translate.instant('samplingRounds.confirmTransmitAll'))) return;
+    if (!(await this.confirmService.confirm('samplingRounds.confirmTransmitAll'))) return;
 
     this.saving.set(true);
     try {
       const updated = await firstValueFrom(this.roundApi.transmitAll(r.id));
       this.round.set(updated);
-      this.snackBar.open(
-        this.translate.instant('samplingRounds.transmittedAll'),
-        this.translate.instant('common.close'),
-        { duration: 3000 }
-      );
+      this.apiError.success('samplingRounds.transmittedAll');
     } catch (err: unknown) {
-      const apiError = err as { error?: { error?: string } };
-      this.snackBar.open(
-        apiError?.error?.error ?? 'Error',
-        this.translate.instant('common.close'),
-        { duration: 5000 }
-      );
+      this.apiError.toast(err);
     } finally {
       this.saving.set(false);
     }
@@ -894,10 +859,14 @@ export class SamplingRoundDetailComponent implements OnInit {
     const r = this.round();
     if (!r) return;
 
-    if (!confirm(this.translate.instant('samplingRounds.confirmDelete'))) return;
+    if (!(await this.confirmService.confirm('samplingRounds.confirmDelete'))) return;
 
-    await firstValueFrom(this.roundApi.delete(r.id));
-    this.router.navigate(['/sampling-rounds']);
+    try {
+      await firstValueFrom(this.roundApi.delete(r.id));
+      this.router.navigate(['/sampling-rounds']);
+    } catch (err: unknown) {
+      this.apiError.toast(err);
+    }
   }
 
   async addOrder(): Promise<void> {
@@ -966,12 +935,7 @@ export class SamplingRoundDetailComponent implements OnInit {
             if (reloaded) workingOrder = reloaded;
           }
         } catch (err: unknown) {
-          const apiError = err as { error?: { error?: string } };
-          this.snackBar.open(
-            apiError?.error?.error ?? 'Error',
-            this.translate.instant('common.close'),
-            { duration: 5000 }
-          );
+          this.apiError.toast(err);
           return;
         }
       }
@@ -1005,7 +969,7 @@ export class SamplingRoundDetailComponent implements OnInit {
 
   async completeSampling(order: SamplingRoundOrderDto, event: Event): Promise<void> {
     event.stopPropagation();
-    if (!confirm(this.translate.instant('sampling.confirmComplete'))) return;
+    if (!(await this.confirmService.confirm('sampling.confirmComplete'))) return;
 
     try {
       await firstValueFrom(this.samplingApi.complete(order.id));
@@ -1015,33 +979,30 @@ export class SamplingRoundDetailComponent implements OnInit {
         const refreshed = await firstValueFrom(this.roundApi.getById(r.id));
         this.round.set(refreshed);
       }
-      this.snackBar.open(
-        this.translate.instant('sampling.completedSuccess'),
-        this.translate.instant('common.close'),
-        { duration: 3000 }
-      );
+      this.apiError.success('sampling.completedSuccess');
     } catch (err: unknown) {
-      const apiError = err as { error?: { error?: string } };
-      this.snackBar.open(
-        apiError?.error?.error ?? 'Error',
-        this.translate.instant('common.close'),
-        { duration: 5000 }
-      );
+      this.apiError.toast(err);
     }
   }
 
+  /**
+   * F-019 — fetch the sampling data for all in-progress orders in parallel
+   * instead of sequentially (a 20-order round used to cost ~20 serial RTTs on
+   * the field network). A missing sampling (404) is expected and simply skipped.
+   */
   private async loadSamplings(round: SamplingRoundDetailDto): Promise<void> {
     const inProgressOrders = round.orders.filter(o => o.status === 'InProgress');
     const samplings: Record<string, SamplingDto> = {};
 
-    for (const order of inProgressOrders) {
-      try {
-        const sampling = await firstValueFrom(this.samplingApi.getByOrderId(order.id));
-        samplings[order.id] = sampling;
-      } catch {
-        // No sampling exists for this order yet — that is expected
+    const results = await Promise.allSettled(
+      inProgressOrders.map(order => firstValueFrom(this.samplingApi.getByOrderId(order.id)))
+    );
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        samplings[inProgressOrders[index].id] = result.value;
       }
-    }
+      // rejected = no sampling exists yet for this order — expected, skip.
+    });
 
     this.orderSamplings.set(samplings);
   }
@@ -1060,7 +1021,7 @@ export class SamplingRoundDetailComponent implements OnInit {
       return;
     }
 
-    if (!confirm(this.translate.instant('orders.confirmTransmit'))) return;
+    if (!(await this.confirmService.confirm('orders.confirmTransmit'))) return;
 
     try {
       await firstValueFrom(this.orderApi.transition(order.id, 'Transmitted'));
@@ -1069,18 +1030,9 @@ export class SamplingRoundDetailComponent implements OnInit {
         const refreshed = await firstValueFrom(this.roundApi.getById(r.id));
         this.round.set(refreshed);
       }
-      this.snackBar.open(
-        this.translate.instant('orders.transmitted'),
-        this.translate.instant('common.close'),
-        { duration: 3000 }
-      );
+      this.apiError.success('orders.transmitted');
     } catch (err: unknown) {
-      const apiError = err as { error?: { error?: string } };
-      this.snackBar.open(
-        apiError?.error?.error ?? 'Error',
-        this.translate.instant('common.close'),
-        { duration: 5000 }
-      );
+      this.apiError.toast(err);
     }
   }
 

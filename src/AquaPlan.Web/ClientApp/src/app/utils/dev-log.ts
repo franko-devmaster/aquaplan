@@ -11,3 +11,17 @@ export function devInfo(...args: unknown[]): void {
     console.info(...args);
   }
 }
+
+/** Like devInfo, for warnings. No-op in production. */
+export function devWarn(...args: unknown[]): void {
+  if (!environment.production) {
+    console.warn(...args);
+  }
+}
+
+/** Like devInfo, for errors. No-op in production. */
+export function devError(...args: unknown[]): void {
+  if (!environment.production) {
+    console.error(...args);
+  }
+}

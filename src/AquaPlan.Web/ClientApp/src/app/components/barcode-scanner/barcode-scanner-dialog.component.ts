@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, ViewChild, inject, signal } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnDestroy, inject, signal, viewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import { BarcodeScannerService } from '../../services/barcode-scanner.service';
+import { devWarn, devError } from '../../utils/dev-log';
 
 export interface BarcodeScanResult {
   barcode: string;
@@ -53,8 +54,9 @@ export interface BarcodeScanResult {
     .scanner-error mat-icon { font-size: 48px; width: 48px; height: 48px; }
   `],
 })
-export class BarcodeScannerDialogComponent implements OnDestroy {
-  @ViewChild('video', { static: false }) private readonly videoRef?: ElementRef<HTMLVideoElement>;
+export class BarcodeScannerDialogComponent implements AfterViewInit, OnDestroy {
+  // F-047 — signal-based viewChild instead of the @ViewChild decorator.
+  private readonly videoRef = viewChild<ElementRef<HTMLVideoElement>>('video');
 
   private readonly dialogRef = inject(MatDialogRef<BarcodeScannerDialogComponent, BarcodeScanResult | null>);
   private readonly scanner = inject(BarcodeScannerService);
@@ -79,7 +81,8 @@ export class BarcodeScannerDialogComponent implements OnDestroy {
   }
 
   private async startCamera(): Promise<void> {
-    if (!this.videoRef) {
+    const videoRef = this.videoRef();
+    if (!videoRef) {
       return;
     }
     // AQ-402 — getUserMedia requires a secure context. Fail early with an
@@ -101,7 +104,7 @@ export class BarcodeScannerDialogComponent implements OnDestroy {
     // AQ-404 — Safari iOS is picky about autoplay. Explicitly set the
     // properties on the element (the template attributes alone are sometimes
     // not enough when the element has just been attached).
-    const video = this.videoRef.nativeElement;
+    const video = videoRef.nativeElement;
     video.setAttribute('playsinline', 'true');
     video.setAttribute('webkit-playsinline', 'true');
     video.setAttribute('muted', 'true');
@@ -124,8 +127,7 @@ export class BarcodeScannerDialogComponent implements OnDestroy {
       try {
         await video.play();
       } catch (playErr) {
-        // eslint-disable-next-line no-console
-        console.warn('[scanner] video.play() rejected:', playErr);
+        devWarn('[scanner] video.play() rejected:', playErr);
       }
       this.subscription = this.scanner.startScan(video).subscribe({
         next: (barcode) => {
@@ -133,8 +135,7 @@ export class BarcodeScannerDialogComponent implements OnDestroy {
           this.dialogRef.close({ barcode });
         },
         error: (err: unknown) => {
-          // eslint-disable-next-line no-console
-          console.error('[scanner] decode pipeline error:', err);
+          devError('[scanner] decode pipeline error:', err);
           this.errorKey.set('scan.permissionDenied');
           this.error.set(true);
           this.stop();
@@ -143,8 +144,7 @@ export class BarcodeScannerDialogComponent implements OnDestroy {
     } catch (err: unknown) {
       // AQ-404 — log the actual failure so it can be diagnosed on iPhone via
       // Safari remote debug (no way to see a silent catch otherwise).
-      // eslint-disable-next-line no-console
-      console.error('[scanner] getUserMedia failed:', err);
+      devError('[scanner] getUserMedia failed:', err);
       // AQ-402 — differentiate denial vs. missing device vs. other.
       const name = (err as { name?: string } | null)?.name;
       if (name === 'NotAllowedError' || name === 'SecurityError') {
@@ -169,8 +169,7 @@ export class BarcodeScannerDialogComponent implements OnDestroy {
     } catch (err: unknown) {
       const name = (err as { name?: string } | null)?.name;
       if (name === 'OverconstrainedError' || name === 'NotReadableError') {
-        // eslint-disable-next-line no-console
-        console.warn('[scanner] retrying with permissive constraints after', name);
+        devWarn('[scanner] retrying with permissive constraints after', name);
         return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       }
       throw err;
