@@ -49,7 +49,7 @@ export interface AssignSamplerDialogData {
 
     <mat-dialog-actions align="end">
       <button mat-stroked-button mat-dialog-close>{{ 'common.cancel' | translate }}</button>
-      <button mat-raised-button color="primary" (click)="assign()" [disabled]="!selectedId">
+      <button mat-flat-button color="primary" (click)="assign()" [disabled]="!selectedId">
         {{ 'samplingRounds.assignSampler' | translate }}
       </button>
     </mat-dialog-actions>

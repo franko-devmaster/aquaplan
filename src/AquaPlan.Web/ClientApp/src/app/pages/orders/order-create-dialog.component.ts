@@ -145,7 +145,7 @@ interface DistributorOption {
     </mat-dialog-content>
     <mat-dialog-actions align="end" class="dialog-actions">
       <button mat-stroked-button mat-dialog-close>{{ 'common.cancel' | translate }}</button>
-      <button mat-raised-button color="primary" (click)="onSubmit()"
+      <button mat-flat-button color="primary" (click)="onSubmit()"
               [disabled]="form.invalid || saving()">
         @if (saving()) {
           <mat-spinner diameter="20"></mat-spinner>

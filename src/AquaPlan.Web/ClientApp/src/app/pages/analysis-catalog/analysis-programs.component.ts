@@ -31,7 +31,7 @@ import { StatusChipComponent } from '../../components/status-chip/status-chip.co
     <div class="page-header">
       <h2>{{ 'analysisCatalog.programs.title' | translate }}</h2>
       @if (isAdmin()) {
-        <button mat-raised-button color="primary" (click)="openCreateForm()">
+        <button mat-flat-button color="primary" (click)="openCreateForm()">
           <mat-icon>add</mat-icon>
           {{ 'analysisCatalog.programs.create' | translate }}
         </button>
@@ -103,7 +103,7 @@ import { StatusChipComponent } from '../../components/status-chip/status-chip.co
           </mat-form-field>
           <div class="form-actions">
             <button mat-button (click)="closeForm()">{{ 'common.cancel' | translate }}</button>
-            <button mat-raised-button color="primary" (click)="saveProgram()">{{ 'common.save' | translate }}</button>
+            <button mat-flat-button color="primary" (click)="saveProgram()">{{ 'common.save' | translate }}</button>
           </div>
         </div>
       </div>
@@ -163,7 +163,7 @@ import { StatusChipComponent } from '../../components/status-chip/status-chip.co
                     }
                   </mat-select>
                 </mat-form-field>
-                <button mat-raised-button color="primary" (click)="addProfiles()" [disabled]="selectedProfileIds.length === 0">
+                <button mat-flat-button color="primary" (click)="addProfiles()" [disabled]="selectedProfileIds.length === 0">
                   {{ 'analysisCatalog.programs.addProfile' | translate }}
                 </button>
               </div>

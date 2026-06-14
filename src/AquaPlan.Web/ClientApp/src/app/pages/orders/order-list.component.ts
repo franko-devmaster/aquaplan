@@ -75,7 +75,7 @@ import { downloadBlob } from '../../utils/download-blob';
           </button>
         }
         @if (canCreate()) {
-          <button mat-raised-button color="primary" (click)="openCreateDialog()">
+          <button mat-flat-button color="primary" (click)="openCreateDialog()">
             <mat-icon>add</mat-icon>
             {{ 'orders.createOrder' | translate }}
           </button>

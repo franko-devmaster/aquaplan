@@ -75,7 +75,7 @@ import { ConfirmDialogComponent } from '../../../components/confirm-dialog.compo
           <mat-datepicker #pickerTo></mat-datepicker>
         </mat-form-field>
 
-        <button mat-raised-button color="primary" (click)="createDelegation()"
+        <button mat-flat-button color="primary" (click)="createDelegation()"
                 [disabled]="!canCreate()">
           <mat-icon>add</mat-icon>
           {{ 'common.create' | translate }}

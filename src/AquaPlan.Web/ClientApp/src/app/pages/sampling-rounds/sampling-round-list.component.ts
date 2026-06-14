@@ -45,7 +45,7 @@ import { debouncedSearch } from '../../utils/debounced-search';
     <div class="page-header">
       <h2>{{ 'samplingRounds.title' | translate }}</h2>
       @if (canCreate()) {
-        <button mat-raised-button color="primary" (click)="createRound()">
+        <button mat-flat-button color="primary" (click)="createRound()">
           <mat-icon>add</mat-icon>
           {{ 'samplingRounds.createRound' | translate }}
         </button>

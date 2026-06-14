@@ -43,7 +43,7 @@ import { StatusChipComponent } from '../../components/status-chip/status-chip.co
           <mat-icon aria-hidden="true">picture_as_pdf</mat-icon>
           {{ 'samplingLocations.exportPdf' | translate }}
         </button>
-        <button mat-raised-button color="primary" (click)="openCreateDialog()">
+        <button mat-flat-button color="primary" (click)="openCreateDialog()">
           <mat-icon>add</mat-icon>
           {{ 'samplingLocations.createLocation' | translate }}
         </button>

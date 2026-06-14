@@ -72,31 +72,31 @@ interface SelectOption {
         </div>
         <div class="header-actions">
           @if (isDraft()) {
-            <button mat-stroked-button color="warn" (click)="deletePlan()">
+            <button mat-button color="warn" (click)="deletePlan()" style="margin-right:auto">
               <mat-icon>delete</mat-icon>
               {{ 'common.delete' | translate }}
             </button>
-            <button mat-raised-button color="primary" (click)="save()" [disabled]="saving()">
+            <button mat-stroked-button (click)="save()" [disabled]="saving()">
               <mat-icon>save</mat-icon>
               {{ 'common.save' | translate }}
             </button>
-            <button mat-raised-button color="accent" (click)="submitPlan()" [disabled]="saving() || editItems().length === 0">
+            <button mat-flat-button color="primary" (click)="submitPlan()" [disabled]="saving() || editItems().length === 0">
               <mat-icon>send</mat-icon>
               {{ 'samplingPlans.submit' | translate }}
             </button>
           }
           @if (isSubmitted() && isAdmin()) {
-            <button mat-raised-button color="primary" (click)="validatePlan()">
-              <mat-icon>check_circle</mat-icon>
-              {{ 'samplingPlans.validate' | translate }}
-            </button>
-            <button mat-stroked-button color="warn" (click)="rejectPlan()">
+            <button mat-button color="warn" (click)="rejectPlan()" style="margin-right:auto">
               <mat-icon>cancel</mat-icon>
               {{ 'samplingPlans.reject' | translate }}
             </button>
+            <button mat-flat-button color="primary" (click)="validatePlan()">
+              <mat-icon>check_circle</mat-icon>
+              {{ 'samplingPlans.validate' | translate }}
+            </button>
           }
           @if (isValidated()) {
-            <button mat-raised-button color="primary" (click)="generateOrders()" [disabled]="saving()">
+            <button mat-flat-button color="primary" (click)="generateOrders()" [disabled]="saving()">
               <mat-icon>playlist_add</mat-icon>
               {{ 'samplingPlans.generateOrders' | translate }}
             </button>

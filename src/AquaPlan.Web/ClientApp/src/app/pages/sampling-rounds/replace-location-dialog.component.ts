@@ -59,7 +59,7 @@ export interface ReplaceLocationDialogData {
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-stroked-button mat-dialog-close>{{ 'common.cancel' | translate }}</button>
-      <button mat-raised-button color="primary" (click)="save()" [disabled]="saving() || form.invalid">
+      <button mat-flat-button color="primary" (click)="save()" [disabled]="saving() || form.invalid">
         @if (saving()) {
           <mat-spinner diameter="20"></mat-spinner>
         } @else {

@@ -61,7 +61,7 @@ export interface SamplingLocationRequestDialogData {
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button mat-dialog-close>{{ 'common.cancel' | translate }}</button>
-      <button mat-raised-button color="primary"
+      <button mat-flat-button color="primary"
               [disabled]="!isValid() || submitting()"
               (click)="submit()">
         @if (submitting()) {

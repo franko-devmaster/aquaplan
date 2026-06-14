@@ -56,7 +56,7 @@ import { AuthService } from '../../services/auth.service';
           </p>
         }
 
-        <button mat-raised-button color="primary" type="submit" class="full-width submit-btn"
+        <button mat-flat-button color="primary" type="submit" class="full-width submit-btn"
                 [disabled]="loading() || form.invalid">
           @if (loading()) {
             <mat-spinner diameter="20"></mat-spinner>
