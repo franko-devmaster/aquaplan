@@ -52,6 +52,12 @@ export class SamplingRoundApiService {
     return this.http.get<SamplingRoundDetailDto>(`${this.baseUrl}/${id}`);
   }
 
+  // AQ-432 — aggregated offline snapshot (round + orders + catalog/containers) used to
+  // run the round without network. Cached in IndexedDB when the round is viewed online.
+  getOfflineSnapshot(id: string): Observable<unknown> {
+    return this.http.get<unknown>(`${this.baseUrl}/${id}/offline-snapshot`);
+  }
+
   create(dto: SamplingRoundCreateDto): Observable<SamplingRoundDetailDto> {
     return this.http.post<SamplingRoundDetailDto>(this.baseUrl, dto);
   }

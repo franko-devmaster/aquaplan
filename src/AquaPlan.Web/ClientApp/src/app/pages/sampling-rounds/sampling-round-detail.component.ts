@@ -544,11 +544,27 @@ export class SamplingRoundDetailComponent implements OnInit {
       const round = await firstValueFrom(this.roundApi.getById(id));
       this.round.set(round);
       await this.loadSamplings(round);
+      // AQ-432 — cache the offline snapshot while online so the préleveur can run the
+      // round (containers, barcode fields, catalog) without network later.
+      void this.cacheOfflineSnapshot(id);
     } catch {
       // F-030 — 404 (deleted round / stale notification link) or network error.
       this.loadError.set(true);
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  // AQ-432 — best-effort: never let snapshot caching break the page.
+  private async cacheOfflineSnapshot(roundId: string): Promise<void> {
+    if (!navigator.onLine) {
+      return;
+    }
+    try {
+      const snapshot = await firstValueFrom(this.roundApi.getOfflineSnapshot(roundId));
+      await this.offlineStorage.saveSnapshot(roundId, snapshot);
+    } catch {
+      // 403 for non-assigned users / offline / transient — ignore.
     }
   }
 
