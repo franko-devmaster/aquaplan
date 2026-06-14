@@ -101,15 +101,37 @@ if (oidcEnabled)
 
 builder.Services.AddAuthorization();
 
-// CORS
+// CORS — audit F-026cc.
+// Allowed origins are configurable so the API can be exposed on a different host
+// without recompiling. Source order:
+//   1. CORS_ALLOWED_ORIGINS env var (comma-separated) — set on Render / NAS for prod.
+//   2. Cors:AllowedOrigins config array (appsettings).
+//   3. Fallback to http://localhost:4200 in Development only.
+// In Production the policy stays empty when nothing is configured (the web app calls
+// the API same-origin through the nginx/Render `/api/` proxy, so CORS is not needed).
+var corsOrigins = (builder.Configuration["CORS_ALLOWED_ORIGINS"] ?? string.Empty)
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    .Concat(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
+
+if (corsOrigins.Length == 0 && builder.Environment.IsDevelopment())
+{
+    corsOrigins = ["http://localhost:4200"];
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins("http://localhost:4200")
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
+        if (corsOrigins.Length > 0)
+        {
+            // AllowCredentials requires explicit origins (never AllowAnyOrigin).
+            policy.WithOrigins(corsOrigins)
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+        }
     });
 });
 

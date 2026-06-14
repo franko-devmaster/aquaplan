@@ -47,8 +47,13 @@ src/AquaPlan.Web/ClientApp/src/environments/version.ts
 
 # Local Claude Code settings (contains tokens, never commit)
 .claude/settings.local.json
+.claude/scheduled_tasks*.lock
 # Test artefacts (jamais versionnés)
 **/TestResults/
 # macOS Finder duplicate files
 * 2.*
 *\ 2.*
+# Scratch / debug working dir (audit F-038) — never versioned
+.tmp_workspace/
+# Standalone HTML prototype, replaced by docs/design (audit F-038)
+AquaPlan-prototype*.html

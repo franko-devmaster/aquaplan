@@ -37,6 +37,14 @@ services:
         condition: service_healthy
     networks:
       - aquaplan-net
+    # Audit F-036cc — health probe (busybox wget, no curl in aspnet-alpine).
+    # start_period covers EF migrations + seeding at first boot.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
 
   aquaplan-web:
     build:
@@ -46,9 +54,17 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - aquaplan-api
+      aquaplan-api:
+        condition: service_healthy
     networks:
       - aquaplan-net
+    # Audit F-036cc — nginx:alpine ships busybox wget.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   aquaplan-e2e:
     build:
