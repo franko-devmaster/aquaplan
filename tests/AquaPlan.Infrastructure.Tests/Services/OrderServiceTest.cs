@@ -6,6 +6,7 @@ using AquaPlan.Domain.Entities;
 using AquaPlan.Domain.Enums;
 using AquaPlan.Infrastructure.Data;
 using AquaPlan.Infrastructure.Services;
+using AquaPlan.Shared.Pagination;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -616,10 +617,16 @@ public class OrderServiceTest : IDisposable
         var inProgressCount = await _dbContext.Orders
             .CountAsync(o => o.TenantId == TenantId && o.Status == OrderStatus.InProgress);
         inProgressCount.Should().Be(0);
-        _auditServiceMock.Verify(a => a.LogAsync(
-            It.IsAny<Guid>(), "StatusTransitioned", It.IsAny<string>(),
-            "InProgress", "Completed", UserId, TenantId, It.IsAny<CancellationToken>()),
-            Times.Exactly(3));
+        // Polish F-214 — the 3 audit entries are written in a single batched call, not 3 saves.
+        _auditServiceMock.Verify(a => a.LogRangeAsync(
+            It.Is<IReadOnlyCollection<OrderAuditEntry>>(entries =>
+                entries.Count == 3
+                && entries.All(e => e.Action == "StatusTransitioned"
+                    && e.OldValue == "InProgress"
+                    && e.NewValue == "Completed"
+                    && e.PerformedById == UserId)),
+            TenantId, It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -1281,6 +1288,203 @@ public class OrderServiceTest : IDisposable
             It.IsAny<string>(), It.IsAny<NotificationType>(), It.IsAny<string>(), It.IsAny<string>(),
             It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    // --- Polish F-221 — pagination clamping ---
+
+    [Fact]
+    public async Task GetOrdersFilteredAsync_WithPageZero_ShouldNotThrowAndReturnFirstPage()
+    {
+        await CreateSeedOrder(OrderStatus.New);
+        var filter = new OrderFilterDto(null, null, null, null, Page: 0, PageSize: 20);
+
+        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: true, isPreleveurOnly: false);
+
+        result.Page.Should().Be(1);
+        result.Items.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetOrdersFilteredAsync_WithExcessivePageSize_ShouldClampToMax()
+    {
+        await CreateSeedOrder(OrderStatus.New);
+        var filter = new OrderFilterDto(null, null, null, null, Page: 1, PageSize: 100000);
+
+        var result = await _sut.GetOrdersFilteredAsync(UserId, TenantId, filter, isAdmin: true, isPreleveurOnly: false);
+
+        result.PageSize.Should().Be(PaginationGuard.MaxPageSize);
+    }
+
+    // --- Polish F-213 — dashboard summary aggregated counters ---
+
+    [Fact]
+    public async Task GetDashboardSummaryAsync_ShouldAggregateConformityBuckets()
+    {
+        // Done + a conform result → Conform
+        var conform = await CreateSeedOrder(OrderStatus.Done);
+        _dbContext.SamplingResults.Add(new SamplingResult { Id = Guid.NewGuid(), OrderId = conform.Id, ParameterCode = "PH", IsConform = true, TenantId = TenantId });
+        // Done + a non-conform result → NonConform
+        var nonConform = await CreateSeedOrder(OrderStatus.Done);
+        _dbContext.SamplingResults.Add(new SamplingResult { Id = Guid.NewGuid(), OrderId = nonConform.Id, ParameterCode = "E_COLI", IsConform = false, TenantId = TenantId });
+        // New order (no results) → Pending
+        await CreateSeedOrder(OrderStatus.New);
+        await _dbContext.SaveChangesAsync();
+
+        var summary = await _sut.GetDashboardSummaryAsync(UserId, TenantId, isAdmin: true, isPreleveurOnly: false);
+
+        summary.TotalCount.Should().Be(3);
+        summary.ConformCount.Should().Be(1);
+        summary.NonConformCount.Should().Be(1);
+        summary.PendingCount.Should().Be(1);
+    }
+
+    // --- Polish F-228 — CreateOrderAsync FK validation against the tenant ---
+
+    [Fact]
+    public async Task CreateOrderAsync_ShouldThrow_WhenDistributorNotInTenant()
+    {
+        var dto = new OrderCreateDto(
+            DistributorId: Guid.NewGuid(),
+            SamplingLocationId: null,
+            PreleveurId: null,
+            PlannedDate: null,
+            AnalysisProgramIds: null,
+            Notes: null,
+            IsUnplanned: false);
+
+        await _sut.Awaiting(s => s.CreateOrderAsync(dto, UserId, TenantId))
+            .Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*distributor*");
+    }
+
+    [Fact]
+    public async Task CreateOrderAsync_ShouldThrow_WhenSamplingLocationBelongsToAnotherDistributor()
+    {
+        var otherDistributorId = Guid.NewGuid();
+        _dbContext.Distributors.Add(new Distributor { Id = otherDistributorId, Name = "Other", TenantId = TenantId, IsActive = true });
+        var location = new SamplingLocation { Id = Guid.NewGuid(), Name = "LDP", LocationCode = "L-1", DistributorId = otherDistributorId };
+        _dbContext.SamplingLocations.Add(location);
+        await _dbContext.SaveChangesAsync();
+
+        var dto = new OrderCreateDto(
+            DistributorId: DistributorId,
+            SamplingLocationId: location.Id,
+            PreleveurId: null,
+            PlannedDate: null,
+            AnalysisProgramIds: null,
+            Notes: null,
+            IsUnplanned: false);
+
+        await _sut.Awaiting(s => s.CreateOrderAsync(dto, UserId, TenantId))
+            .Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*sampling location*");
+    }
+
+    [Fact]
+    public async Task CreateOrderAsync_ShouldThrow_WhenAnalysisProgramNotInTenant()
+    {
+        var dto = new OrderCreateDto(
+            DistributorId: DistributorId,
+            SamplingLocationId: null,
+            PreleveurId: null,
+            PlannedDate: null,
+            AnalysisProgramIds: [Guid.NewGuid()],
+            Notes: null,
+            IsUnplanned: false);
+
+        await _sut.Awaiting(s => s.CreateOrderAsync(dto, UserId, TenantId))
+            .Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*analysis program*");
+    }
+
+    [Fact]
+    public async Task CreateOrderAsync_ShouldSucceed_WhenLocationBelongsToDistributorInTenant()
+    {
+        var location = new SamplingLocation { Id = Guid.NewGuid(), Name = "LDP-OK", LocationCode = "L-OK", DistributorId = DistributorId };
+        _dbContext.SamplingLocations.Add(location);
+        await _dbContext.SaveChangesAsync();
+
+        var dto = new OrderCreateDto(
+            DistributorId: DistributorId,
+            SamplingLocationId: location.Id,
+            PreleveurId: null,
+            PlannedDate: null,
+            AnalysisProgramIds: null,
+            Notes: null,
+            IsUnplanned: false);
+
+        var result = await _sut.CreateOrderAsync(dto, UserId, TenantId);
+
+        result.SamplingLocationId.Should().Be(location.Id);
+    }
+
+    // --- Polish F-208 — CSV export escaping (formula injection + separators) ---
+
+    [Fact]
+    public async Task ExportOrdersCsvAsync_ShouldEscapeFormulaAndSeparators()
+    {
+        var distributorId = Guid.NewGuid();
+        // Distributor name starts with '=' (formula) and embeds a ';' (separator).
+        _dbContext.Distributors.Add(new Distributor { Id = distributorId, Name = "=cmd|'/c calc';evil", TenantId = TenantId, IsActive = true });
+        _dbContext.Orders.Add(new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderNumber = "ORD-CSV-01",
+            Status = OrderStatus.New,
+            IsUnplanned = false,
+            CreatedById = UserId,
+            DistributorId = distributorId,
+            TenantId = TenantId,
+        });
+        await _dbContext.SaveChangesAsync();
+
+        var bytes = await _sut.ExportOrdersCsvAsync(TenantId, new OrderFilterDto(null, null, null, null));
+        var csv = System.Text.Encoding.UTF8.GetString(bytes);
+
+        // The malicious value must be neutralised (leading quote) and wrapped (contains ';').
+        csv.Should().Contain("\"'=cmd|'/c calc';evil\"");
+        // The injected ';' must not have shifted the column layout: the data row keeps 10 fields.
+        var dataLine = csv.Split('\n').First(l => l.StartsWith("ORD-CSV-01"));
+        SplitCsv(dataLine).Should().HaveCount(10);
+    }
+
+    // Minimal RFC-4180 splitter for the assertion (handles quoted fields with embedded ';').
+    private static List<string> SplitCsv(string line)
+    {
+        var fields = new List<string>();
+        var current = new System.Text.StringBuilder();
+        var inQuotes = false;
+        for (var i = 0; i < line.Length; i++)
+        {
+            var c = line[i];
+            if (c == '"')
+            {
+                if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                {
+                    current.Append('"');
+                    i++;
+                }
+                else
+                {
+                    inQuotes = !inQuotes;
+                }
+            }
+            else if (c == ';' && !inQuotes)
+            {
+                fields.Add(current.ToString());
+                current.Clear();
+            }
+            else if (c is '\r' or '\n')
+            {
+                // ignore trailing CR/LF
+            }
+            else
+            {
+                current.Append(c);
+            }
+        }
+        fields.Add(current.ToString());
+        return fields;
     }
 
     private async Task SeedData()

@@ -31,6 +31,15 @@ public class SamplingRoundConfiguration : IEntityTypeConfiguration<SamplingRound
             .HasForeignKey(sr => sr.CreatedById)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Polish F-216 — optimistic concurrency on the round using PostgreSQL's system column
+        // `xmin` (row version). Npgsql special-cases a `uint` shadow property named "xmin" and maps
+        // it to the existing system column with NO DDL; declaring it IsRowVersion() makes EF include
+        // it in the UPDATE WHERE clause so the lock lifecycle (StartAsync / ForceUnlockAsync) can no
+        // longer silently overwrite each other — a concurrent write raises
+        // DbUpdateConcurrencyException, mapped to 409 by the middleware. The InMemory test provider
+        // ignores the token, so the existing unit tests are unaffected.
+        builder.Property<uint>("xmin").IsRowVersion();
+
         // AQ-370 — lock fields
         builder.Property(sr => sr.IsLocked).HasDefaultValue(false);
         builder.HasOne(sr => sr.LockedBy)

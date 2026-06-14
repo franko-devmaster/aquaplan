@@ -164,11 +164,30 @@ public class SamplingPlansController(
         }
     }
 
+    // Polish F-207 — submitting a plan is a state change; like Update/Delete it must verify the
+    // caller is authorized on the plan's distributor. Previously any tenant user could submit
+    // another distributor's Draft plan.
     [HttpPost("{id:guid}/submit")]
     public async Task<ActionResult<SamplingPlanDetailDto>> SubmitPlan(Guid id, CancellationToken cancellationToken)
     {
         var userId = GetUserId();
         var tenantId = GetTenantId();
+
+        var existing = await samplingPlanService.GetPlanByIdAsync(id, tenantId, cancellationToken);
+        if (existing is null)
+        {
+            return NotFound();
+        }
+
+        var hasViewAll = await permissionService.UserHasPermissionAsync(userId, PermissionName.ViewAllOrders, cancellationToken);
+        if (!hasViewAll)
+        {
+            var hasAccess = await samplingPlanService.UserHasDistributorAccessAsync(userId, existing.DistributorId, cancellationToken);
+            if (!hasAccess)
+            {
+                return Forbid();
+            }
+        }
 
         try
         {

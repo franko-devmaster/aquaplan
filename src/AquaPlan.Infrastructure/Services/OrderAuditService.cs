@@ -48,4 +48,31 @@ internal class OrderAuditService(AquaPlanDbContext dbContext) : IOrderAuditServi
         dbContext.OrderAuditLogs.Add(log);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task LogRangeAsync(
+        IReadOnlyCollection<OrderAuditEntry> entries, Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        if (entries.Count == 0)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var logs = entries.Select(e => new OrderAuditLog
+        {
+            Id = Guid.NewGuid(),
+            OrderId = e.OrderId,
+            Action = e.Action,
+            Details = e.Details,
+            OldValue = e.OldValue,
+            NewValue = e.NewValue,
+            PerformedById = e.PerformedById,
+            PerformedAt = now,
+            TenantId = tenantId,
+        });
+
+        // Polish F-214 — one AddRange + one SaveChanges for the whole batch.
+        dbContext.OrderAuditLogs.AddRange(logs);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
 }

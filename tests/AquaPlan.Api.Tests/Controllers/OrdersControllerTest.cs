@@ -850,4 +850,84 @@ public class OrdersControllerTest
             .OfType<HttpGetAttribute>().Single();
         get.Template.Should().Be("dashboard-summary");
     }
+
+    // ─── Polish F-204 — audit-log access control ───────────────
+
+    [Fact]
+    public async Task GetAuditLog_ShouldReturnOk_WhenAdmin()
+    {
+        var logs = new List<OrderAuditLogDto>
+        {
+            new(Guid.NewGuid(), OrderId, "Created", null, null, null, UserId, "John Doe", DateTime.UtcNow),
+        };
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _orderAuditServiceMock
+            .Setup(x => x.GetByOrderIdAsync(OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(logs);
+
+        var result = await _sut.GetAuditLog(OrderId, CancellationToken.None);
+
+        var ok = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.Value.Should().BeEquivalentTo(logs);
+    }
+
+    [Fact]
+    public async Task GetAuditLog_ShouldReturnOk_WhenNonAdminCanAccessOrder()
+    {
+        var logs = new List<OrderAuditLogDto>();
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.UserCanAccessOrderAsync(UserId, OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _orderAuditServiceMock
+            .Setup(x => x.GetByOrderIdAsync(OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(logs);
+
+        var result = await _sut.GetAuditLog(OrderId, CancellationToken.None);
+
+        result.Result.Should().BeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetAuditLog_ShouldReturnForbid_WhenNonAdminCannotAccessExistingOrder()
+    {
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.UserCanAccessOrderAsync(UserId, OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.GetOrderByIdAsync(OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateOrderDetail());
+
+        var result = await _sut.GetAuditLog(OrderId, CancellationToken.None);
+
+        result.Result.Should().BeOfType<ForbidResult>();
+        _orderAuditServiceMock.Verify(
+            x => x.GetByOrderIdAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task GetAuditLog_ShouldReturnNotFound_WhenOrderDoesNotExist()
+    {
+        _permissionServiceMock
+            .Setup(x => x.UserHasPermissionAsync(UserId, "ViewAllOrders", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.UserCanAccessOrderAsync(UserId, OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _orderServiceMock
+            .Setup(x => x.GetOrderByIdAsync(OrderId, TenantId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrderDetailDto?)null);
+
+        var result = await _sut.GetAuditLog(OrderId, CancellationToken.None);
+
+        result.Result.Should().BeOfType<NotFoundResult>();
+    }
 }

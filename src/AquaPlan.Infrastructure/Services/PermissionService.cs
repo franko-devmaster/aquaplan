@@ -15,6 +15,11 @@ internal class PermissionService(
     AquaPlanDbContext dbContext,
     ILogger<PermissionService> logger) : IPermissionService
 {
+    // Polish F-210 — UserHasPermissionAsync is called on almost every controller action, often
+    // several times per HTTP request. PermissionService is registered Scoped (one instance per
+    // request), so a per-instance cache memoises a user's permission set for the lifetime of the
+    // request and avoids re-running the 3-4 DB round-trips on every call.
+    private readonly Dictionary<string, IList<string>> _permissionCache = new();
     public async Task<IList<RoleDto>> GetRolesAsync(CancellationToken cancellationToken = default)
     {
         var roles = await roleManager.Roles
@@ -73,6 +78,8 @@ internal class PermissionService(
         var result = await userManager.AddToRoleAsync(user, roleName);
         if (result.Succeeded)
         {
+            // Polish F-210 — drop any cached permission set for this user after a role change.
+            _permissionCache.Remove(userId);
             logger.LogInformation("Role {Role} assigned to user {UserId}", roleName, userId);
         }
         return result.Succeeded;
@@ -107,24 +114,25 @@ internal class PermissionService(
 
     public async Task<IList<string>> GetUserPermissionsAsync(string userId, CancellationToken cancellationToken = default)
     {
-        var user = await userManager.FindByIdAsync(userId);
-        if (user is null)
+        // Polish F-210 — serve from the per-request cache when already resolved.
+        if (_permissionCache.TryGetValue(userId, out var cached))
         {
-            return [];
+            return cached;
         }
 
-        var roles = await userManager.GetRolesAsync(user);
-        var roleIds = await roleManager.Roles
-            .Where(r => roles.Contains(r.Name!))
-            .Select(r => r.Id)
-            .ToListAsync(cancellationToken);
-
-        return await dbContext.RolePermissions
-            .Where(rp => roleIds.Contains(rp.RoleId))
-            .Include(rp => rp.Permission)
-            .Select(rp => rp.Permission!.Name)
+        // Single SQL query joining UserRoles → RolePermissions → Permission (replaces the previous
+        // FindByIdAsync + GetRolesAsync + roleIds + permissions chain).
+        var permissions = await (
+            from ur in dbContext.UserRoles
+            where ur.UserId == userId
+            join rp in dbContext.RolePermissions on ur.RoleId equals rp.RoleId
+            join p in dbContext.Permissions on rp.PermissionId equals p.Id
+            select p.Name)
             .Distinct()
             .ToListAsync(cancellationToken);
+
+        _permissionCache[userId] = permissions;
+        return permissions;
     }
 
     public async Task<bool> UserHasPermissionAsync(string userId, string permissionName, CancellationToken cancellationToken = default)

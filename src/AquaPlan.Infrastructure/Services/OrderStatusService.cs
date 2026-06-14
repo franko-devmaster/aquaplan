@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Orders;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Enums;
 using AquaPlan.Infrastructure.Data;
@@ -74,7 +75,7 @@ internal class OrderStatusService(
 
         if (!ValidateTransition(currentStatus, newStatus))
         {
-            throw new InvalidOperationException(
+            throw new BusinessRuleException(
                 $"Transition from {currentStatus} to {newStatus} is not allowed.");
         }
 
@@ -120,12 +121,8 @@ internal class OrderStatusService(
             {
                 if (round.Orders.All(o => o.Status is OrderStatus.Transmitted or OrderStatus.Done or OrderStatus.Cancelled))
                 {
-                    round.Status = SamplingRoundStatus.Completed;
-                    round.CompletedAt = DateTime.UtcNow;
-                    round.UpdatedAt = DateTime.UtcNow;
-                    round.UpdatedBy = userId;
-                    // F-215 (related) — releasing the lock on completion is handled by the
-                    // round paths; here we keep the existing single-transition behaviour.
+                    // Polish F-215 — complete AND release the préleveur lock (single source of truth).
+                    round.MarkCompleted(userId);
                     await dbContext.SaveChangesAsync(cancellationToken);
                 }
             }

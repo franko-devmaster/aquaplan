@@ -1,4 +1,6 @@
 using AquaPlan.Application.DTOs.Orders;
+using AquaPlan.Shared.Pagination;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.DTOs.SamplingPlans;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
@@ -12,6 +14,7 @@ namespace AquaPlan.Infrastructure.Services;
 internal class SamplingPlanService(
     AquaPlanDbContext dbContext,
     IOrderService orderService,
+    IDelegationService delegationService,
     ILogger<SamplingPlanService> logger) : ISamplingPlanService
 {
     public async Task<SamplingPlanPagedResultDto> GetPlansFilteredAsync(
@@ -74,9 +77,12 @@ internal class SamplingPlanService(
             _ => filter.SortDescending ? query.OrderByDescending(sp => sp.Year).ThenByDescending(sp => sp.CreatedAt) : query.OrderBy(sp => sp.Year).ThenBy(sp => sp.CreatedAt),
         };
 
+        // Polish F-221 — clamp pagination (page >= 1, pageSize bounded).
+        var (page, pageSize) = PaginationGuard.Normalize(filter.Page, filter.PageSize);
+
         var items = await query
-            .Skip((filter.Page - 1) * filter.PageSize)
-            .Take(filter.PageSize)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Include(sp => sp.CreatedBy)
             .Include(sp => sp.Distributor)
             .Select(sp => new SamplingPlanListDto(
@@ -89,7 +95,7 @@ internal class SamplingPlanService(
                 sp.CreatedAt))
             .ToListAsync(cancellationToken);
 
-        return new SamplingPlanPagedResultDto(items, totalCount, filter.Page, filter.PageSize);
+        return new SamplingPlanPagedResultDto(items, totalCount, page, pageSize);
     }
 
     public async Task<SamplingPlanDetailDto?> GetPlanByIdAsync(
@@ -121,7 +127,7 @@ internal class SamplingPlanService(
 
         if (exists)
         {
-            throw new InvalidOperationException($"A sampling plan already exists for this distributor and year {dto.Year}.");
+            throw new BusinessRuleException($"A sampling plan already exists for this distributor and year {dto.Year}.");
         }
 
         var plan = new SamplingPlan
@@ -174,7 +180,7 @@ internal class SamplingPlanService(
 
         if (plan.Status != SamplingPlanStatus.Draft)
         {
-            throw new InvalidOperationException($"Cannot modify sampling plan in status {plan.Status}. Only Draft plans can be modified.");
+            throw new BusinessRuleException($"Cannot modify sampling plan in status {plan.Status}. Only Draft plans can be modified.");
         }
 
         plan.Notes = dto.Notes;
@@ -217,7 +223,7 @@ internal class SamplingPlanService(
 
         if (plan.Status != SamplingPlanStatus.Draft)
         {
-            throw new InvalidOperationException($"Cannot delete sampling plan in status {plan.Status}. Only Draft plans can be deleted.");
+            throw new BusinessRuleException($"Cannot delete sampling plan in status {plan.Status}. Only Draft plans can be deleted.");
         }
 
         dbContext.SamplingPlans.Remove(plan);
@@ -243,12 +249,12 @@ internal class SamplingPlanService(
 
         if (plan.Status != SamplingPlanStatus.Draft)
         {
-            throw new InvalidOperationException($"Cannot submit sampling plan in status {plan.Status}. Only Draft plans can be submitted.");
+            throw new BusinessRuleException($"Cannot submit sampling plan in status {plan.Status}. Only Draft plans can be submitted.");
         }
 
         if (plan.Items.Count == 0)
         {
-            throw new InvalidOperationException("Cannot submit an empty sampling plan. Add at least one item.");
+            throw new BusinessRuleException("Cannot submit an empty sampling plan. Add at least one item.");
         }
 
         plan.Status = SamplingPlanStatus.Submitted;
@@ -278,7 +284,7 @@ internal class SamplingPlanService(
 
         if (plan.Status != SamplingPlanStatus.Submitted)
         {
-            throw new InvalidOperationException($"Cannot validate sampling plan in status {plan.Status}. Only Submitted plans can be validated.");
+            throw new BusinessRuleException($"Cannot validate sampling plan in status {plan.Status}. Only Submitted plans can be validated.");
         }
 
         plan.Status = SamplingPlanStatus.Validated;
@@ -308,7 +314,7 @@ internal class SamplingPlanService(
 
         if (plan.Status != SamplingPlanStatus.Submitted)
         {
-            throw new InvalidOperationException($"Cannot reject sampling plan in status {plan.Status}. Only Submitted plans can be rejected.");
+            throw new BusinessRuleException($"Cannot reject sampling plan in status {plan.Status}. Only Submitted plans can be rejected.");
         }
 
         plan.Status = SamplingPlanStatus.Rejected;
@@ -329,25 +335,10 @@ internal class SamplingPlanService(
         string userId, Guid distributorId,
         CancellationToken cancellationToken = default)
     {
-        var hasDirectAccess = await dbContext.UserDistributors
-            .AnyAsync(ud => ud.UserId == userId && ud.DistributorId == distributorId, cancellationToken);
-
-        if (hasDirectAccess)
-        {
-            return true;
-        }
-
-        var userDistributorIds = await dbContext.UserDistributors
-            .Where(ud => ud.UserId == userId)
-            .Select(ud => ud.DistributorId)
-            .ToListAsync(cancellationToken);
-
-        return await dbContext.DistributorDelegations
-            .AnyAsync(d => d.IsActive
-                && userDistributorIds.Contains(d.DelegatedToDistributorId)
-                && d.DelegatingDistributorId == distributorId
-                && d.ValidFrom <= DateTime.UtcNow
-                && (d.ValidTo == null || d.ValidTo >= DateTime.UtcNow), cancellationToken);
+        // Polish F-227 — delegate to the single source of truth. The previous copy ignored the
+        // user's primary AppUser.DistributorId, so a user whose only link was the primary one got a
+        // spurious 403 on plans.
+        return await delegationService.UserHasDistributorAccessAsync(userId, distributorId, cancellationToken);
     }
 
     public async Task<GenerateOrdersResultDto> GenerateOrdersFromPlanAsync(
@@ -363,12 +354,12 @@ internal class SamplingPlanService(
 
         if (plan is null)
         {
-            throw new InvalidOperationException("Sampling plan not found.");
+            throw new BusinessRuleException("Sampling plan not found.");
         }
 
         if (plan.Status != SamplingPlanStatus.Validated)
         {
-            throw new InvalidOperationException($"Cannot generate orders from a plan in status {plan.Status}. Only Validated plans can generate orders.");
+            throw new BusinessRuleException($"Cannot generate orders from a plan in status {plan.Status}. Only Validated plans can generate orders.");
         }
 
         // Sprint Robustesse F-109 — generation is a one-shot operation. The plan stays
@@ -377,21 +368,16 @@ internal class SamplingPlanService(
         // transaction below, so concurrent callers cannot both pass this check.
         if (plan.OrdersGeneratedAt is not null)
         {
-            throw new InvalidOperationException(
+            throw new BusinessRuleException(
                 $"Orders were already generated from this plan on {plan.OrdersGeneratedAt:yyyy-MM-dd HH:mm} UTC.");
         }
 
         if (plan.Items.Count == 0)
         {
-            throw new InvalidOperationException("Cannot generate orders from an empty plan.");
+            throw new BusinessRuleException("Cannot generate orders from an empty plan.");
         }
 
         var generatedOrders = new List<GeneratedOrderSummaryDto>();
-
-        var supportsTransactions = dbContext.Database.ProviderName != "Microsoft.EntityFrameworkCore.InMemory";
-        var transaction = supportsTransactions
-            ? await dbContext.Database.BeginTransactionAsync(cancellationToken)
-            : null;
 
         // Map each profile to its parent programs (a profile may be in several programs).
         // After the BackfillOrdersToAnalysisPrograms migration, every profile is always in at least one program
@@ -405,8 +391,16 @@ internal class SamplingPlanService(
             .GroupBy(p => p.AnalysisProfileId)
             .ToDictionary(g => g.Key, g => g.Select(p => p.AnalysisProgramId).Distinct().ToList());
 
-        try
+        // Polish F-225 — wrap generation in an execution strategy + an unconditional transaction.
+        // The previous code skipped the transaction for the InMemory provider, so the transactional
+        // path actually exercised in production was never the one tested; the provider-detection
+        // leak is removed here (the InMemory test suppresses the transaction-ignored warning).
+        var strategy = dbContext.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
         {
+            generatedOrders.Clear();
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
             foreach (var item in plan.Items)
             {
                 foreach (var month in item.PlannedMonths)
@@ -442,26 +436,8 @@ internal class SamplingPlanService(
             plan.UpdatedBy = userId;
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            if (transaction is not null)
-            {
-                await transaction.CommitAsync(cancellationToken);
-            }
-        }
-        catch
-        {
-            if (transaction is not null)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-            }
-            throw;
-        }
-        finally
-        {
-            if (transaction is not null)
-            {
-                await transaction.DisposeAsync();
-            }
-        }
+            await transaction.CommitAsync(cancellationToken);
+        });
 
         logger.LogInformation(
             "Generated {Count} orders from SamplingPlan {PlanId} by {UserId}",

@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Delegations;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.DTOs.Distributors;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
@@ -34,13 +35,50 @@ internal class DelegationService(
 
     public async Task<DistributorDelegationDto> CreateAsync(DistributorDelegationCreateDto dto, Guid tenantId, CancellationToken cancellationToken = default)
     {
+        // Polish F-219 — validate the delegation before persisting:
+        //   (1) the two distributors must differ (a self-delegation is meaningless),
+        //   (2) both must exist in the caller's tenant (FK alone allows cross-tenant references
+        //       that would silently widen authorization, since GetAuthorizedDistributorIds does not
+        //       re-filter by tenant on the Orders queries),
+        //   (3) the validity window must be coherent (ValidFrom <= ValidTo),
+        //   (4) no overlapping active delegation already exists for the same pair.
+        if (dto.DelegatingDistributorId == dto.DelegatedToDistributorId)
+        {
+            throw new BusinessRuleException("A distributor cannot delegate to itself.");
+        }
+
+        var validFrom = DateTime.SpecifyKind(dto.ValidFrom, DateTimeKind.Utc);
+        DateTime? validTo = dto.ValidTo.HasValue ? DateTime.SpecifyKind(dto.ValidTo.Value, DateTimeKind.Utc) : null;
+        if (validTo.HasValue && validTo.Value < validFrom)
+        {
+            throw new BusinessRuleException("The delegation end date must be on or after the start date.");
+        }
+
+        var distributorsInTenant = await dbContext.Distributors
+            .CountAsync(d => d.TenantId == tenantId
+                && (d.Id == dto.DelegatingDistributorId || d.Id == dto.DelegatedToDistributorId), cancellationToken);
+        if (distributorsInTenant != 2)
+        {
+            throw new BusinessRuleException("Both distributors must belong to your tenant.");
+        }
+
+        var hasActiveDuplicate = await dbContext.DistributorDelegations
+            .AnyAsync(d => d.TenantId == tenantId
+                && d.IsActive
+                && d.DelegatingDistributorId == dto.DelegatingDistributorId
+                && d.DelegatedToDistributorId == dto.DelegatedToDistributorId, cancellationToken);
+        if (hasActiveDuplicate)
+        {
+            throw new BusinessRuleException("An active delegation already exists for these distributors.");
+        }
+
         var delegation = new DistributorDelegation
         {
             Id = Guid.NewGuid(),
             DelegatingDistributorId = dto.DelegatingDistributorId,
             DelegatedToDistributorId = dto.DelegatedToDistributorId,
-            ValidFrom = DateTime.SpecifyKind(dto.ValidFrom, DateTimeKind.Utc),
-            ValidTo = dto.ValidTo.HasValue ? DateTime.SpecifyKind(dto.ValidTo.Value, DateTimeKind.Utc) : null,
+            ValidFrom = validFrom,
+            ValidTo = validTo,
             IsActive = true,
             TenantId = tenantId,
         };
@@ -85,24 +123,11 @@ internal class DelegationService(
         return true;
     }
 
-    public async Task<List<Guid>> GetDelegatedDistributorIdsAsync(string userId, CancellationToken cancellationToken = default)
+    public async Task<bool> UserHasDistributorAccessAsync(string userId, Guid distributorId, CancellationToken cancellationToken = default)
     {
-        // Get all distributors the user belongs to:
-        //   - primary link via AppUser.DistributorId (seeded in AspNetUsers)
-        //   - additional links via UserDistributors (many-to-many)
-        var userDistributorIds = await GetOwnDistributorIdsAsync(userId, cancellationToken);
-
-        // Get distributors that have delegated to the user's distributors
-        var delegatedIds = await dbContext.DistributorDelegations
-            .Where(d => d.IsActive
-                && userDistributorIds.Contains(d.DelegatedToDistributorId)
-                && d.ValidFrom <= DateTime.UtcNow
-                && (d.ValidTo == null || d.ValidTo >= DateTime.UtcNow))
-            .Select(d => d.DelegatingDistributorId)
-            .Distinct()
-            .ToListAsync(cancellationToken);
-
-        return delegatedIds;
+        // Polish F-227 — single source of truth, built on the canonical authorized set.
+        var authorizedIds = await GetAuthorizedDistributorIdsForUserAsync(userId, cancellationToken);
+        return authorizedIds.Contains(distributorId);
     }
 
     public async Task<List<Guid>> GetAuthorizedDistributorIdsForUserAsync(string userId, CancellationToken cancellationToken = default)

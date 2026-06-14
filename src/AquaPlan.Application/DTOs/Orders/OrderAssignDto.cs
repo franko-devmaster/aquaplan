@@ -1,3 +1,6 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace AquaPlan.Application.DTOs.Orders;
 
-public record OrderAssignDto(string PreleveurId);
+// Polish F-220 — PreleveurId is mandatory for an assignment.
+public record OrderAssignDto([property: Required] string PreleveurId);

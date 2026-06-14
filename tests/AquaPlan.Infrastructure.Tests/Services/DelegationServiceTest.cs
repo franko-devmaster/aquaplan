@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Delegations;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Infrastructure.Data;
 using AquaPlan.Infrastructure.Services;
@@ -81,6 +82,54 @@ public class DelegationServiceTest : IDisposable
         result.IsActive.Should().BeTrue();
     }
 
+    // --- Polish F-219 — delegation creation validation ---
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenSelfDelegation()
+    {
+        var dto = new DistributorDelegationCreateDto(
+            DistributorAId, DistributorAId, DateTime.UtcNow, null);
+
+        await _sut.Awaiting(s => s.CreateAsync(dto, TenantId))
+            .Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*itself*");
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenValidToBeforeValidFrom()
+    {
+        var dto = new DistributorDelegationCreateDto(
+            DistributorAId, DistributorBId,
+            DateTime.UtcNow, DateTime.UtcNow.AddDays(-5));
+
+        await _sut.Awaiting(s => s.CreateAsync(dto, TenantId))
+            .Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*end date*");
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenDistributorNotInTenant()
+    {
+        var dto = new DistributorDelegationCreateDto(
+            DistributorAId, Guid.NewGuid(), DateTime.UtcNow, null);
+
+        await _sut.Awaiting(s => s.CreateAsync(dto, TenantId))
+            .Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*tenant*");
+    }
+
+    [Fact]
+    public async Task CreateAsync_ShouldThrow_WhenActiveDuplicateExists()
+    {
+        await SeedDelegation(DistributorAId, DistributorBId);
+        var dto = new DistributorDelegationCreateDto(
+            DistributorAId, DistributorBId, DateTime.UtcNow, null);
+
+        await _sut.Awaiting(s => s.CreateAsync(dto, TenantId))
+            .Should().ThrowAsync<BusinessRuleException>()
+            .WithMessage("*already exists*");
+    }
+
     [Fact]
     public async Task DeleteAsync_ShouldRemoveDelegation()
     {
@@ -101,54 +150,32 @@ public class DelegationServiceTest : IDisposable
         deleted.Should().BeFalse();
     }
 
+    // --- Polish F-227 — UserHasDistributorAccessAsync (single source of truth) ---
+
     [Fact]
-    public async Task GetDelegatedDistributorIdsAsync_ShouldReturnDelegatingIds()
+    public async Task UserHasDistributorAccessAsync_ShouldReturnTrue_ForOwnDistributor()
+    {
+        var result = await _sut.UserHasDistributorAccessAsync(UserId, DistributorBId);
+
+        result.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UserHasDistributorAccessAsync_ShouldReturnFalse_ForUnrelatedDistributor()
+    {
+        var result = await _sut.UserHasDistributorAccessAsync(UserId, DistributorAId);
+
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UserHasDistributorAccessAsync_ShouldReturnTrue_ForDelegatingDistributor()
     {
         await SeedDelegation(DistributorAId, DistributorBId);
 
-        // User belongs to DistributorB, so DistributorA delegating to B means user sees A
-        var result = await _sut.GetDelegatedDistributorIdsAsync(UserId);
+        var result = await _sut.UserHasDistributorAccessAsync(UserId, DistributorAId);
 
-        result.Should().Contain(DistributorAId);
-    }
-
-    [Fact]
-    public async Task GetDelegatedDistributorIdsAsync_ShouldNotReturnExpiredDelegations()
-    {
-        _dbContext.DistributorDelegations.Add(new DistributorDelegation
-        {
-            Id = Guid.NewGuid(),
-            DelegatingDistributorId = DistributorAId,
-            DelegatedToDistributorId = DistributorBId,
-            ValidFrom = DateTime.UtcNow.AddDays(-30),
-            ValidTo = DateTime.UtcNow.AddDays(-1),
-            IsActive = true,
-            TenantId = TenantId,
-        });
-        await _dbContext.SaveChangesAsync();
-
-        var result = await _sut.GetDelegatedDistributorIdsAsync(UserId);
-
-        result.Should().NotContain(DistributorAId);
-    }
-
-    [Fact]
-    public async Task GetDelegatedDistributorIdsAsync_ShouldNotReturnInactiveDelegations()
-    {
-        _dbContext.DistributorDelegations.Add(new DistributorDelegation
-        {
-            Id = Guid.NewGuid(),
-            DelegatingDistributorId = DistributorAId,
-            DelegatedToDistributorId = DistributorBId,
-            ValidFrom = DateTime.UtcNow.AddDays(-1),
-            IsActive = false,
-            TenantId = TenantId,
-        });
-        await _dbContext.SaveChangesAsync();
-
-        var result = await _sut.GetDelegatedDistributorIdsAsync(UserId);
-
-        result.Should().NotContain(DistributorAId);
+        result.Should().BeTrue();
     }
 
     // --- AQ-369 GetAuthorizedDistributorIdsForUserAsync ---
@@ -282,7 +309,7 @@ public class DelegationServiceTest : IDisposable
     }
 
     [Fact]
-    public async Task GetDelegatedDistributorIdsAsync_WhenUserOnlyHasPrimaryDistributorId_ShouldReturnDelegatingIds()
+    public async Task GetAuthorizedDistributorIdsForUserAsync_WhenUserOnlyHasPrimaryDistributorId_ShouldIncludeDelegatingIds()
     {
         // User has only AppUser.DistributorId (no UserDistributors), a delegation targets that distributor.
         const string userOnlyPrimaryId = "user-primary-delegation";
@@ -300,9 +327,10 @@ public class DelegationServiceTest : IDisposable
         await _dbContext.SaveChangesAsync();
         await SeedDelegation(DistributorAId, DistributorBId);
 
-        var result = await _sut.GetDelegatedDistributorIdsAsync(userOnlyPrimaryId);
+        var result = await _sut.GetAuthorizedDistributorIdsForUserAsync(userOnlyPrimaryId);
 
         result.Should().Contain(DistributorAId);
+        result.Should().Contain(DistributorBId);
     }
 
     private async Task<DistributorDelegation> SeedDelegation(Guid delegatingId, Guid delegatedToId)

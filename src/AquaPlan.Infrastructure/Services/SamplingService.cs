@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Orders;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.DTOs.Samplings;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
@@ -40,12 +41,12 @@ internal class SamplingService(
 
         if (order is null)
         {
-            throw new InvalidOperationException("Order not found.");
+            throw new BusinessRuleException("Order not found.");
         }
 
         if (order.Status != OrderStatus.InProgress)
         {
-            throw new InvalidOperationException($"Cannot create sampling for order in status {order.Status}. Order must be InProgress.");
+            throw new BusinessRuleException($"Cannot create sampling for order in status {order.Status}. Order must be InProgress.");
         }
 
         // Verify the user is the assigned préleveur (via the round)
@@ -57,7 +58,7 @@ internal class SamplingService(
 
         if (order.Sampling is not null)
         {
-            throw new InvalidOperationException("Sampling data already exists for this order. Use update instead.");
+            throw new BusinessRuleException("Sampling data already exists for this order. Use update instead.");
         }
 
         // Derive canonical barcode from containers (if any) or from dto.SampleBarcode.
@@ -127,7 +128,7 @@ internal class SamplingService(
 
         if (order.Status != OrderStatus.InProgress)
         {
-            throw new InvalidOperationException($"Cannot update sampling for order in status {order.Status}. Order must be InProgress.");
+            throw new BusinessRuleException($"Cannot update sampling for order in status {order.Status}. Order must be InProgress.");
         }
 
         var assignedPreleveurId = order.SamplingRound?.PreleveurId ?? order.PreleveurId;
@@ -199,7 +200,7 @@ internal class SamplingService(
 
         if (order.Status != OrderStatus.InProgress)
         {
-            throw new InvalidOperationException($"Cannot complete sampling for order in status {order.Status}. Order must be InProgress.");
+            throw new BusinessRuleException($"Cannot complete sampling for order in status {order.Status}. Order must be InProgress.");
         }
 
         var assignedPreleveurId = order.SamplingRound?.PreleveurId ?? order.PreleveurId;
@@ -210,13 +211,13 @@ internal class SamplingService(
 
         if (order.Sampling is null)
         {
-            throw new InvalidOperationException("Cannot complete sampling: no sampling data recorded yet.");
+            throw new BusinessRuleException("Cannot complete sampling: no sampling data recorded yet.");
         }
 
         // A mandate can only be completed once a canonical barcode has been captured.
         if (string.IsNullOrWhiteSpace(order.Sampling.SampleBarcode))
         {
-            throw new InvalidOperationException(
+            throw new BusinessRuleException(
                 "Cannot complete sampling: a barcode is missing for at least one required container.");
         }
 
@@ -250,13 +251,13 @@ internal class SamplingService(
 
         if (order.Status != OrderStatus.Completed)
         {
-            throw new InvalidOperationException($"Cannot validate sampling for order in status {order.Status}. Order must be Completed.");
+            throw new BusinessRuleException($"Cannot validate sampling for order in status {order.Status}. Order must be Completed.");
         }
 
         var sampling = order.Sampling;
         if (sampling is null)
         {
-            throw new InvalidOperationException("Cannot validate: no sampling data found.");
+            throw new BusinessRuleException("Cannot validate: no sampling data found.");
         }
 
         sampling.IsValidated = true;
@@ -292,7 +293,7 @@ internal class SamplingService(
 
         if (order.Status != OrderStatus.InProgress && order.Status != OrderStatus.Completed)
         {
-            throw new InvalidOperationException($"Cannot scan barcode for order in status {order.Status}.");
+            throw new BusinessRuleException($"Cannot scan barcode for order in status {order.Status}.");
         }
 
         var assignedPreleveurId = order.SamplingRound?.PreleveurId ?? order.PreleveurId;
@@ -304,7 +305,7 @@ internal class SamplingService(
         var sampling = order.Sampling;
         if (sampling is null)
         {
-            throw new InvalidOperationException("Cannot scan barcode: no sampling data recorded yet. Create sampling first.");
+            throw new BusinessRuleException("Cannot scan barcode: no sampling data recorded yet. Create sampling first.");
         }
 
         await EnsureBarcodeUniqueAcrossTenantAsync(barcode, sampling.Id, tenantId, cancellationToken);
@@ -357,7 +358,7 @@ internal class SamplingService(
 
         if (distinctContainerBarcodes.Count > 1)
         {
-            throw new InvalidOperationException(
+            throw new BusinessRuleException(
                 "Tous les codes-barres d'un mandat doivent être identiques (même prélèvement, flacons multiples).");
         }
 
@@ -367,7 +368,7 @@ internal class SamplingService(
         // If both are provided, they must match.
         if (fromContainers is not null && fromDto is not null && fromContainers != fromDto)
         {
-            throw new InvalidOperationException(
+            throw new BusinessRuleException(
                 "Tous les codes-barres d'un mandat doivent être identiques (même prélèvement, flacons multiples).");
         }
 
@@ -392,7 +393,7 @@ internal class SamplingService(
 
         if (exists)
         {
-            throw new InvalidOperationException(
+            throw new BusinessRuleException(
                 $"Ce code-barres '{trimmed}' est déjà utilisé par un autre mandat.");
         }
     }

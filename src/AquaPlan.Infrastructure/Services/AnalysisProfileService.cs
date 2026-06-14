@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.AnalysisProfiles;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Infrastructure.Data;
@@ -135,12 +136,12 @@ internal class AnalysisProfileService(
 
         if (container is null)
         {
-            throw new InvalidOperationException($"Container '{containerId}' does not exist for this tenant.");
+            throw new BusinessRuleException($"Container '{containerId}' does not exist for this tenant.");
         }
 
         if (!container.IsActive)
         {
-            throw new InvalidOperationException("Cannot assign an inactive container to an analysis profile.");
+            throw new BusinessRuleException("Cannot assign an inactive container to an analysis profile.");
         }
     }
 }

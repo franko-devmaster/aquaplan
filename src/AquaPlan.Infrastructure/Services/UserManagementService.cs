@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Users;
+using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
 using AquaPlan.Domain.Enums;
@@ -14,32 +15,38 @@ internal class UserManagementService(
     AquaPlanDbContext dbContext,
     ILogger<UserManagementService> logger) : IUserManagementService
 {
-    public async Task<IList<UserListDto>> GetUsersAsync(Guid tenantId, CancellationToken cancellationToken = default)
+    public async Task<IList<UserListDto>> GetUsersAsync(Guid tenantId, string? role, Guid? distributorId, bool? isActive, CancellationToken cancellationToken)
     {
-        var users = await dbContext.Users
-            .Include(u => u.Distributor)
-            .Where(u => u.TenantId == tenantId)
+        return await BuildUserListQuery(tenantId, distributorId, isActive)
+            // Polish F-209 — filter by role name in SQL instead of loading every user and calling
+            // GetRolesAsync per row (N+1) followed by an in-memory filter.
+            .Where(u => role == null || u.Role == role)
             .OrderBy(u => u.LastName)
             .ThenBy(u => u.FirstName)
             .ToListAsync(cancellationToken);
-
-        var result = new List<UserListDto>();
-        foreach (var user in users)
-        {
-            var roles = await userManager.GetRolesAsync(user);
-            result.Add(new UserListDto(
-                user.Id, user.UserNumber, user.Email ?? string.Empty, user.FirstName, user.LastName,
-                roles.FirstOrDefault(), user.DistributorId, user.Distributor?.Name,
-                user.IsActive, user.TenantId, user.CreatedAt));
-        }
-        return result;
     }
 
-    public async Task<IList<UserListDto>> GetUsersAsync(Guid tenantId, string? role, Guid? distributorId, bool? isActive, CancellationToken cancellationToken)
+    /// <summary>
+    /// Polish F-226 — returns active users holding a préleveur-capable role (Préleveur or
+    /// Requérant-Préleveur), matched on the exact role name via the UserRoles join rather than a
+    /// fragile accent-insensitive substring check in the controller.
+    /// </summary>
+    public async Task<IList<UserListDto>> GetPreleveursAsync(Guid tenantId, Guid? distributorId, CancellationToken cancellationToken)
     {
-        var query = dbContext.Users
-            .Include(u => u.Distributor)
-            .Where(u => u.TenantId == tenantId);
+        return await BuildUserListQuery(tenantId, distributorId, isActive: true)
+            .Where(u => u.Role == RoleName.Preleveur || u.Role == RoleName.RequerantPreleveur)
+            .OrderBy(u => u.LastName)
+            .ThenBy(u => u.FirstName)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Polish F-209 — single projected query joining each user to (at most) one role via the
+    /// Identity UserRoles/Roles tables; eliminates the per-user GetRolesAsync round-trip.
+    /// </summary>
+    private IQueryable<UserListDto> BuildUserListQuery(Guid tenantId, Guid? distributorId, bool? isActive)
+    {
+        var query = dbContext.Users.Where(u => u.TenantId == tenantId);
 
         if (isActive.HasValue)
         {
@@ -51,26 +58,21 @@ internal class UserManagementService(
             query = query.Where(u => u.DistributorId == distributorId.Value);
         }
 
-        var users = await query
-            .OrderBy(u => u.LastName)
-            .ThenBy(u => u.FirstName)
-            .ToListAsync(cancellationToken);
-
-        var result = new List<UserListDto>();
-        foreach (var user in users)
-        {
-            var roles = await userManager.GetRolesAsync(user);
-            var userRole = roles.FirstOrDefault();
-            if (role is not null && !string.Equals(userRole, role, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-            result.Add(new UserListDto(
-                user.Id, user.UserNumber, user.Email ?? string.Empty, user.FirstName, user.LastName,
-                userRole, user.DistributorId, user.Distributor?.Name,
-                user.IsActive, user.TenantId, user.CreatedAt));
-        }
-        return result;
+        return query.Select(u => new UserListDto(
+            u.Id,
+            u.UserNumber,
+            u.Email ?? string.Empty,
+            u.FirstName,
+            u.LastName,
+            (from ur in dbContext.UserRoles
+             join r in dbContext.Roles on ur.RoleId equals r.Id
+             where ur.UserId == u.Id
+             select r.Name).FirstOrDefault(),
+            u.DistributorId,
+            u.Distributor != null ? u.Distributor.Name : null,
+            u.IsActive,
+            u.TenantId,
+            u.CreatedAt));
     }
 
     public async Task<UserDetailDto?> GetUserByIdAsync(string userId, Guid tenantId, CancellationToken cancellationToken = default)
@@ -101,7 +103,7 @@ internal class UserManagementService(
     {
         if (!string.IsNullOrEmpty(dto.Role) && !RoleName.All.Contains(dto.Role))
         {
-            throw new InvalidOperationException($"Unknown role: {dto.Role}");
+            throw new BusinessRuleException($"Unknown role: {dto.Role}");
         }
 
         if (dto.DistributorId.HasValue)
@@ -110,7 +112,7 @@ internal class UserManagementService(
                 .AnyAsync(d => d.Id == dto.DistributorId.Value && d.TenantId == tenantId, cancellationToken);
             if (!distributorInTenant)
             {
-                throw new InvalidOperationException("The distributor does not exist in the caller's tenant.");
+                throw new BusinessRuleException("The distributor does not exist in the caller's tenant.");
             }
         }
 
@@ -125,23 +127,41 @@ internal class UserManagementService(
             CreatedBy = createdBy,
         };
 
-        // Generate next UserNumber for this tenant
-        var maxNumber = await dbContext.Users
-            .Where(u => u.TenantId == tenantId)
-            .Select(u => (int?)u.UserNumber)
-            .MaxAsync(cancellationToken) ?? 100000;
-        user.UserNumber = maxNumber + 1;
+        // Polish F-217 — UserNumber is "max + 1" per tenant, a classic race. There is a unique
+        // index on (UserNumber, TenantId), so two concurrent creations collide on the second insert.
+        // Retry with a freshly computed number on a unique-constraint violation instead of bubbling
+        // a raw 500.
+        const int maxAttempts = 5;
+        IdentityResult result = IdentityResult.Success;
+        for (var attempt = 1; ; attempt++)
+        {
+            var maxNumber = await dbContext.Users
+                .Where(u => u.TenantId == tenantId)
+                .Select(u => (int?)u.UserNumber)
+                .MaxAsync(cancellationToken) ?? 100000;
+            user.UserNumber = maxNumber + 1;
 
-        var result = await userManager.CreateAsync(user, dto.Password);
+            try
+            {
+                result = await userManager.CreateAsync(user, dto.Password);
+                break;
+            }
+            catch (DbUpdateException) when (attempt < maxAttempts)
+            {
+                logger.LogWarning("UserNumber {UserNumber} collided on attempt {Attempt}; retrying", user.UserNumber, attempt);
+            }
+        }
+
         if (!result.Succeeded)
         {
             var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-            throw new InvalidOperationException($"Failed to create user: {errors}");
+            throw new BusinessRuleException($"Failed to create user: {errors}");
         }
 
         if (!string.IsNullOrEmpty(dto.Role))
         {
-            await userManager.AddToRoleAsync(user, dto.Role);
+            // Polish F-217 — check the role-assignment result instead of ignoring it.
+            EnsureIdentitySucceeded(await userManager.AddToRoleAsync(user, dto.Role), "assign role");
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -166,22 +186,34 @@ internal class UserManagementService(
         user.UpdatedAt = DateTime.UtcNow;
         user.UpdatedBy = updatedBy;
 
+        // Polish F-217 — validate the requested role up front so we don't silently strip every
+        // role (RemoveFromRolesAsync) and then fail to add an unknown one, leaving a roleless user.
+        if (!string.IsNullOrEmpty(dto.Role) && !RoleName.All.Contains(dto.Role))
+        {
+            throw new BusinessRuleException($"Unknown role: {dto.Role}");
+        }
+
         // Update email if changed
         if (!string.IsNullOrEmpty(dto.Email) && !string.Equals(user.Email, dto.Email, StringComparison.OrdinalIgnoreCase))
         {
-            await userManager.SetEmailAsync(user, dto.Email);
-            await userManager.SetUserNameAsync(user, dto.Email);
+            // Polish F-217 — Identity results must be checked; a failed email/username change
+            // (e.g. duplicate) was previously swallowed.
+            var emailResult = await userManager.SetEmailAsync(user, dto.Email);
+            EnsureIdentitySucceeded(emailResult, "update email");
+            var userNameResult = await userManager.SetUserNameAsync(user, dto.Email);
+            EnsureIdentitySucceeded(userNameResult, "update username");
         }
 
         // Update role (single role)
         var currentRoles = await userManager.GetRolesAsync(user);
         if (currentRoles.Count > 0)
         {
-            await userManager.RemoveFromRolesAsync(user, currentRoles);
+            // Polish F-217 — check the Identity result instead of ignoring it.
+            EnsureIdentitySucceeded(await userManager.RemoveFromRolesAsync(user, currentRoles), "remove roles");
         }
         if (!string.IsNullOrEmpty(dto.Role))
         {
-            await userManager.AddToRoleAsync(user, dto.Role);
+            EnsureIdentitySucceeded(await userManager.AddToRoleAsync(user, dto.Role), "assign role");
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -226,5 +258,19 @@ internal class UserManagementService(
 
         logger.LogInformation("User {UserId} activated by {UpdatedBy}", userId, updatedBy);
         return true;
+    }
+
+    /// <summary>
+    /// Polish F-217 — throws a <see cref="BusinessRuleException"/> when an ASP.NET Identity
+    /// operation fails, so callers can no longer silently ignore the result and leave the user in
+    /// an inconsistent state (e.g. roles stripped but the new role never assigned).
+    /// </summary>
+    private static void EnsureIdentitySucceeded(IdentityResult result, string operation)
+    {
+        if (!result.Succeeded)
+        {
+            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+            throw new BusinessRuleException($"Failed to {operation}: {errors}");
+        }
     }
 }

@@ -1,4 +1,5 @@
 using AquaPlan.Application.DTOs.Orders;
+using AquaPlan.Shared.Pagination;
 using AquaPlan.Application.Exceptions;
 using AquaPlan.Application.Services.Interfaces;
 using AquaPlan.Domain.Entities;
@@ -128,10 +129,14 @@ internal class OrderService(
             _ => filter.SortDescending ? query.OrderByDescending(o => o.CreatedAt) : query.OrderBy(o => o.CreatedAt),
         };
 
+        // Polish F-221 — clamp page/pageSize so page=0 cannot produce a negative OFFSET (500)
+        // and pageSize is bounded (no unbounded full-tenant load with correlated count subqueries).
+        var (page, pageSize) = PaginationGuard.Normalize(filter.Page, filter.PageSize);
+
         // Pagination — project with aggregated counters so we can derive ResultsStatus below.
         var rows = await query
-            .Skip((filter.Page - 1) * filter.PageSize)
-            .Take(filter.PageSize)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Include(o => o.CreatedBy)
             .Include(o => o.Preleveur)
             .Include(o => o.Distributor)
@@ -170,7 +175,7 @@ internal class OrderService(
                 DeriveResultsStatus(r.Status, r.TotalResults, r.NonConformResults)))
             .ToList();
 
-        return new OrderPagedResultDto(items, totalCount, filter.Page, filter.PageSize);
+        return new OrderPagedResultDto(items, totalCount, page, pageSize);
     }
 
     /// <summary>
@@ -220,8 +225,14 @@ internal class OrderService(
         // Validation: unplanned orders must have a reason
         if (dto.IsUnplanned && dto.UnplannedReason is null)
         {
-            throw new InvalidOperationException("An unplanned order must have an UnplannedReason.");
+            throw new BusinessRuleException("An unplanned order must have an UnplannedReason.");
         }
+
+        // Polish F-228 — referenced entities must all belong to the caller's tenant. The controller
+        // only checks distributor authorization for non-admins (delegation), so the admin path could
+        // otherwise create cross-tenant references (distributor/LDP/programmes of another tenant)
+        // that then leak through the DTOs. Validate the whole FK set against tenantId here.
+        await ValidateOrderReferencesAsync(dto.DistributorId, dto.SamplingLocationId, dto.AnalysisProgramIds, tenantId, cancellationToken);
 
         var initialStatus = dto.IsUnplanned ? OrderStatus.InProgress : OrderStatus.New;
 
@@ -295,6 +306,49 @@ internal class OrderService(
         return (await GetOrderByIdAsync(order.Id, tenantId, cancellationToken))!;
     }
 
+    /// <summary>
+    /// Polish F-228 — validates that every referenced entity belongs to the caller's tenant: the
+    /// distributor, the sampling location (and that it belongs to that distributor) and each
+    /// analysis programme. Throws <see cref="InvalidOperationException"/> on the first violation.
+    /// </summary>
+    private async Task ValidateOrderReferencesAsync(
+        Guid distributorId,
+        Guid? samplingLocationId,
+        IReadOnlyCollection<Guid>? analysisProgramIds,
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var distributorInTenant = await dbContext.Distributors
+            .AnyAsync(d => d.Id == distributorId && d.TenantId == tenantId, cancellationToken);
+        if (!distributorInTenant)
+        {
+            throw new BusinessRuleException("The distributor does not belong to your tenant.");
+        }
+
+        if (samplingLocationId.HasValue)
+        {
+            var locationValid = await dbContext.SamplingLocations
+                .AnyAsync(sl => sl.Id == samplingLocationId.Value
+                    && sl.DistributorId == distributorId
+                    && sl.Distributor!.TenantId == tenantId, cancellationToken);
+            if (!locationValid)
+            {
+                throw new BusinessRuleException("The sampling location does not belong to the given distributor in your tenant.");
+            }
+        }
+
+        if (analysisProgramIds is { Count: > 0 })
+        {
+            var ids = analysisProgramIds.Distinct().ToList();
+            var validCount = await dbContext.AnalysisPrograms
+                .CountAsync(p => ids.Contains(p.Id) && p.TenantId == tenantId, cancellationToken);
+            if (validCount != ids.Count)
+            {
+                throw new BusinessRuleException("One or more analysis programs do not belong to your tenant.");
+            }
+        }
+    }
+
     public async Task<OrderDetailDto?> UpdateOrderAsync(Guid orderId, OrderUpdateDto dto, string updatedBy, Guid tenantId, bool isAdmin = false, CancellationToken cancellationToken = default)
     {
         var order = await dbContext.Orders
@@ -315,12 +369,12 @@ internal class OrderService(
         {
             if (terminalStatuses.Contains(order.Status))
             {
-                throw new InvalidOperationException($"Cannot modify order in terminal status {order.Status}.");
+                throw new BusinessRuleException($"Cannot modify order in terminal status {order.Status}.");
             }
         }
         else if (order.Status != OrderStatus.New)
         {
-            throw new InvalidOperationException($"Cannot modify order in status {order.Status}. Only New orders can be modified.");
+            throw new BusinessRuleException($"Cannot modify order in status {order.Status}. Only New orders can be modified.");
         }
 
         order.SamplingLocationId = dto.SamplingLocationId;
@@ -376,12 +430,12 @@ internal class OrderService(
         {
             if (order.Status >= OrderStatus.Completed)
             {
-                throw new InvalidOperationException($"Cannot delete order in status {order.Status}. Admin can only delete orders before sampling is completed.");
+                throw new BusinessRuleException($"Cannot delete order in status {order.Status}. Admin can only delete orders before sampling is completed.");
             }
         }
         else if (order.Status != OrderStatus.New)
         {
-            throw new InvalidOperationException($"Cannot delete order in status {order.Status}. Only New orders can be deleted.");
+            throw new BusinessRuleException($"Cannot delete order in status {order.Status}. Only New orders can be deleted.");
         }
 
         dbContext.Orders.Remove(order);
@@ -411,7 +465,7 @@ internal class OrderService(
             var isValidPreleveur = await IsValidPreleveurForTenantAsync(dto.PreleveurId, tenantId, cancellationToken);
             if (!isValidPreleveur)
             {
-                throw new InvalidOperationException(
+                throw new BusinessRuleException(
                     "The assigned préleveur must be an active user of the tenant with a préleveur role.");
             }
         }
@@ -508,17 +562,20 @@ internal class OrderService(
         {
             var preleveurName = o.Preleveur is not null ? $"{o.Preleveur.FirstName} {o.Preleveur.LastName}" : "";
             var createdByName = o.CreatedBy is not null ? $"{o.CreatedBy.FirstName} {o.CreatedBy.LastName}" : "";
+            // Polish F-208 — every field is escaped (quoting + formula-injection guard) because
+            // distributor/LDP/préleveur names are user-supplied and could otherwise break columns
+            // (embedded ';') or execute as Excel formulas (leading '=', '+', '-', '@').
             var line = string.Join(";",
-                o.OrderNumber,
-                o.Status,
-                o.IsUnplanned ? "Yes" : "No",
-                o.UnplannedReason?.ToString() ?? "",
-                o.Distributor?.Name ?? "",
-                o.SamplingLocation?.Name ?? "",
-                preleveurName,
-                o.PlannedDate?.ToString("yyyy-MM-dd") ?? "",
-                createdByName,
-                o.CreatedAt.ToString("yyyy-MM-dd HH:mm"));
+                EscapeCsvField(o.OrderNumber),
+                EscapeCsvField(o.Status.ToString()),
+                EscapeCsvField(o.IsUnplanned ? "Yes" : "No"),
+                EscapeCsvField(o.UnplannedReason?.ToString() ?? ""),
+                EscapeCsvField(o.Distributor?.Name ?? ""),
+                EscapeCsvField(o.SamplingLocation?.Name ?? ""),
+                EscapeCsvField(preleveurName),
+                EscapeCsvField(o.PlannedDate?.ToString("yyyy-MM-dd") ?? ""),
+                EscapeCsvField(createdByName),
+                EscapeCsvField(o.CreatedAt.ToString("yyyy-MM-dd HH:mm")));
             await writer.WriteLineAsync(line);
         }
 
@@ -526,10 +583,38 @@ internal class OrderService(
         return ms.ToArray();
     }
 
+    /// <summary>
+    /// Polish F-208 — escapes a CSV field per RFC 4180 (wrap in quotes, double inner quotes when the
+    /// value contains a separator, quote or newline) and neutralises CSV/formula injection by
+    /// prefixing a leading '=', '+', '-' or '@' with a single quote (OWASP recommendation).
+    /// </summary>
+    private static string EscapeCsvField(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return "";
+        }
+
+        var sanitized = value;
+        if (sanitized.Length > 0 && sanitized[0] is '=' or '+' or '-' or '@')
+        {
+            sanitized = "'" + sanitized;
+        }
+
+        var needsQuoting = sanitized.IndexOfAny([';', '"', '\n', '\r']) >= 0;
+        if (needsQuoting)
+        {
+            sanitized = "\"" + sanitized.Replace("\"", "\"\"") + "\"";
+        }
+
+        return sanitized;
+    }
+
     public async Task<bool> UserHasDistributorAccessAsync(string userId, Guid distributorId, CancellationToken cancellationToken = default)
     {
-        return await dbContext.UserDistributors
-            .AnyAsync(ud => ud.UserId == userId && ud.DistributorId == distributorId, cancellationToken);
+        // Polish F-227 — delegate to the single source of truth (own primary + UserDistributors +
+        // active delegations) instead of the previous UserDistributors-only check.
+        return await delegationService.UserHasDistributorAccessAsync(userId, distributorId, cancellationToken);
     }
 
     /// <summary>
@@ -565,6 +650,9 @@ internal class OrderService(
                             .ThenInclude(ap => ap.Container)
             .Include(o => o.Sampling)
                 .ThenInclude(s => s!.Containers)
+            // Polish F-211 — split query to avoid the cartesian product across the nested
+            // OrderAnalysisPrograms → ProgramProfiles → Profile → Container collections.
+            .AsSplitQuery()
             .FirstOrDefaultAsync(o => o.Id == orderId && o.TenantId == tenantId, cancellationToken);
 
         if (order is null)
@@ -748,36 +836,34 @@ internal class OrderService(
             }
         }
 
-        var stats = await query
-            .Select(o => new
+        // Polish F-213 — aggregate the conformity counters in a single SQL query instead of
+        // rapatriating one row per order (each with two correlated COUNT subqueries) and folding
+        // them in memory. The three buckets mirror DeriveResultsStatus:
+        //   • Conform    : Done + has results + no non-conform result
+        //   • NonConform : Done + has at least one non-conform result
+        //   • Pending    : everything else (not Done, or Done with no results yet)
+        var aggregate = await query
+            .GroupBy(_ => 1)
+            .Select(g => new
             {
-                o.Status,
-                TotalResults = dbContext.SamplingResults.Count(r => r.OrderId == o.Id),
-                NonConformResults = dbContext.SamplingResults.Count(r => r.OrderId == o.Id && !r.IsConform),
+                Total = g.Count(),
+                NonConform = g.Count(o =>
+                    o.Status == OrderStatus.Done
+                    && dbContext.SamplingResults.Any(r => r.OrderId == o.Id && !r.IsConform)),
+                Conform = g.Count(o =>
+                    o.Status == OrderStatus.Done
+                    && dbContext.SamplingResults.Any(r => r.OrderId == o.Id)
+                    && !dbContext.SamplingResults.Any(r => r.OrderId == o.Id && !r.IsConform)),
             })
-            .ToListAsync(cancellationToken);
+            .FirstOrDefaultAsync(cancellationToken);
 
-        var conform = 0;
-        var nonConform = 0;
-        var pending = 0;
-        foreach (var s in stats)
+        if (aggregate is null)
         {
-            var status = DeriveResultsStatus(s.Status, s.TotalResults, s.NonConformResults);
-            switch (status)
-            {
-                case ResultsStatus.Conform:
-                    conform++;
-                    break;
-                case ResultsStatus.NonConform:
-                    nonConform++;
-                    break;
-                default:
-                    pending++;
-                    break;
-            }
+            return new OrderDashboardSummaryDto(0, 0, 0, 0);
         }
 
-        return new OrderDashboardSummaryDto(conform, nonConform, pending, stats.Count);
+        var pending = aggregate.Total - aggregate.Conform - aggregate.NonConform;
+        return new OrderDashboardSummaryDto(aggregate.Conform, aggregate.NonConform, pending, aggregate.Total);
     }
 
     private async Task<BulkTransitionResultDto> BulkTransitionAsync(
@@ -848,19 +934,18 @@ internal class OrderService(
 
             await dbContext.SaveChangesAsync(cancellationToken);
 
-            // Audit log per order (same pattern as OrderStatusService)
-            foreach (var order in orders)
-            {
-                await auditService.LogAsync(
+            // Polish F-214 — write all audit entries in a single SaveChanges instead of one
+            // round-trip per order.
+            var auditEntries = orders
+                .Select(order => new OrderAuditEntry(
                     order.Id,
                     "StatusTransitioned",
                     $"Status changed from {fromStatus} to {toStatus} (bulk)",
                     fromStatus.ToString(),
                     toStatus.ToString(),
-                    userId,
-                    tenantId,
-                    cancellationToken);
-            }
+                    userId))
+                .ToList();
+            await auditService.LogRangeAsync(auditEntries, tenantId, cancellationToken);
         }
 
         // Auto-complete rounds where all orders reached terminal states (same as OrderStatusService)
@@ -876,10 +961,8 @@ internal class OrderService(
             {
                 if (round.Orders.All(o => o.Status is OrderStatus.Transmitted or OrderStatus.Done or OrderStatus.Cancelled))
                 {
-                    round.Status = SamplingRoundStatus.Completed;
-                    round.CompletedAt = now;
-                    round.UpdatedAt = now;
-                    round.UpdatedBy = userId;
+                    // Polish F-215 — complete AND release the préleveur lock (single source of truth).
+                    round.MarkCompleted(userId);
                     completed = true;
                 }
             }
