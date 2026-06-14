@@ -8,4 +8,4 @@ public record OrderUpdateDto(
     string? PreleveurId,
     DateTime? PlannedDate,
     List<Guid>? AnalysisProgramIds,
-    [property: StringLength(2000)] string? Notes);
+    [StringLength(2000)] string? Notes);
