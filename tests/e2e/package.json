@@ -15,7 +15,7 @@
     "report": "node scripts/generate-report.mjs"
   },
   "dependencies": {
-    "@cucumber/cucumber": "^13.0.0",
+    "@cucumber/cucumber": "^13.1.1",
     "@playwright/test": "^1.60.0",
     "dotenv": "^17.4.2"
   },
