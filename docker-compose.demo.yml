@@ -1,0 +1,107 @@
+# AquaPlan — démo locale « clé en main » (Docker ou Podman).
+#
+# Lance l'application ET remplit sa base de données de démonstration
+# (Canton de Fribourg : 4 distributeurs, 8 secteurs, 15 lieux de prélèvement,
+# 12 profils, 4 programmes, 15 mandats, 4 tournées, 9 comptes utilisateurs).
+#
+# Aucune compilation : les images sont celles publiées par la CI, épinglées
+# sur le commit 4bb3bfd (dernier commit de Main au 2026-09-16).
+#
+#   docker compose -f docker-compose.demo.yml up -d
+#   podman compose -f docker-compose.demo.yml up -d
+#
+# → http://localhost:8080   (admin@aquaplan.ch / Admin123!)
+#
+# Le service aquaplan-seed peuple la base puis s'arrête (~30 s après que
+# l'API réponde). Suivre sa progression :
+#   docker compose -f docker-compose.demo.yml logs -f aquaplan-seed
+#
+# Pour repartir d'une base vierge : `... down -v` puis `... up -d`.
+#
+# Les identifiants ci-dessous sont volontairement en clair : cette stack est
+# une démo locale jetable, elle ne doit jamais être exposée sur un réseau.
+
+services:
+  aquaplan-db:
+    image: postgres:17
+    container_name: aquaplan-demo-db
+    environment:
+      POSTGRES_DB: aquaplan_dev
+      POSTGRES_USER: aquaplan
+      POSTGRES_PASSWORD: aquaplan_dev
+    volumes:
+      - aquaplan-demo-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aquaplan -d aquaplan_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - aquaplan-demo-net
+
+  aquaplan-api:
+    image: francoischarriere/aquaplan-api:4bb3bfd
+    container_name: aquaplan-demo-api
+    environment:
+      # Development : l'API applique les migrations et crée le compte
+      # admin@aquaplan.ch au démarrage. En Production il faudrait fournir
+      # INITIAL_ADMIN_EMAIL / INITIAL_ADMIN_PASSWORD.
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Host=aquaplan-db;Port=5432;Database=aquaplan_dev;Username=aquaplan;Password=aquaplan_dev"
+      Jwt__SecretKey: "AquaPlan-Demo-Secret-Key-Min-32-Chars!!"
+      Jwt__Issuer: "AquaPlan"
+      Jwt__Audience: "AquaPlan"
+    depends_on:
+      aquaplan-db:
+        condition: service_healthy
+    networks:
+      - aquaplan-demo-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  # Peuple la base via l'API REST, puis s'arrête. Le script est idempotent :
+  # un `up -d` sur une base déjà remplie ne recrée rien.
+  # Les données de démo sont donc générées à l'exécution, et non versionnées
+  # sous forme de dump — le dépôt ne contient aucune empreinte de mot de passe.
+  aquaplan-seed:
+    image: python:3-alpine
+    container_name: aquaplan-demo-seed
+    environment:
+      AQUAPLAN_API_URL: "http://aquaplan-api:8080/api"
+    volumes:
+      # SELinux (Fedora/RHEL) : remplacer `:ro` par `:ro,Z`.
+      - ./scripts/seed_data.py:/seed/seed_data.py:ro
+    command:
+      - sh
+      - -c
+      - pip install --no-cache-dir --quiet requests && python /seed/seed_data.py
+    depends_on:
+      aquaplan-api:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - aquaplan-demo-net
+
+  aquaplan-web:
+    image: francoischarriere/aquaplan-web:4bb3bfd
+    container_name: aquaplan-demo-web
+    ports:
+      # 8080 et non 80 : Podman rootless ne peut pas ouvrir un port < 1024.
+      - "8080:80"
+    # depends_on simple (sans condition) : nginx a seulement besoin que le nom
+    # aquaplan-api résolve au démarrage, pas que l'API réponde déjà.
+    depends_on:
+      - aquaplan-api
+    networks:
+      - aquaplan-demo-net
+
+networks:
+  aquaplan-demo-net:
+    driver: bridge
+
+volumes:
+  aquaplan-demo-db-data:
