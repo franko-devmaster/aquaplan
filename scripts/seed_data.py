@@ -10,8 +10,19 @@ import requests
 # aquaplan-seed de docker-compose.demo.yml), ou contre une autre instance.
 API = os.environ.get("AQUAPLAN_API_URL", "http://localhost:5002/api").rstrip("/")
 
-# Login
-resp = requests.post(f"{API}/auth/login", json={"email": "admin@aquaplan.ch", "password": "Admin123!"})
+# Login. Les identifiants sont surchargeables : en Production (Render, NAS) le
+# compte admin@aquaplan.ch n'est pas seede, il est cree a partir de
+# INITIAL_ADMIN_EMAIL / INITIAL_ADMIN_PASSWORD au premier demarrage de l'API.
+ADMIN_EMAIL = os.environ.get("AQUAPLAN_ADMIN_EMAIL", "admin@aquaplan.ch")
+ADMIN_PASSWORD = os.environ.get("AQUAPLAN_ADMIN_PASSWORD", "Admin123!")
+
+resp = requests.post(f"{API}/auth/login", json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
+if resp.status_code != 200:
+    raise SystemExit(
+        f"Echec de connexion sur {API}/auth/login ({resp.status_code}).\n"
+        f"Compte utilise : {ADMIN_EMAIL}. Verifier AQUAPLAN_API_URL, "
+        f"AQUAPLAN_ADMIN_EMAIL et AQUAPLAN_ADMIN_PASSWORD."
+    )
 token = resp.json()["accessToken"]
 headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
