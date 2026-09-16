@@ -12,8 +12,13 @@ namespace AquaPlan.Api.Configuration;
 /// the API die during migrations, before Kestrel binds a port.
 /// </para>
 /// <para>
-/// <c>ConnectionStrings:DefaultConnection</c> keeps priority when it is set, so existing
-/// deployments (docker-compose, NAS) are unaffected. <c>DATABASE_URL</c> is only a fallback.
+/// <c>DATABASE_URL</c> wins when it is set. It cannot be a mere fallback: appsettings.json
+/// ships a non-empty local default (Host=localhost…) baked into the image, so a
+/// "configured value first" rule makes <c>DATABASE_URL</c> dead code in every deployment —
+/// the API silently tries localhost and dies during migrations, before binding a port.
+/// Nothing but a hosting platform sets <c>DATABASE_URL</c>, so docker-compose, the demo
+/// stack and the NAS — which set ConnectionStrings__DefaultConnection and never
+/// <c>DATABASE_URL</c> — are unaffected.
 /// </para>
 /// </summary>
 public static class DatabaseConnection
@@ -26,23 +31,18 @@ public static class DatabaseConnection
     /// <param name="configuredConnectionString">Value of <c>ConnectionStrings:DefaultConnection</c>.</param>
     /// <param name="databaseUrl">Value of the <c>DATABASE_URL</c> environment variable.</param>
     /// <returns>
-    /// The configured connection string when present, otherwise <paramref name="databaseUrl"/>
-    /// converted to Npgsql keyword syntax, otherwise <c>null</c>.
+    /// <paramref name="databaseUrl"/> converted to Npgsql keyword syntax when it is set,
+    /// otherwise <paramref name="configuredConnectionString"/>.
     /// </returns>
     /// <exception cref="InvalidOperationException">When <paramref name="databaseUrl"/> is not a usable PostgreSQL URL.</exception>
     public static string? Resolve(string? configuredConnectionString, string? databaseUrl)
     {
-        if (!string.IsNullOrWhiteSpace(configuredConnectionString))
+        if (!string.IsNullOrWhiteSpace(databaseUrl))
         {
-            return configuredConnectionString;
+            return ConvertUrl(databaseUrl);
         }
 
-        if (string.IsNullOrWhiteSpace(databaseUrl))
-        {
-            return configuredConnectionString;
-        }
-
-        return ConvertUrl(databaseUrl);
+        return configuredConnectionString;
     }
 
     private static string ConvertUrl(string databaseUrl)

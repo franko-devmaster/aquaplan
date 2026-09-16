@@ -16,13 +16,33 @@ public class DatabaseConnectionTest
     }
 
     [Fact]
-    public void Resolve_WhenBothAreProvided_ShouldPreferTheConfiguredConnectionString()
+    public void Resolve_WhenBothAreProvided_ShouldPreferDatabaseUrl()
     {
         var result = DatabaseConnection.Resolve(
             ConfiguredConnectionString,
             "postgresql://user:pass@dpg-abc.frankfurt-postgres.render.com/aquaplan_2");
 
-        result.Should().Be(ConfiguredConnectionString);
+        result.Should().Contain("Host=dpg-abc.frankfurt-postgres.render.com");
+        result.Should().Contain("Database=aquaplan_2");
+    }
+
+    /// <summary>
+    /// Regression : appsettings.json embarque une chaine locale non vide dans l'image.
+    /// Si la valeur configuree l'emportait, DATABASE_URL serait ignoree dans tout
+    /// deploiement et l'API tenterait silencieusement localhost.
+    /// </summary>
+    [Fact]
+    public void Resolve_WhenTheBakedInLocalDefaultIsPresent_ShouldStillUseDatabaseUrl()
+    {
+        const string bakedInDefault =
+            "Host=localhost;Port=5432;Database=aquaplan_dev;Username=aquaplan;Password=aquaplan_dev";
+
+        var result = DatabaseConnection.Resolve(
+            bakedInDefault,
+            "postgresql://u:p@dpg-daleo2rl550s73b16e60-a/aquaplan_2");
+
+        result.Should().NotContain("localhost");
+        result.Should().Contain("Host=dpg-daleo2rl550s73b16e60-a");
     }
 
     [Theory]
