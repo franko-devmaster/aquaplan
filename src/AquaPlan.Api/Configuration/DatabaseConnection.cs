@@ -45,6 +45,31 @@ public static class DatabaseConnection
         return configuredConnectionString;
     }
 
+    /// <summary>
+    /// Describes a connection string for logs: host, port, database and user, never the
+    /// password. Naming the host is what turns an opaque startup failure into a diagnosis —
+    /// seeing <c>localhost</c> in a hosted deployment says everything in one line.
+    /// </summary>
+    public static string Describe(string? connectionString)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return "(aucune chaine de connexion configuree)";
+        }
+
+        try
+        {
+            var builder = new NpgsqlConnectionStringBuilder(connectionString);
+            return $"Host={builder.Host};Port={builder.Port};Database={builder.Database};Username={builder.Username}";
+        }
+        catch (ArgumentException)
+        {
+            // Une chaine illisible ne doit surtout pas etre recopiee telle quelle : elle
+            // peut contenir un mot de passe.
+            return "(chaine de connexion illisible)";
+        }
+    }
+
     private static string ConvertUrl(string databaseUrl)
     {
         if (!Uri.TryCreate(databaseUrl, UriKind.Absolute, out var uri)

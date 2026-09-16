@@ -148,6 +148,47 @@ public class DatabaseConnectionTest
             .WithMessage("*unknown sslmode 'banana'*");
     }
 
+    [Fact]
+    public void Describe_ShouldNameTheHostDatabaseAndUser()
+    {
+        var result = DatabaseConnection.Describe(ConfiguredConnectionString);
+
+        result.Should().Be("Host=aquaplan-db;Port=5432;Database=aquaplan;Username=aquaplan");
+    }
+
+    /// <summary>
+    /// Une description partant dans les logs ne doit jamais contenir le mot de passe.
+    /// </summary>
+    [Theory]
+    [InlineData("Host=db;Port=5432;Database=aquaplan;Username=u;Password=tr3s-secret")]
+    [InlineData("Host=db;Database=aquaplan;Username=u;Password=\"avec;point-virgule\"")]
+    public void Describe_ShouldNeverLeakThePassword(string connectionString)
+    {
+        var result = DatabaseConnection.Describe(connectionString);
+
+        result.Should().NotContain("secret");
+        result.Should().NotContain("point-virgule");
+        result.Should().NotContain("Password");
+    }
+
+    [Fact]
+    public void Describe_WhenTheStringIsUnreadable_ShouldNotEchoIt()
+    {
+        var result = DatabaseConnection.Describe("Host=db;CeParametreNExistePas=oups");
+
+        result.Should().Be("(chaine de connexion illisible)");
+        result.Should().NotContain("oups");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Describe_WhenNothingIsConfigured_ShouldSaySo(string? connectionString)
+    {
+        DatabaseConnection.Describe(connectionString).Should().Be("(aucune chaine de connexion configuree)");
+    }
+
     [Theory]
     [InlineData("Host=db;Database=aquaplan")]
     [InlineData("mysql://user:pass@db.example.com/aquaplan")]
