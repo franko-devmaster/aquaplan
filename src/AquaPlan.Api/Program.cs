@@ -55,8 +55,9 @@ builder.Services.AddControllers()
 // Database connection.
 // Les hebergeurs manages (Render…) exposent la base via une URL DATABASE_URL que Npgsql
 // ne sait pas lire. On la convertit au demarrage plutot que d'imposer une conversion
-// manuelle a chaque recreation de la base. ConnectionStrings:DefaultConnection reste
-// prioritaire : docker-compose et le NAS ne changent pas.
+// manuelle a chaque recreation de la base. DATABASE_URL est prioritaire : appsettings.json
+// embarque un Host=localhost qui, sinon, la masquerait systematiquement dans l'image.
+// docker-compose et le NAS ne definissent que ConnectionStrings__DefaultConnection.
 builder.Configuration["ConnectionStrings:DefaultConnection"] = DatabaseConnection.Resolve(
     builder.Configuration.GetConnectionString("DefaultConnection"),
     builder.Configuration["DATABASE_URL"]);
@@ -181,11 +182,30 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// Apply pending EF Core migrations
+// Apply pending EF Core migrations.
+// Ce bloc s'execute AVANT app.Run(), donc avant que Kestrel n'ouvre un port : une base
+// injoignable tue le process sans qu'aucun port ne soit jamais ecoute, et les hebergeurs
+// manages ne rapportent alors qu'un « no open ports detected » qui designe la mauvaise
+// cause. On nomme explicitement l'hote reellement contacte avant de laisser remonter
+// l'exception : c'est la seule ligne qui distingue les deux diagnostics.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AquaPlanDbContext>();
-    await db.Database.MigrateAsync();
+    try
+    {
+        await db.Database.MigrateAsync();
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogCritical(
+            ex,
+            "Echec des migrations : la base est injoignable ou mal configuree. Cible = {Target}. " +
+            "Le demarrage s'interrompt ici, avant toute ecoute reseau ; un hebergeur signalera " +
+            "une absence de port ouverte, ce qui n'est pas la cause. Verifier DATABASE_URL ou " +
+            "ConnectionStrings__DefaultConnection.",
+            DatabaseConnection.Describe(builder.Configuration.GetConnectionString("DefaultConnection")));
+        throw;
+    }
 }
 
 // Seed roles, permissions, and the admin user.

@@ -1,0 +1,83 @@
+# AquaPlan — Blueprint Render.
+#
+# Déclare l'instance de démonstration : base Postgres, API .NET, front Angular.
+# À appliquer via Render → Blueprints → New Blueprint Instance (l'interface
+# valide le fichier avant de créer quoi que ce soit).
+#
+# Ce que ce fichier évite, et qui a coûté plusieurs déploiements ratés :
+#   - la connexion à la base est câblée par `fromDatabase`, donc jamais recopiée
+#     à la main et automatiquement réinjectée si la base est recréée ;
+#   - le port d'écoute n'est pas déclaré : l'entrypoint de l'image lit $PORT ;
+#   - les secrets (`sync: false`) sont saisis une fois dans le dashboard et
+#     ne sont pas versionnés.
+#
+# ATTENTION — les noms `aquaplan-api`, `aquaplan-web` et `aquaplan-db` doivent
+# correspondre EXACTEMENT aux services existants, sinon Render en crée de
+# nouveaux au lieu de reprendre les vôtres. Vérifier avant d'appliquer.
+
+databases:
+  - name: aquaplan-db
+    databaseName: aquaplan
+    user: aquaplan
+    plan: free
+    region: frankfurt
+
+services:
+  # ------------------------------------------------------------------ API .NET
+  - type: web
+    name: aquaplan-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./src/AquaPlan.Api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+
+      # Câblage automatique de la base. DATABASE_URL est prioritaire sur la
+      # chaîne embarquée dans appsettings.json : voir DatabaseConnection.Resolve.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aquaplan-db
+          property: connectionString
+
+      # Saisis une fois dans le dashboard, jamais versionnés.
+      - key: Jwt__SecretKey
+        sync: false
+      - key: Jwt__Issuer
+        value: AquaPlan
+      - key: Jwt__Audience
+        value: AquaPlan
+
+      # Compte administrateur initial : en Production le compte de développement
+      # n'est PAS seedé. Sans ces deux variables au premier démarrage, le
+      # déploiement réussit mais aucun compte ne permet de se connecter.
+      # À vider une fois le compte créé.
+      - key: INITIAL_ADMIN_EMAIL
+        sync: false
+      - key: INITIAL_ADMIN_PASSWORD
+        sync: false
+
+  # ------------------------------------------------------------- Front Angular
+  - type: web
+    name: aquaplan-web
+    runtime: static
+    # generate-version.mjs doit tourner depuis la racine du dépôt : il stampe
+    # src/.../environments/version.ts, qui est gitignoré et donc absent d'un
+    # checkout neuf. Sans lui, la compilation échoue sur un import manquant.
+    buildCommand: node scripts/generate-version.mjs && cd src/AquaPlan.Web/ClientApp && npm ci && npx ng build --configuration production
+    staticPublishPath: src/AquaPlan.Web/ClientApp/dist/client-app/browser
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+    routes:
+      # L'API est servie sous la même origine que le front : pas de CORS à gérer.
+      # Cette règle doit précéder le fallback SPA, sinon /api/* renvoie index.html.
+      - type: rewrite
+        source: /api/*
+        destination: https://aquaplan-api.onrender.com/api/*
+      - type: rewrite
+        source: /*
+        destination: /index.html

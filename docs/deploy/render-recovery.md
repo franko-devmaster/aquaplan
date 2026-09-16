@@ -47,9 +47,14 @@ Si cette trace est là, le port n'est pas en cause : c'est la base.
    échoue pendant les migrations : ajouter `?sslmode=prefer` à la fin de l'URL
    pour négocier TLS quand il est disponible sans l'imposer.
 
-   `ConnectionStrings__DefaultConnection` reste prioritaire si elle est définie.
-   Si une ancienne valeur traîne sur le service, **la supprimer**, sinon
-   `DATABASE_URL` sera ignorée. En dernier recours, la syntaxe Npgsql directe :
+   `DATABASE_URL` est prioritaire sur `ConnectionStrings__DefaultConnection`.
+   Ce n'est pas un détail : `appsettings.json` embarque un
+   `Host=localhost…` dans l'image, donc toute autre règle de priorité rendrait
+   `DATABASE_URL` inopérante en déploiement. Une ancienne
+   `ConnectionStrings__DefaultConnection` sur le service est donc sans effet,
+   mais autant la supprimer pour éviter la confusion. Pour forcer une chaîne
+   explicite, ne pas définir `DATABASE_URL` du tout et utiliser la syntaxe
+   Npgsql directe :
 
    ```
    Host=<host>;Port=5432;Database=<db>;Username=<user>;Password=<pass>;SSL Mode=Require;Trust Server Certificate=true
