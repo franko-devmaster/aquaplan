@@ -1,4 +1,4 @@
-FROM node:22-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /app
 ENV NODE_OPTIONS=--max-old-space-size=2048
 # AQ-416 — allow callers to pin the displayed app version (used when .git
