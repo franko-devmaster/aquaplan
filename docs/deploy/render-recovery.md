@@ -32,12 +32,20 @@ Si cette trace est là, le port n'est pas en cause : c'est la base.
 
    | Variable | Valeur |
    |---|---|
-   | `ConnectionStrings__DefaultConnection` | convertie au format Npgsql (voir ci-dessous) |
+   | `DATABASE_URL` | l'Internal Database URL, telle quelle |
    | `Jwt__SecretKey` | 32 caractères minimum |
    | `INITIAL_ADMIN_EMAIL` | `admin@aquaplan.ch` |
    | `INITIAL_ADMIN_PASSWORD` | un mot de passe fort |
 
-   Npgsql n'accepte pas l'URL telle quelle. La convertir :
+   L'URL se colle **sans conversion** : l'API la traduit en syntaxe Npgsql au
+   démarrage (`DatabaseConnection.Resolve`), SSL compris. Mieux encore, plutôt
+   que de coller la valeur, utiliser *Add Environment Variable → Add from
+   database* et nommer la variable `DATABASE_URL` : Render la réinjecte alors
+   automatiquement, y compris après une future recréation de la base.
+
+   `ConnectionStrings__DefaultConnection` reste prioritaire si elle est définie.
+   Si une ancienne valeur traîne sur le service, **la supprimer**, sinon
+   `DATABASE_URL` sera ignorée. En dernier recours, la syntaxe Npgsql directe :
 
    ```
    Host=<host>;Port=5432;Database=<db>;Username=<user>;Password=<pass>;SSL Mode=Require;Trust Server Certificate=true

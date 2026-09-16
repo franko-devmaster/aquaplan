@@ -52,6 +52,15 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
+// Database connection.
+// Les hebergeurs manages (Render…) exposent la base via une URL DATABASE_URL que Npgsql
+// ne sait pas lire. On la convertit au demarrage plutot que d'imposer une conversion
+// manuelle a chaque recreation de la base. ConnectionStrings:DefaultConnection reste
+// prioritaire : docker-compose et le NAS ne changent pas.
+builder.Configuration["ConnectionStrings:DefaultConnection"] = DatabaseConnection.Resolve(
+    builder.Configuration.GetConnectionString("DefaultConnection"),
+    builder.Configuration["DATABASE_URL"]);
+
 // JWT Authentication
 // Sprint Sec F-001 — no hardcoded fallback: missing secret fails fast outside Development,
 // and Development gets an ephemeral random secret. The resolved value is pushed back into
