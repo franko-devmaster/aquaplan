@@ -73,12 +73,36 @@ public static class DatabaseConnection
             Database = Uri.UnescapeDataString(database),
             Username = Uri.UnescapeDataString(credentials[0]),
             Password = credentials.Length > 1 ? Uri.UnescapeDataString(credentials[1]) : string.Empty,
+            SslMode = ParseSslMode(uri.Query),
             // Managed providers terminate TLS with their own CA. Requiring SSL without
             // trusting the certificate would reject every hosted database.
-            SslMode = SslMode.Require,
             TrustServerCertificate = true,
         };
 
         return builder.ConnectionString;
+    }
+
+    /// <summary>
+    /// Reads the <c>sslmode</c> query parameter of the URL, defaulting to
+    /// <see cref="SslMode.Require"/> — what every managed provider expects.
+    /// The escape hatch matters: an endpoint that does not offer TLS rejects
+    /// <c>Require</c>, and the failure only surfaces as a crash during migrations.
+    /// </summary>
+    private static SslMode ParseSslMode(string query)
+    {
+        var requested = System.Web.HttpUtility.ParseQueryString(query)["sslmode"];
+        if (string.IsNullOrWhiteSpace(requested))
+        {
+            return SslMode.Require;
+        }
+
+        if (!Enum.TryParse<SslMode>(requested, ignoreCase: true, out var sslMode))
+        {
+            throw new InvalidOperationException(
+                $"DATABASE_URL carries an unknown sslmode '{requested}'. Supported values: " +
+                string.Join(", ", Enum.GetNames<SslMode>()).ToLowerInvariant() + ".");
+        }
+
+        return sslMode;
     }
 }

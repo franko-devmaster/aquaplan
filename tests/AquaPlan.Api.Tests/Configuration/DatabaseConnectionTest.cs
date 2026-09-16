@@ -98,6 +98,36 @@ public class DatabaseConnectionTest
         builder.Password.Should().BeNullOrEmpty();
     }
 
+    [Fact]
+    public void Resolve_WhenUrlCarriesNoSslMode_ShouldRequireSsl()
+    {
+        var result = DatabaseConnection.Resolve(null, "postgresql://user:pass@db.example.com/aquaplan");
+
+        new Npgsql.NpgsqlConnectionStringBuilder(result).SslMode.Should().Be(Npgsql.SslMode.Require);
+    }
+
+    [Theory]
+    [InlineData("prefer", Npgsql.SslMode.Prefer)]
+    [InlineData("disable", Npgsql.SslMode.Disable)]
+    [InlineData("VerifyFull", Npgsql.SslMode.VerifyFull)]
+    public void Resolve_WhenUrlCarriesAnSslMode_ShouldHonourIt(string requested, Npgsql.SslMode expected)
+    {
+        var result = DatabaseConnection.Resolve(
+            null, $"postgresql://user:pass@db.example.com/aquaplan?sslmode={requested}");
+
+        new Npgsql.NpgsqlConnectionStringBuilder(result).SslMode.Should().Be(expected);
+    }
+
+    [Fact]
+    public void Resolve_WhenUrlCarriesAnUnknownSslMode_ShouldThrow()
+    {
+        var act = () => DatabaseConnection.Resolve(
+            null, "postgresql://user:pass@db.example.com/aquaplan?sslmode=banana");
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*unknown sslmode 'banana'*");
+    }
+
     [Theory]
     [InlineData("Host=db;Database=aquaplan")]
     [InlineData("mysql://user:pass@db.example.com/aquaplan")]

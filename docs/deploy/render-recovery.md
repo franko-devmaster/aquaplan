@@ -43,6 +43,10 @@ Si cette trace est là, le port n'est pas en cause : c'est la base.
    database* et nommer la variable `DATABASE_URL` : Render la réinjecte alors
    automatiquement, y compris après une future recréation de la base.
 
+   TLS est exigé par défaut. Si un endpoint ne l'offre pas, le déploiement
+   échoue pendant les migrations : ajouter `?sslmode=prefer` à la fin de l'URL
+   pour négocier TLS quand il est disponible sans l'imposer.
+
    `ConnectionStrings__DefaultConnection` reste prioritaire si elle est définie.
    Si une ancienne valeur traîne sur le service, **la supprimer**, sinon
    `DATABASE_URL` sera ignorée. En dernier recours, la syntaxe Npgsql directe :
